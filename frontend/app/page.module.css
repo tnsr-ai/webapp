@@ -1,0 +1,21 @@
+.background-animate {
+  animation: animate-gradient 10s ease infinite;
+  background-size: 400% 400%;
+}
+
+@keyframes animate-gradient {
+  0% {
+    background-position: 0 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+.animate-fade-out {
+  opacity: 0;
+  transition: all 250ms linear 2s;
+}
