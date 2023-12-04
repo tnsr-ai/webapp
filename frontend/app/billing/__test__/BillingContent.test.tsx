@@ -3,14 +3,18 @@ import userEvent from "@testing-library/user-event";
 import BillingContent from "../BillingContent";
 
 // Mock BuyPrompt component
-jest.mock("../../components/ModalComponents/BuyModal", () => (props: any) => (
-  <div
-    data-testid="buy-prompt"
-    className={props.renamePrompt ? "modal-open" : "modal-closed"}
-  >
-    <button onClick={() => props.setRenamePrompt(false)}>Close Modal</button>
-  </div>
-));
+jest.mock("../../components/ModalComponents/BuyModal", () => {
+  const BuyModalMock = (props: any) => (
+    <div
+      data-testid="buy-prompt"
+      className={props.renamePrompt ? "modal-open" : "modal-closed"}
+    >
+      <button onClick={() => props.setRenamePrompt(false)}>Close Modal</button>
+    </div>
+  );
+  BuyModalMock.displayName = "BuyModalMock";
+  return BuyModalMock;
+});
 
 describe("BillingContent Component", () => {
   const mockData = {
@@ -37,7 +41,7 @@ describe("BillingContent Component", () => {
   it("opens BuyPrompt modal on button click", async () => {
     render(<BillingContent data={mockData} />);
     const buyButton = screen.getByText("Buy Tokens");
-    userEvent.click(buyButton);
+    await userEvent.click(buyButton);
     await waitFor(() => {
       expect(screen.getByTestId("buy-prompt")).toHaveClass("modal-open");
     });
@@ -46,10 +50,10 @@ describe("BillingContent Component", () => {
   it("closes BuyPrompt modal when close button in modal is clicked", async () => {
     render(<BillingContent data={mockData} />);
     const buyButton = screen.getByText("Buy Tokens");
-    userEvent.click(buyButton);
+    await userEvent.click(buyButton);
     // Modal should be open now
     const closeModalButton = screen.getByText("Close Modal");
-    userEvent.click(closeModalButton);
+    await userEvent.click(closeModalButton);
     await waitFor(() => {
       expect(screen.getByTestId("buy-prompt")).toHaveClass("modal-closed");
     });

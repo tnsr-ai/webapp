@@ -11,12 +11,42 @@ jest.mock("../../api/index", () => ({
   useGetIP: jest.fn(),
 }));
 
-jest.mock("../../components/AppBar", () => () => <div>AppBar</div>);
-jest.mock("../../components/SideDrawer", () => () => <div>SideDrawer</div>);
-jest.mock("../BillingContent", () => () => <div>BillingContent</div>);
-jest.mock("../PricingTab", () => () => <div>PricingTab</div>);
-jest.mock("../InvoiceTable", () => () => <div>InvoiceTable</div>);
-jest.mock("../../components/ErrorTab", () => () => <div>ErrorTab</div>);
+jest.mock("../../components/AppBar", () => {
+  const AppBarMock = () => <div>AppBar</div>;
+  AppBarMock.displayName = "AppBarMock";
+  return AppBarMock;
+});
+
+jest.mock("../../components/SideDrawer", () => {
+  const SideDrawerMock = () => <div>SideDrawer</div>;
+  SideDrawerMock.displayName = "SideDrawerMock";
+  return SideDrawerMock;
+});
+
+jest.mock("../BillingContent", () => {
+  const BillingContentMock = () => <div>BillingContent</div>;
+  BillingContentMock.displayName = "BillingContentMock";
+  return BillingContentMock;
+});
+
+jest.mock("../PricingTab", () => {
+  const PricingTabMock = () => <div>PricingTab</div>;
+  PricingTabMock.displayName = "PricingTabMock";
+  return PricingTabMock;
+});
+
+jest.mock("../InvoiceTable", () => {
+  const InvoiceTableMock = () => <div>InvoiceTable</div>;
+  InvoiceTableMock.displayName = "InvoiceTableMock";
+  return InvoiceTableMock;
+});
+
+jest.mock("../../components/ErrorTab", () => {
+  const ErrorTabMock = () => <div>ErrorTab</div>;
+  ErrorTabMock.displayName = "ErrorTabMock";
+  return ErrorTabMock;
+});
+
 jest.mock("@mantine/core", () => ({
   Loader: () => <div>Loader</div>,
 }));
@@ -85,7 +115,13 @@ describe("Billing Component", () => {
 
     await waitFor(() => {
       expect(screen.getByText("BillingContent")).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
       expect(screen.getByText("PricingTab")).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
       expect(screen.getByText("InvoiceTable")).toBeInTheDocument();
     });
   });

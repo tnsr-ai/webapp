@@ -13,10 +13,29 @@ jest.mock("@mantine/core", () => ({
 jest.mock("../../api/index", () => ({
   useGetSettings: jest.fn(),
 }));
-jest.mock("../../components/AppBar", () => () => <div>AppBar</div>);
-jest.mock("../../components/SideDrawer", () => () => <div>SideDrawer</div>);
-jest.mock("../SettingsTab", () => () => <div>SettingsTab</div>);
-jest.mock("../../components/ErrorTab", () => () => <div>ErrorTab</div>);
+jest.mock("../../components/AppBar", () => {
+  const AppBarMock = () => <div>AppBar</div>;
+  AppBarMock.displayName = "AppBarMock";
+  return AppBarMock;
+});
+
+jest.mock("../../components/SideDrawer", () => {
+  const SideDrawerMock = () => <div>SideDrawer</div>;
+  SideDrawerMock.displayName = "SideDrawerMock";
+  return SideDrawerMock;
+});
+
+jest.mock("../SettingsTab", () => {
+  const SettingsTabMock = () => <div>SettingsTab</div>;
+  SettingsTabMock.displayName = "SettingsTabMock";
+  return SettingsTabMock;
+});
+
+jest.mock("../../components/ErrorTab", () => {
+  const ErrorTabMock = () => <div>ErrorTab</div>;
+  ErrorTabMock.displayName = "ErrorTabMock";
+  return ErrorTabMock;
+});
 
 describe("Settings Component", () => {
   it("should display the loader when loading", () => {

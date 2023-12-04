@@ -31,45 +31,50 @@ jest.mock("next/navigation", () => ({
   usePathname: () => "/",
 }));
 
-jest.mock("../../components/AppBar", () => () => (
-  <div data-testid="appBar">AppBar Mock</div>
-));
+jest.mock("../../components/AppBar", () => {
+  const AppBarMock = () => <div data-testid="appBar">AppBar Mock</div>;
+  AppBarMock.displayName = "AppBarMock";
+  return AppBarMock;
+});
 
-jest.mock("../../components/SideDrawer", () => () => (
-  <div data-testid="sideDrawer">SideDrawer Mock</div>
-));
+jest.mock("../../components/SideDrawer", () => {
+  const SideDrawerMock = () => (
+    <div data-testid="sideDrawer">SideDrawer Mock</div>
+  );
+  SideDrawerMock.displayName = "SideDrawerMock";
+  return SideDrawerMock;
+});
 
-jest.mock(
-  "../../components/DropZone",
-  () =>
-    ({
-      filetype,
-      acceptedtype,
-      maxFileSize,
-    }: {
-      filetype: any;
-      acceptedtype: any;
-      maxFileSize: any;
-    }) => {
-      const acceptedTypesString = Object.keys(acceptedtype).join(", ");
-      return (
-        <div data-testid="dropZone">
-          DropZone Mock - {filetype}, {acceptedTypesString}, {maxFileSize}
-        </div>
-      );
-    }
-);
+jest.mock("../../components/DropZone", () => {
+  const DropZoneMock = ({
+    filetype,
+    acceptedtype,
+    maxFileSize,
+  }: {
+    filetype: any;
+    acceptedtype: any;
+    maxFileSize: any;
+  }) => {
+    const acceptedTypesString = Object.keys(acceptedtype).join(", ");
+    return (
+      <div data-testid="dropZone">
+        DropZone Mock - {filetype}, {acceptedTypesString}, {maxFileSize}
+      </div>
+    );
+  };
+  DropZoneMock.displayName = "DropZoneMock";
+  return DropZoneMock;
+});
 
-jest.mock(
-  "../../content/contentCards/ContentList",
-  () =>
-    ({ VideoUpload }: { VideoUpload: any }) =>
-      (
-        <div data-testid="contentList">
-          ContentList Mock - Upload State: {VideoUpload ? "true" : "false"}
-        </div>
-      )
-);
+jest.mock("../../content/contentCards/ContentList", () => {
+  const ContentListMock = ({ VideoUpload }: { VideoUpload: any }) => (
+    <div data-testid="contentList">
+      ContentList Mock - Upload State: {VideoUpload ? "true" : "false"}
+    </div>
+  );
+  ContentListMock.displayName = "ContentListMock";
+  return ContentListMock;
+});
 
 describe("VideoComponent", () => {
   describe("Render", () => {
