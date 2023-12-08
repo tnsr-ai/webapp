@@ -17,7 +17,7 @@ from routers import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from utils import throttler
+from utils import throttler, GOOGLE_SECRET
 
 
 def get_db():
@@ -40,8 +40,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-SECRET_KEY = os.getenv("GOOGLE_SECRET")
-app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
+app.add_middleware(SessionMiddleware, secret_key=GOOGLE_SECRET)
 
 models.Base.metadata.create_all(bind=engine)
 

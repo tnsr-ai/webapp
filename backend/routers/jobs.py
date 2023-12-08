@@ -19,6 +19,7 @@ from celeryworker import celeryapp
 from cryptography.fernet import Fernet
 from routers.auth import authenticate_user, get_current_user, TokenData
 from utils import throttler
+from utils import LOKI_URL, LOKI_USERNAME, LOKI_PASSWORD, CRYPTO_TOKEN
 
 load_dotenv()
 

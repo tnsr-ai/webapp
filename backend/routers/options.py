@@ -10,12 +10,12 @@ import models
 from database import engine, SessionLocal
 from sqlalchemy.orm import Session
 import re
-from utils import *
+from utils import r2_resource, r2_client
 from routers.auth import get_current_user, TokenData
 import models
 from script_utils.util import *
 from dotenv import load_dotenv
-from utils import DOMAIN
+from utils import TNSR_DOMAIN, CLOUDFLARE_CONTENT, CLOUDFLARE_METADATA
 from utils import throttler
 
 load_dotenv()
@@ -67,11 +67,11 @@ def delete_project_celery(id: int, content_type: str, user_id: int):
             .first()
         )
         if main_file:
-            main_key = f"{OBJECT_BUCKET}/" + main_file.link
-            main_bucket = r2_resource.Bucket(OBJECT_BUCKET)
+            main_key = f"{CLOUDFLARE_CONTENT}/" + main_file.link
+            main_bucket = r2_resource.Bucket(CLOUDFLARE_CONTENT)
             main_bucket.Object(main_key).delete()
-            thumbnail_key = f"{THUMBNAIL_BUCKET}/" + main_file.thumbnail
-            thumbnail_bucket = r2_resource.Bucket(THUMBNAIL_BUCKET)
+            thumbnail_key = f"{CLOUDFLARE_METADATA}/" + main_file.thumbnail
+            thumbnail_bucket = r2_resource.Bucket(CLOUDFLARE_METADATA)
             thumbnail_bucket.Object(thumbnail_key).delete()
             db.delete(main_file)
             file_size = "".join([x for x in main_file.size if x.isdigit() or x == "."])
@@ -93,11 +93,11 @@ def delete_project_celery(id: int, content_type: str, user_id: int):
         )
         if related_file:
             for file in related_file:
-                main_key = f"{OBJECT_BUCKET}/" + file.link
-                main_bucket = r2_resource.Bucket(OBJECT_BUCKET)
+                main_key = f"{CLOUDFLARE_CONTENT}/" + file.link
+                main_bucket = r2_resource.Bucket(CLOUDFLARE_CONTENT)
                 main_bucket.Object(main_key).delete()
-                thumbnail_key = f"{THUMBNAIL_BUCKET}/" + file.thumbnail
-                thumbnail_bucket = r2_resource.Bucket(THUMBNAIL_BUCKET)
+                thumbnail_key = f"{CLOUDFLARE_METADATA}/" + file.thumbnail
+                thumbnail_bucket = r2_resource.Bucket(CLOUDFLARE_METADATA)
                 thumbnail_bucket.Object(thumbnail_key).delete()
                 db.delete(file)
                 file_size = "".join([x for x in file.size if x.isdigit() or x == "."])
@@ -203,9 +203,7 @@ def resend_email_task(user_id: int):
         return {"detail": "Failed", "data": "Email already verified"}
     user_data.email_token = json.dumps(email_token)
     db.commit()
-    verification_link = (
-        f"{DOMAIN}/verifyemail/?user_id={user_id}&email_token={email_token['token']}"
-    )
+    verification_link = f"{TNSR_DOMAIN}/verifyemail/?user_id={user_id}&email_token={email_token['token']}"
     email_status = registration_email(
         user_data.first_name, verification_link, user_data.email
     )

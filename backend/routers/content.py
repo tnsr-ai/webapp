@@ -5,7 +5,7 @@ from script_utils.util import niceBytes
 sys.path.append("..")
 
 from typing import Optional
-from fastapi import Depends, HTTPException, APIRouter
+from fastapi import Depends, HTTPException, APIRouter, status
 import models
 from database import engine, SessionLocal
 from sqlalchemy.orm import Session
@@ -16,8 +16,18 @@ from celeryworker import celeryapp
 from routers.auth import get_current_user, TokenData
 import json
 import re
-from utils import *
-from utils import throttler
+from utils import (
+    REDIS_HOST,
+    REDIS_PORT,
+    CLOUDFLARE_ACCESS_KEY,
+    CLOUDFLARE_SECRET_KEY,
+    CLOUDFLARE_ACCOUNT_ENDPOINT,
+    CLOUDFLARE_EXPIRE_TIME,
+    CLOUDFLARE_METADATA,
+    CLOUDFLARE_CONTENT,
+    CONTENT_EXPIRE,
+)
+from utils import throttler, remove_key
 
 
 router = APIRouter(
@@ -57,7 +67,7 @@ def presigned_get(key, bucket, rd):
             "s3",
             aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
             aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
-            endpoint_url=ACCOUNT_ENDPOINT + "/" + bucket,
+            endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT + "/" + bucket,
             config=botocore.config.Config(
                 s3={"addressing_style": "path"},
                 signature_version="s3v4",
@@ -93,7 +103,7 @@ def add_presigned_single(file_key, bucket, rd):
             "s3",
             aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
             aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
-            endpoint_url=ACCOUNT_ENDPOINT + "/" + bucket,
+            endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT + "/" + bucket,
             config=botocore.config.Config(
                 s3={"addressing_style": "path"},
                 signature_version="s3v4",
@@ -124,7 +134,7 @@ def get_object_data(file_key, bucket, rd):
             "s3",
             aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
             aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
-            endpoint_url=ACCOUNT_ENDPOINT + "/" + bucket,
+            endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT + "/" + bucket,
             config=botocore.config.Config(
                 s3={"addressing_style": "path"},
                 signature_version="s3v4",
@@ -212,7 +222,7 @@ async def generate_url(
             raise HTTPException(status_code=400, detail="Unable to fetch content")
         result_ = result_["data"]
         result = add_presigned(
-            result_[0], "thumbnail", "thumbnail_link", THUMBNAIL_BUCKET, rd
+            result_[0], "thumbnail", "thumbnail_link", CLOUDFLARE_METADATA, rd
         )
         result = filter_data(result)
         result = {"data": result, "detail": "Success", "total": result_[1]}
@@ -331,10 +341,10 @@ async def get_content_list(
         if len(result["data"]) == 0:
             raise HTTPException(status_code=400, detail="No more content")
         result["data"] = add_presigned(
-            result["data"], "thumbnail", "thumbnail_link", THUMBNAIL_BUCKET, rd
+            result["data"], "thumbnail", "thumbnail_link", CLOUDFLARE_METADATA, rd
         )
         result["data"] = add_presigned(
-            result["data"], "link", "content_link", OBJECT_BUCKET, rd
+            result["data"], "link", "content_link", CLOUDFLARE_CONTENT, rd
         )
         result["data"] = filter_data(result["data"])
         return result
@@ -364,7 +374,7 @@ def download_content_task(
             return {"detail": "Failed", "data": "User not verified"}
         if get_main is None:
             return {"detail": "Failed", "data": "Unable to fetch content"}
-        result_presigned = add_presigned_single(get_main.link, OBJECT_BUCKET, rd)
+        result_presigned = add_presigned_single(get_main.link, CLOUDFLARE_CONTENT, rd)
         return {"detail": "Success", "data": result_presigned}
     except Exception as e:
         return {"detail": "Failed", "data": "Unable to fetch content"}
@@ -389,7 +399,7 @@ async def download_content(
 
 
 def download_complete_task(
-    user_id: int, content_id: int, content_type: str, db: Session
+    user_id: int, content_id: int, content_type: str, db: Session, rd: redis.Redis
 ):
     try:
         tableName = {
@@ -410,7 +420,7 @@ def download_complete_task(
         )
         if user_dashboard is None:
             return {"detail": "Failed", "data": "Unable to fetch content"}
-        obj_data = get_object_data(get_main.link, OBJECT_BUCKET, rd)
+        obj_data = get_object_data(get_main.link, CLOUDFLARE_CONTENT, rd)
         if obj_data is None:
             return {"detail": "Failed", "data": "Unable to fetch content"}
         print(obj_data)
@@ -419,7 +429,6 @@ def download_complete_task(
         db.commit()
         return {"detail": "Success", "data": "Download complete"}
     except Exception as e:
-        return {"detail": "Failed", "data": str(e)}
         return {"detail": "Failed", "data": "Unable to fetch content"}
 
 
@@ -429,10 +438,13 @@ async def download_complete(
     content_type: str,
     current_user: TokenData = Depends(get_current_user),
     db: Session = Depends(get_db),
+    rd: redis.Redis = Depends(get_redis),
 ):
     if throttler.consume(identifier="user_id") == False:
         raise HTTPException(status_code=429, detail="Too Many Requests")
-    result = download_complete_task(current_user.user_id, content_id, content_type, db)
+    result = download_complete_task(
+        current_user.user_id, content_id, content_type, db, rd
+    )
     if result["detail"] == "Failed":
         raise HTTPException(status_code=400, detail="Unable to fetch content")
     return result

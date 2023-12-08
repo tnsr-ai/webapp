@@ -260,8 +260,11 @@ def test_verify_success(client, create_test_db):
                 "verified": True,
             },
         }
+        access_token = create_access_token(
+            subject="testdata", expires_delta=timedelta(minutes=30)
+        )
         headers = {
-            "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MDE1Mzg1ODIsInN1YiI6InsnaWQnOiAxLCAncmVmcmVzaFZlcnNpb24nOiAxNTYsICdhY2Nlc3NWZXJzaW9uJzogMTY0fSJ9.HO_8jtpcy_5p5e9hxVl2lMk2MttBtwYlm7_W7fQIFr0",
+            "Authorization": f"Bearer {access_token}",
             "Accept": "application/json",
         }
         response = client.get("/auth/verify", headers=headers)
