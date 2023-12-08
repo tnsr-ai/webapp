@@ -30,14 +30,15 @@ from utils import (
     create_refresh_token,
 )
 from utils import (
-    ALGORITHM_JWT,
+    JWT_ALGORITHM,
     JWT_SECRET,
     JWT_REFRESH_SECRET,
-    ACCESS_TOKEN_EXPIRE_MINUTES,
-    REFRESH_TOKEN_EXPIRE_MINUTES,
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES,
+    JWT_REFRESH_TOKEN_EXPIRE_MINUTES,
     REDIS_HOST,
     REDIS_PORT,
-    DOMAIN,
+    TNSR_DOMAIN,
+    GOOGLE_REDIRECT_URI,
 )
 from utils import throttler, isValidEmail
 from utils import registration_email, forgotpassword_email
@@ -146,7 +147,7 @@ def get_current_user(db: db_dependency, token: str = Depends(oauth2_bearer)):
             detail="Invalid token",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    payload = jwt.decode(token, JWT_SECRET, algorithms=[ALGORITHM_JWT])
+    payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
     payload = ast.literal_eval(payload["sub"])
     get_user = db.query(models.Users).filter(models.Users.id == payload["id"]).first()
     if not get_user:
@@ -174,7 +175,7 @@ def get_current_user(db: db_dependency, token: str = Depends(oauth2_bearer)):
 
 def get_current_user_refresh(db: db_dependency, token: str = Depends(oauth2_bearer)):
     try:
-        payload = jwt.decode(token, JWT_REFRESH_SECRET, algorithms=[ALGORITHM_JWT])
+        payload = jwt.decode(token, JWT_REFRESH_SECRET, algorithms=[JWT_ALGORITHM])
         payload = ast.literal_eval(payload["sub"])
         get_user = (
             db.query(models.Users).filter(models.Users.id == payload["id"]).first()
@@ -351,10 +352,10 @@ async def create_user(
         "accessVersion": get_user.accessVersion,
     }
     access_token = create_access_token(
-        token_payload, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        token_payload, expires_delta=timedelta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     refreshToken = create_refresh_token(
-        token_payload, expires_delta=timedelta(minutes=REFRESH_TOKEN_EXPIRE_MINUTES)
+        token_payload, expires_delta=timedelta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES)
     )
     content.update(
         {
@@ -366,7 +367,7 @@ async def create_user(
     response.set_cookie(
         key="access_token",
         value=access_token,
-        max_age=minutes_to_delta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+        max_age=minutes_to_delta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
         path="/",
         secure=True,
         samesite="strict",
@@ -374,12 +375,12 @@ async def create_user(
     response.set_cookie(
         key="refreshToken",
         value=refreshToken,
-        max_age=minutes_to_delta(minutes=REFRESH_TOKEN_EXPIRE_MINUTES),
+        max_age=minutes_to_delta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES),
         path="/",
         secure=True,
         samesite="strict",
     )
-    verification_link = f"{DOMAIN}verifyemail/?user_id={get_user.id}&email_token={result['data']['email_token']}"
+    verification_link = f"{TNSR_DOMAIN}/verifyemail/?user_id={get_user.id}&email_token={result['data']['email_token']}"
     send_email_task.delay(
         create_user_request.firstname, verification_link, create_user_request.email
     )
@@ -435,10 +436,10 @@ async def login_user(
         "accessVersion": user.accessVersion,
     }
     access_token = create_access_token(
-        token_payload, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        token_payload, expires_delta=timedelta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     refreshToken = create_refresh_token(
-        token_payload, expires_delta=timedelta(minutes=REFRESH_TOKEN_EXPIRE_MINUTES)
+        token_payload, expires_delta=timedelta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES)
     )
     content.update(
         {
@@ -450,7 +451,7 @@ async def login_user(
     response.set_cookie(
         key="access_token",
         value=access_token,
-        max_age=minutes_to_delta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+        max_age=minutes_to_delta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
         path="/",
         secure=True,
         samesite="strict",
@@ -458,7 +459,7 @@ async def login_user(
     response.set_cookie(
         key="refreshToken",
         value=refreshToken,
-        max_age=minutes_to_delta(minutes=REFRESH_TOKEN_EXPIRE_MINUTES),
+        max_age=minutes_to_delta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES),
         path="/",
         secure=True,
         samesite="strict",
@@ -550,7 +551,7 @@ async def check_user(
             detail="Invalid token",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    payload = jwt.decode(auth_token, JWT_SECRET, algorithms=[ALGORITHM_JWT])
+    payload = jwt.decode(auth_token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
     result = verify_user_task(
         current_user.user_id, auth_token, int(payload["exp"]), rd, db
     )
@@ -614,7 +615,7 @@ async def check_user_refresh(
     response.set_cookie(
         key="access_token",
         value=accessToken,
-        max_age=minutes_to_delta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+        max_age=minutes_to_delta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
         path="/",
         secure=True,
         samesite="strict",
@@ -622,7 +623,7 @@ async def check_user_refresh(
     response.set_cookie(
         key="refreshToken",
         value=refreshToken,
-        max_age=minutes_to_delta(minutes=REFRESH_TOKEN_EXPIRE_MINUTES),
+        max_age=minutes_to_delta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES),
         path="/",
         secure=True,
         samesite="strict",
@@ -639,7 +640,7 @@ GOOGLE_DISCOVERY_URL = os.getenv("GOOGLE_DISCOVERY_URL")
 google_sso = GoogleSSO(
     client_id=GOOGLE_CLIENT_ID,
     client_secret=GOOGLE_CLIENT_SECRET,
-    redirect_uri="https://localhost:8000/auth/google/callback",
+    redirect_uri=GOOGLE_REDIRECT_URI,
 )
 
 
@@ -728,10 +729,10 @@ async def google_callback(
         "accessVersion": user_db.accessVersion,
     }
     access_token = create_access_token(
-        token_payload, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        token_payload, expires_delta=timedelta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     refreshToken = create_refresh_token(
-        token_payload, expires_delta=timedelta(minutes=REFRESH_TOKEN_EXPIRE_MINUTES)
+        token_payload, expires_delta=timedelta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES)
     )
     content = {
         "id": int(user.id),
@@ -742,7 +743,7 @@ async def google_callback(
     response.set_cookie(
         key="access_token",
         value=access_token,
-        max_age=minutes_to_delta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+        max_age=minutes_to_delta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
         path="/",
         secure=True,
         samesite="strict",
@@ -750,7 +751,7 @@ async def google_callback(
     response.set_cookie(
         key="refreshToken",
         value=refreshToken,
-        max_age=minutes_to_delta(minutes=REFRESH_TOKEN_EXPIRE_MINUTES),
+        max_age=minutes_to_delta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES),
         path="/",
         secure=True,
         samesite="strict",
@@ -759,8 +760,12 @@ async def google_callback(
         {
             "refreshToken": refreshToken,
             "access_token": access_token,
-            "access_token_max": minutes_to_delta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
-            "refreshToken_max": minutes_to_delta(minutes=REFRESH_TOKEN_EXPIRE_MINUTES),
+            "access_token_max": minutes_to_delta(
+                minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES
+            ),
+            "refreshToken_max": minutes_to_delta(
+                minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES
+            ),
             "token_type": "bearer",
         }
     )

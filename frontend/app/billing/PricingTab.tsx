@@ -3,43 +3,32 @@ import { useGetRates } from "../api/index";
 import { useEffect, useState } from "react";
 import { userPlans } from "../constants/constants";
 import { increaseAndRound } from "../utils/utils";
+import { ref } from "lit/directives/ref";
 
 interface PricingTabProps {
   country: string;
 }
 
-export default function PricingTab(props: PricingTabProps) {
-  const { data, isSuccess, refetch } = useGetRates(props.country);
-
-  const [rates, setRates] = useState<any>(() => {
-    try {
-      const ratesFromStorage = sessionStorage.getItem("rates");
-      return ratesFromStorage ? JSON.parse(ratesFromStorage) : {};
-    } catch (error) {
-      return {};
-    }
-  });
+export default function PricingTab({ country }: PricingTabProps) {
+  const { data, isSuccess, refetch } = useGetRates(country);
+  const ratesFromSession = sessionStorage.getItem("rates");
+  const [rates, setRates] = useState<any>({});
 
   useEffect(() => {
-    if (Object.keys(rates).length === 0) {
-      const ratesFromStorage = sessionStorage.getItem("rates");
-      try {
-        const parsedRates = ratesFromStorage
-          ? JSON.parse(ratesFromStorage)
-          : {};
-        setRates(parsedRates);
-      } catch (error) {
-        refetch();
-      }
+    const ratesFromSession = sessionStorage.getItem("rates");
+    if (ratesFromSession != null) {
+      setRates(JSON.parse(ratesFromSession));
+    } else {
+      refetch();
     }
-  }, [rates, refetch]);
+  }, [refetch]);
 
   useEffect(() => {
-    if (isSuccess && data && data.data) {
+    if (isSuccess && Object.keys(rates).length === 0 && data) {
       setRates(data.data);
       sessionStorage.setItem("rates", JSON.stringify(data.data));
     }
-  }, [isSuccess, data]);
+  }, [data, isSuccess, rates]);
 
   return (
     <section className="mt-10">

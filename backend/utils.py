@@ -20,40 +20,62 @@ import ssl
 
 load_dotenv()
 
+CONTENT_EXPIRE = int(os.getenv("CONTENT_EXPIRE"))
+
+# Cloudflare Credentials
+CLOUDFLARE_ACCOUNT_ENDPOINT = os.getenv("CLOUDFLARE_ACCOUNT_ENDPOINT")
+CLOUDFLARE_ACCESS_KEY = os.getenv("CLOUDFLARE_ACCESS_KEY")
+CLOUDFLARE_SECRET_KEY = os.getenv("CLOUDFLARE_SECRET_KEY")
+CLOUDFLARE_CONTENT = os.getenv("CLOUDFLARE_CONTENT")
+CLOUDFLARE_METADATA = os.getenv("CLOUDFLARE_METADATA")
+CLOUDFLARE_EXPIRE_TIME = os.getenv("CLOUDFLARE_EXPIRE_TIME")
+
+# JWT Credentials
 JWT_SECRET = os.getenv("JWT_SECRET")
 JWT_REFRESH_SECRET = os.getenv("JWT_REFRESH_SECRET")
-ALGORITHM_JWT = os.getenv("ALGORITHM_JWT")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
-REFRESH_TOKEN_EXPIRE_MINUTES = eval(os.getenv("REFRESH_TOKEN_EXPIRE_MINUTES"))
-CONTENT_ENDPOINT = os.getenv("CONTENT_ENDPOINT")
-CLOUDFLARE_ACCESS_KEY = os.getenv("ACCESS_KEY")
-CLOUDFLARE_SECRET_KEY = os.getenv("SECRET_KEY")
-CLOUDFLARE_ENDPOINT = os.getenv("ENDPOINT")
-ACCOUNT_ENDPOINT = os.getenv("ACCOUNT_ENDPOINT")
-MAIN_BUCKET = "tnsr"
-CONTENT_BUCKET = "tnsrdb"
+JWT_ALGORITHM = os.getenv("JWT_ALGORITHM")
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES"))
+JWT_REFRESH_TOKEN_EXPIRE_MINUTES = eval(os.getenv("JWT_REFRESH_TOKEN_EXPIRE_MINUTES"))
+JWT_AUTH_TOKEN = os.getenv("JWT_AUTH_TOKEN")
+
+# Google Credentials
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_SECRET_ID = os.getenv("GOOGLE_SECRET_ID")
+GOOGLE_DISCOVERY_URL = os.getenv("GOOGLE_DISCOVERY_URL")
+GOOGLE_SECRET = os.getenv("GOOGLE_SECRET")
+GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
+
+# Website Credentials
+TNSR_DOMAIN = os.getenv("TNSR_DOMAIN")
+TNSR_BACKEND_DOMAIN = os.getenv("TNSR_BACKEND_DOMAIN")
+
+# Redis Credentials
 REDIS_BROKER = os.getenv("REDIS_BROKER")
 REDIS_BACKEND = os.getenv("REDIS_BACKEND")
-CONTENT_EXPIRE = 86400
 REDIS_HOST = os.getenv("REDIS_HOST")
 REDIS_PORT = os.getenv("REDIS_PORT")
-OBJECT_BUCKET = os.getenv("OBJECT_BUCKET")
-THUMBNAIL_BUCKET = os.getenv("THUMBNAIL_BUCKET")
-ACCOUNT_ENDPOINT = os.getenv("ACCOUNT_ENDPOINT")
+
+# Grafana Credentials
 LOKI_URL = os.getenv("LOKI_URL")
 LOKI_USERNAME = os.getenv("LOKI_USERNAME")
 LOKI_PASSWORD = os.getenv("LOKI_PASSWORD")
+
+# Crypto Credentials
 CRYPTO_TOKEN = os.getenv("CRYPTO_TOKEN")
-DOMAIN = os.getenv("DOMAIN")
-AUTH_TOKEN = os.getenv("AUTH_TOKEN")
+
+# Email Credentials
 SMTP_SERVER = os.getenv("SMTP_SERVER")
 SMTP_PORT = os.getenv("SMTP_PORT")
 SMTP_USERNAME = os.getenv("SMTP_USERNAME")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
-OPENEXCHANGERATES_API_KEY = os.getenv("OPENEXCHANGERATES_API_KEY")
+
+# Stripe Credentials
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
 STRIPE_PUBLIC_KEY = os.getenv("STRIPE_PUBLIC_KEY")
-BACKEND_DOMAIN = os.getenv("BACKEND_DOMAIN")
+
+# Openexchange Credentials
+OPENEXCHANGERATES_API_KEY = os.getenv("OPENEXCHANGERATES_API_KEY")
+
 
 STORAGE_LIMITS = {
     "free": 2 * 1024**3,  # 2GB
@@ -65,7 +87,7 @@ r2_client = boto3.client(
     "s3",
     aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
     aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
-    endpoint_url=CLOUDFLARE_ENDPOINT,
+    endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
     config=botocore.config.Config(
         s3={"addressing_style": "path"},
         signature_version="s3v4",
@@ -77,7 +99,7 @@ r2_resource = boto3.resource(
     "s3",
     aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
     aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
-    endpoint_url=ACCOUNT_ENDPOINT,
+    endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
 )
 
 throttler: TokenThrottler = TokenThrottler(cost=1, storage=RuntimeStorage())
@@ -94,11 +116,11 @@ password_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def get_hashed_password(password: str) -> str:
-    return password_context.hash(password + AUTH_TOKEN)
+    return password_context.hash(password + JWT_AUTH_TOKEN)
 
 
 def verify_password(password: str, hashed_pass: str) -> bool:
-    return password_context.verify(password + AUTH_TOKEN, hashed_pass)
+    return password_context.verify(password + JWT_AUTH_TOKEN, hashed_pass)
 
 
 def isValidEmail(email: str) -> bool:
@@ -111,10 +133,10 @@ def create_access_token(subject: Union[str, Any], expires_delta: int = None) -> 
         expires_delta = datetime.utcnow() + expires_delta
     else:
         expires_delta = datetime.utcnow() + timedelta(
-            minutes=ACCESS_TOKEN_EXPIRE_MINUTES
+            minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES
         )
     to_encode = {"exp": expires_delta, "sub": str(subject)}
-    encoded_jwt = jwt.encode(to_encode, JWT_SECRET, ALGORITHM_JWT)
+    encoded_jwt = jwt.encode(to_encode, JWT_SECRET, JWT_ALGORITHM)
     return encoded_jwt
 
 
@@ -123,10 +145,10 @@ def create_refresh_token(subject: Union[str, Any], expires_delta: int = None) ->
         expires_delta = datetime.utcnow() + expires_delta
     else:
         expires_delta = datetime.utcnow() + timedelta(
-            minutes=REFRESH_TOKEN_EXPIRE_MINUTES
+            minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES
         )
     to_encode = {"exp": expires_delta, "sub": str(subject)}
-    encoded_jwt = jwt.encode(to_encode, JWT_REFRESH_SECRET, ALGORITHM_JWT)
+    encoded_jwt = jwt.encode(to_encode, JWT_REFRESH_SECRET, JWT_ALGORITHM)
     return encoded_jwt
 
 
