@@ -67,7 +67,7 @@ def presigned_get(key, bucket, rd):
             "s3",
             aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
             aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
-            endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT + "/" + bucket,
+            endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
             config=botocore.config.Config(
                 s3={"addressing_style": "path"},
                 signature_version="s3v4",
