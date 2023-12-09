@@ -4,7 +4,7 @@ from fastapi.responses import FileResponse, JSONResponse
 sys.path.append("..")
 
 from typing import Optional
-from fastapi import Depends, HTTPException, APIRouter, BackgroundTasks
+from fastapi import Depends, HTTPException, APIRouter, BackgroundTasks, status, Request
 import models
 from database import engine, SessionLocal
 from sqlalchemy import or_
@@ -14,13 +14,22 @@ import time
 from celeryworker import celeryapp
 from routers.auth import get_current_user, TokenData
 import json
+import os
 import requests
 import pystache
 from pathlib import Path
 from pyhtml2pdf import converter
 import stripe
-from utils import *
-from utils import throttler, throttler_checkout
+from utils import TNSR_DOMAIN, STRIPE_SECRET_KEY, OPENEXCHANGERATES_API_KEY
+from utils import (
+    throttler,
+    throttler_checkout,
+    sql_dict,
+    paymentinitiated_email,
+    paymentsuccessfull_email,
+    paymentfailed_email,
+    increase_and_round,
+)
 
 
 router = APIRouter(
@@ -230,8 +239,8 @@ def checkout_task(user_id: int, token: int, currency_code: str, db: Session):
                 },
             ],
             mode="payment",
-            success_url=f"{DOMAIN}/billing/?payment_status=success&token={token}",
-            cancel_url=f"{DOMAIN}/billing/?payment_status=failed&token={token}",
+            success_url=f"{TNSR_DOMAIN}/billing/?payment_status=success&token={token}",
+            cancel_url=f"{TNSR_DOMAIN}/billing/?payment_status=failed&token={token}",
             customer_email=user_data.email,
         )
         create_invoice_model.session_id = checkout_session.id

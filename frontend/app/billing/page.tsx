@@ -19,8 +19,7 @@ function getCurrentDimension() {
 }
 
 export default function Billing() {
-  const { data, isLoading, isSuccess, isError } =
-    useGetBalance();
+  const { data, isLoading, isSuccess, isError } = useGetBalance();
 
   const searchParams = useSearchParams();
   const paymentStatus = searchParams.get("payment_status");
@@ -55,13 +54,12 @@ export default function Billing() {
       });
     }
   };
-
   useEffect(() => {
     showToast();
     if (screenSize.width === 0) {
       setScreenSize(getCurrentDimension());
     }
-    if (localStorage.getItem("country") != null) {
+    if (localStorage.getItem("country") != null && userCountry === "") {
       setUserCountry(localStorage.getItem("country") || "");
     } else {
       getIP.refetch();
@@ -73,7 +71,7 @@ export default function Billing() {
     if (getIP.isError) {
       setUserCountry("US");
     }
-  }, [getIP.isSuccess, userCountry, paymentStatus, screenSize.width]);
+  }, [userCountry, paymentStatus, token, getIP, screenSize]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[296px_1fr] grid-rows-[minmax(62px,_90px)_1fr]">
