@@ -96,7 +96,7 @@ def thumbnail_upload(filepath):
             "s3",
             aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
             aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
-            endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT + "/" + CLOUDFLARE_METADATA,
+            endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
             config=boto3.session.Config(signature_version="s3v4"),
         )
         s3.upload_file(filepath, CLOUDFLARE_METADATA, filepath)
