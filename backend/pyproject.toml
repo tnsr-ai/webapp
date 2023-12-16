@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "backendweb"
+name = "env"
 version = "0.1.0"
 description = "tnsr.ai backend"
 authors = ["Amit Bera <amitalokbera@gmail.com>"]
