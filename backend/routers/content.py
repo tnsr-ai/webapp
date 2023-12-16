@@ -134,7 +134,7 @@ def get_object_data(file_key, bucket, rd):
             "s3",
             aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
             aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
-            endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT + "/" + bucket,
+            endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
             config=botocore.config.Config(
                 s3={"addressing_style": "path"},
                 signature_version="s3v4",
@@ -423,7 +423,6 @@ def download_complete_task(
         obj_data = get_object_data(get_main.link, CLOUDFLARE_CONTENT, rd)
         if obj_data is None:
             return {"detail": "Failed", "data": "Unable to fetch content"}
-        print(obj_data)
         size = obj_data["HTTPHeaders"]["content-length"]
         user_dashboard.downloads += int(size)
         db.commit()
