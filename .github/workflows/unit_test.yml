@@ -49,6 +49,14 @@ jobs:
       - name: Install Poetry dependencies
         run: poetry install
         working-directory: ./backend
-      - name: Run Unit Tests
+      - name: Run Unit Tests and setup secrets env
         run: poetry run pytest
+        env:
+          CONTENT_EXPIRE: ${{ secrets.CONTENT_EXPIRE }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+          JWT_ALGORITHM: ${{ secrets.JWT_ALGORITHM }}
+          JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${{ secrets.JWT_ACCESS_TOKEN_EXPIRE_MINUTES }}
+          JWT_REFRESH_TOKEN_EXPIRE_MINUTES: ${{ secrets.JWT_REFRESH_TOKEN_EXPIRE_MINUTES }}
+          JWT_AUTH_TOKEN: ${{ secrets.JWT_AUTH_TOKEN }}
         working-directory: ./backend
