@@ -76,7 +76,7 @@ def get_user_dashboard(db, user_id: int):
     )
 
 
-def create_pre_upload_data(file_type, user_id, unique_filename, content_md5):
+def create_pre_upload_data(file_type, user_id, filename, unique_filename, content_md5):
     model = {
         "video": models.Videos,
         "audio": models.Audios,
@@ -86,7 +86,7 @@ def create_pre_upload_data(file_type, user_id, unique_filename, content_md5):
     if model:
         return model(
             user_id=user_id,
-            title=unique_filename,
+            title=filename,
             link=f"{user_id}/{unique_filename}",
             tags="original",
             md5=content_md5,
@@ -136,8 +136,9 @@ def generate_signed_url_task(uploaddict: dict, user_id: int, db: Session):
     )
 
     file_type = uploaddict["filetype"].split("/")[0]
+    filename = uploaddict["filename"]
     preUploadData = create_pre_upload_data(
-        file_type, user_id, unique_filename, content_md5
+        file_type, user_id, filename, unique_filename, content_md5
     )
 
     if preUploadData:
