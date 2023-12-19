@@ -16,6 +16,7 @@ import models
 from script_utils.util import *
 from dotenv import load_dotenv
 from utils import TNSR_DOMAIN, CLOUDFLARE_CONTENT, CLOUDFLARE_METADATA
+from celeryworker import celeryapp
 from utils import throttler
 
 load_dotenv()
@@ -44,9 +45,8 @@ def isAlpnanumeric(string):
 db_dependency = Annotated[Session, Depends(get_db)]
 
 
-def delete_project_celery(id: int, content_type: str, user_id: int):
+def delete_project_celery(id: int, content_type: str, user_id: int, db: Session):
     try:
-        db = SessionLocal()
         if content_type == "video":
             model_type = models.Videos
         elif content_type == "audio":
@@ -132,7 +132,7 @@ async def delete_project(
     if throttler.consume(identifier="user_id") == False:
         raise HTTPException(status_code=429, detail="Too Many Requests")
     try:
-        result = delete_project_celery(id, content_type, current_user.user_id)
+        result = delete_project_celery(id, content_type, current_user.user_id, db)
         if result["detail"] == "Success":
             return {"detail": "Success", "data": "Project deleted"}
         else:
@@ -141,9 +141,10 @@ async def delete_project(
         raise HTTPException(status_code=400, detail="Failed to delete project")
 
 
-def rename_project_celery(id: int, content_type: str, newtitle: str, user_id: int):
+def rename_project_celery(
+    id: int, content_type: str, newtitle: str, user_id: int, db: Session
+):
     try:
-        db = SessionLocal()
         if content_type == "video":
             model_type = models.Videos
         elif content_type == "audio":
@@ -181,7 +182,9 @@ async def rename_project(
     if throttler.consume(identifier="user_id") == False:
         raise HTTPException(status_code=429, detail="Too Many Requests")
     try:
-        result = rename_project_celery(id, content_type, newtitle, current_user.user_id)
+        result = rename_project_celery(
+            id, content_type, newtitle, current_user.user_id, db
+        )
         if result["detail"] == "Success":
             return {"detail": "Success", "data": "Project renamed"}
         else:
@@ -190,6 +193,7 @@ async def rename_project(
         raise HTTPException(status_code=400, detail="Failed to rename project")
 
 
+@celeryapp.task(name="routers.options.resend_email_task")
 def resend_email_task(user_id: int):
     db = SessionLocal()
     email_token = {
@@ -207,6 +211,7 @@ def resend_email_task(user_id: int):
     email_status = registration_email(
         user_data.first_name, verification_link, user_data.email
     )
+    db.close()
     if email_status != True:
         return {"detail": "Failed", "data": "Failed to send email"}
     return {"detail": "Success", "data": "Email sent successfully"}
@@ -215,10 +220,9 @@ def resend_email_task(user_id: int):
 @router.post("/resend-email", status_code=status.HTTP_201_CREATED)
 async def resend_email(
     response: Response,
-    db: Session = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
     if throttler.consume(identifier="user_id") == False:
         raise HTTPException(status_code=429, detail="Too Many Requests")
-    result = resend_email_task(current_user.user_id)
+    resend_email_task.delay(current_user.user_id)
     return {"detail": "Success", "data": "Email sent successfully"}

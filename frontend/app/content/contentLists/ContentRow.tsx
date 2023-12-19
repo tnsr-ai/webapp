@@ -10,7 +10,7 @@ import FilterModal from "./filterModal";
 import { Menu, Button, Tooltip, Skeleton } from "@mantine/core";
 import { IconBallpen, IconTrash, IconCloudDownload } from "@tabler/icons-react";
 import { tagColor } from "./TagsClass";
-import {useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Toaster, toast } from "sonner";
@@ -40,6 +40,7 @@ function capitalizeWords(input: string): string[] {
 
 export function ContentComponent(props: any) {
   const pathname = usePathname().split("/")[1];
+  const [progress, setProgress] = useState(0);
   const [videoPlayer, setVideoPlayer] = useState(false);
   const [filterShow, setFilterShow] = useState(false);
   const [disableDelete, setDisableDelete] = useState(false);
@@ -84,7 +85,22 @@ export function ContentComponent(props: any) {
     }
     const data = await response.json();
     const presigned_url = data.data;
+    const toastID = toast("");
+    toast.loading("Downloading...", { id: toastID });
     const xhr = new XMLHttpRequest();
+    xhr.responseType = "blob";
+    xhr.onprogress = function (event) {
+      if (event.lengthComputable) {
+        const percentComplete = Math.round((event.loaded / event.total) * 100);
+        toast.loading(`Downloading... ${percentComplete}%`, {
+          id: toastID,
+          action: {
+            label: "Cancel",
+            onClick: () => xhr.abort(),
+          },
+        });
+      }
+    };
     const promise = (xhr: any) =>
       new Promise((resolve, reject) => {
         xhr.open("GET", presigned_url, true);
@@ -95,7 +111,6 @@ export function ContentComponent(props: any) {
       });
 
     toast.promise(promise(xhr), {
-      loading: "Downloading...",
       success: () => {
         const blob = xhr.response;
         const url = window.URL.createObjectURL(blob);
@@ -121,7 +136,18 @@ export function ContentComponent(props: any) {
         label: "Cancel",
         onClick: () => xhr.abort(),
       },
+      id: toastID,
     });
+
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState === 4) {
+        if (xhr.status === 200) {
+          toast.dismiss(toastID);
+        } else {
+          toast.error("Download failed", { id: toastID });
+        }
+      }
+    };
   };
 
   const videoInfo = (
