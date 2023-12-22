@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import Hamburger from "hamburger-react";
 import { usePathname } from "next/navigation";
 import SwipeableDrawer from "@mui/material/SwipeableDrawer";
-import { List, ListItem, ListItemText } from "@mui/material";
+import { List } from "@mui/material";
 import {
   VideoCamera,
   SpeakerWave,
