@@ -21,7 +21,7 @@ export default function Dashboard() {
         {isSuccess === true && data.verified === false && <VerifyBanner />}
         <AppBar />
       </div>
-      <div className="">
+      <div className="mt-5">
         {isLoading === true && (
           <div className="flex mt-10 md:mt-5 justify-center">
             <Loader color="grape" variant="bars" />

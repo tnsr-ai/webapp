@@ -3,7 +3,6 @@ import SideDrawer from "../components/SideDrawer";
 import JobsTable from "./JobsTable";
 
 export default function Dashboard() {
-
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[296px_1fr] grid-rows-[minmax(62px,_90px)_1fr]">
       <div className="lg:col-start-1 lg:col-end-2 lg:row-start-1 lg:row-span-2 hidden lg:block">
@@ -14,8 +13,8 @@ export default function Dashboard() {
       <div className="sticky top-0">
         <AppBar />
       </div>
-      <div className="">
-        <div className="max-w-[1500px] m-auto">
+      <div className="mt-5">
+        <div className="flex-col max-w-[1500px] flex m-auto mt-5 mb-10">
           <JobsTable />
         </div>
       </div>
