@@ -87,24 +87,26 @@ export default function Billing() {
       <div className="sticky top-0">
         <AppBar />
       </div>
-      <div className="lg:col-start-2 lg:col-end-3 lg:row-start-2">
-        <div className="max-w-[1500px] m-auto">
-          {isLoading === true && (
-            <div className="flex mt-10 md:mt-5 justify-center">
-              <Loader color="grape" variant="bars" />
-            </div>
-          )}
-
-          {isSuccess === true &&
-            data.detail === "Success" &&
-            userCountry != "" && (
-              <div>
-                <BillingContent data={data} />
-                <PricingTab country={userCountry} />
-                <InvoiceTable />
+      <div className="mt-5">
+        <div className="lg:col-start-2 lg:col-end-3 lg:row-start-2 mt-5 mb-10">
+          <div className="max-w-[1500px] m-auto">
+            {isLoading === true && (
+              <div className="flex mt-10 md:mt-5 justify-center">
+                <Loader color="grape" variant="bars" />
               </div>
             )}
-          {isError === true && <Error />}
+
+            {isSuccess === true &&
+              data.detail === "Success" &&
+              userCountry != "" && (
+                <div>
+                  <BillingContent data={data} />
+                  <PricingTab country={userCountry} />
+                  <InvoiceTable />
+                </div>
+              )}
+            {isError === true && <Error />}
+          </div>
         </div>
       </div>
     </div>

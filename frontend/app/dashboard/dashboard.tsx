@@ -141,7 +141,7 @@ export default function DashboardContent({ data }: DashboardContentProps) {
                 </div>
               </div>
               <div className="col-span-1">
-                <h1 className="text-lg font-medium">Storage Used</h1>
+                <h1 className="text-lg font-medium">Storage Distribution</h1>
                 <div className="mt-5 px-8 mb-10">
                   <PieActiveArc
                     storageData={JSON.parse(data.data.storage_json)}

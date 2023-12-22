@@ -19,7 +19,7 @@ export default function Video() {
       <div className="sticky top-0">
         <AppBar />
       </div>
-      <div className="">
+      <div className="mt-5">
         <div>
           <DropZone
             filetype={videoData.dropzoneMsg}
