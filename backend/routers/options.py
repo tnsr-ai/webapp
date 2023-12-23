@@ -77,10 +77,25 @@ def delete_project_celery(id: int, content_type: str, user_id: int, db: Session)
             file_size = "".join([x for x in main_file.size if x.isdigit() or x == "."])
             if content_type == "video":
                 dashboard_user.video_processed = int(dashboard_user.video_processed) - 1
+                storageJSON = json.loads(dashboard_user.storage_json)
+                storageJSON["video"] = float(storageJSON["video"]) - bytes_to_mb(
+                    float(file_size)
+                )
+                dashboard_user.storage_json = json.dumps(storageJSON)
             elif content_type == "audio":
                 dashboard_user.audio_processed = int(dashboard_user.audio_processed) - 1
+                storageJSON = json.loads(dashboard_user.storage_json)
+                storageJSON["audio"] = float(storageJSON["audio"]) - bytes_to_mb(
+                    float(file_size)
+                )
+                dashboard_user.storage_json = json.dumps(storageJSON)
             elif content_type == "image":
                 dashboard_user.image_processed = int(dashboard_user.image_processed) - 1
+                storageJSON = json.loads(dashboard_user.storage_json)
+                storageJSON["image"] = float(storageJSON["image"]) - bytes_to_mb(
+                    float(file_size)
+                )
+                dashboard_user.storage_json = json.dumps(storageJSON)
             dashboard_user.storage_used = float(dashboard_user.storage_used) - float(
                 file_size
             )
@@ -105,14 +120,29 @@ def delete_project_celery(id: int, content_type: str, user_id: int, db: Session)
                     dashboard_user.video_processed = (
                         int(dashboard_user.video_processed) - 1
                     )
+                    storageJSON = json.loads(dashboard_user.storage_json)
+                    storageJSON["video"] = float(storageJSON["video"]) - bytes_to_mb(
+                        float(file_size)
+                    )
+                    dashboard_user.storage_json = json.dumps(storageJSON)
                 elif content_type == "audio":
                     dashboard_user.audio_processed = (
                         int(dashboard_user.audio_processed) - 1
                     )
+                    storageJSON = json.loads(dashboard_user.storage_json)
+                    storageJSON["audio"] = float(storageJSON["audio"]) - bytes_to_mb(
+                        float(file_size)
+                    )
+                    dashboard_user.storage_json = json.dumps(storageJSON)
                 elif content_type == "image":
                     dashboard_user.image_processed = (
                         int(dashboard_user.image_processed) - 1
                     )
+                    storageJSON = json.loads(dashboard_user.storage_json)
+                    storageJSON["image"] = float(storageJSON["image"]) - bytes_to_mb(
+                        float(file_size)
+                    )
+                    dashboard_user.storage_json = json.dumps(storageJSON)
                 dashboard_user.storage_used = float(
                     dashboard_user.storage_used
                 ) - float(file_size)
