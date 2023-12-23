@@ -5,6 +5,8 @@ import Hamburger from "hamburger-react";
 import { usePathname } from "next/navigation";
 import SwipeableDrawer from "@mui/material/SwipeableDrawer";
 import { List } from "@mui/material";
+import { IconLogout } from "@tabler/icons-react";
+import Logout from "./ModalComponents/LogoutModal";
 import {
   VideoCamera,
   SpeakerWave,
@@ -21,6 +23,7 @@ function classNames(...classes: any) {
 
 const AppBar = () => {
   const [isOpen, setOpen] = useState(false);
+  const [logoutOpen, setLogoutOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const pathname = usePathname().split("/")[1];
 
@@ -106,14 +109,16 @@ const AppBar = () => {
           >
             <div className="w-full flex justify-center items-center lg:hidden p-2">
               <div className="flex flex-row content-center items-center">
-                <img
-                  src="/assets/mainlogo_trimmed.png"
-                  className="w-[44px] md:w-[52px]"
-                  alt="logo image"
-                />
-                <a className="text-black text-3xl font-bold ml-2" href="#">
-                  tnsr.ai
-                </a>
+                <Link href={"/"}>
+                  <img
+                    src="/assets/mainlogo_trimmed.png"
+                    className="w-[44px] md:w-[52px]"
+                    alt="logo image"
+                  />
+                </Link>
+                <Link href={"/"}>
+                  <p className="text-black text-3xl font-bold ml-2">tnsr.ai</p>
+                </Link>
               </div>
             </div>
             <div className="block lg:hidden">
@@ -124,10 +129,10 @@ const AppBar = () => {
             open={isOpen}
             onClose={() => setOpen(false)}
             onOpen={() => setOpen(true)}
-            className="block lg:hidden"
+            className="block lg:hidden h-full"
           >
-            <List>
-              <div className="flex flex-row content-center items-center">
+            <List className="h-full bg-white">
+              <div className="flex justify-start items-center">
                 <img
                   src="/assets/mainlogo_trimmed.png"
                   className="w-[44px] md:w-[52px] ml-5"
@@ -138,33 +143,55 @@ const AppBar = () => {
                 </a>
               </div>
               <div className="mt-5">
-                {drawerItems.map((nav, index) => (
-                  <Link
-                    key={nav.title}
-                    href={nav.disabled === false ? nav.href : "/dashboard"}
-                    className={classNames(
-                      nav.active
-                        ? "bg-purple-50 text-purple-600"
-                        : "text-gray-500 hover:bg-gray-50 hover:text-gray-900",
-                      "border-transparent group flex items-center px-3 py-2 text-sm font-medium border-l-4 w-[270px] h-[50px] rounded-xl",
-                      nav.disabled
-                        ? "cursor-not-allowed opacity-50 hover:bg-gray-50"
-                        : "cursor-pointer"
-                    )}
-                  >
-                    <nav.icon
+                <div>
+                  {drawerItems.map((nav, index) => (
+                    <Link
+                      key={nav.title}
+                      href={nav.disabled === false ? nav.href : "/dashboard"}
                       className={classNames(
                         nav.active
-                          ? "text-indigo-500"
-                          : "text-gray-400 group-hover:text-gray-500",
-                        "mr-3 flex-shrink-0 h-6 w-6",
-                        nav.disabled ? "opacity-50" : ""
+                          ? "bg-purple-50 text-purple-600"
+                          : "text-gray-500 hover:bg-gray-50 hover:text-gray-900",
+                        "border-transparent group flex items-center px-3 py-2 text-sm font-medium border-l-4 w-[270px] h-[50px] rounded-xl",
+                        nav.disabled
+                          ? "cursor-not-allowed opacity-50 hover:bg-gray-50"
+                          : "cursor-pointer"
                       )}
+                    >
+                      <nav.icon
+                        className={classNames(
+                          nav.active
+                            ? "text-indigo-500"
+                            : "text-gray-400 group-hover:text-gray-500",
+                          "mr-3 flex-shrink-0 h-6 w-6",
+                          nav.disabled ? "opacity-50" : ""
+                        )}
+                        aria-hidden="true"
+                      />
+                      {nav.title}
+                    </Link>
+                  ))}
+                </div>
+
+                <div
+                  id="logoutBar"
+                  className="flex justify-center pb-5 cursor-pointer"
+                >
+                  <p
+                    key="Logout"
+                    onClick={() => {
+                      setLogoutOpen(true);
+                    }}
+                    className="text-gray-500 hover:bg-red-100 hover:text-gray-900 border-transparent group flex items-center px-3 py-2 text-sm font-medium border-l-4 w-[270px] h-[50px] rounded-xl"
+                  >
+                    <IconLogout
+                      className="text-gray-400 group-hover:text-gray-500 mr-3 flex-shrink-0 h-6 w-6"
                       aria-hidden="true"
                     />
-                    {nav.title}
-                  </Link>
-                ))}
+                    {"Logout"}
+                  </p>
+                  <Logout open={logoutOpen} setOpen={setLogoutOpen} />
+                </div>
               </div>
             </List>
           </SwipeableDrawer>

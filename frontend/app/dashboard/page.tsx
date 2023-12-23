@@ -17,7 +17,7 @@ export default function Dashboard() {
           <SideDrawer />
         </div>
       </div>
-      <div className="sticky top-0 max-h-screen" data-testid="appBar">
+      <div className="sticky top-0 max-h-screen z-50" data-testid="appBar">
         {isSuccess === true && data.verified === false && <VerifyBanner />}
         <AppBar />
       </div>
