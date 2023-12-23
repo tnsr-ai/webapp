@@ -33,6 +33,12 @@ jest.mock("next/navigation", () => ({
   usePathname: () => "/",
 }));
 
+jest.mock("../pieChart", () => {
+  const pieChart = () => <div data-testid="pieChart">pieChart Mock</div>;
+  pieChart.displayName = "pieChart";
+  return pieChart;
+});
+
 type DashboardData = {
   user_id: number;
   video_processed: number;

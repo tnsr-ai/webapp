@@ -3,6 +3,7 @@ import Image from "next/image";
 import { StarIcon } from "@heroicons/react/20/solid";
 import Link from "next/link";
 import { dashboardStats, networkStats } from "../constants/constants";
+import PieActiveArc from "./pieChart";
 
 interface UserData {
   user_id: number;
@@ -107,36 +108,47 @@ export default function DashboardContent({ data }: DashboardContentProps) {
       </div>
       <div className="flex-row xl:flex">
         <div className="flex-[6]">
-          <h1 className="px-8 mt-5 text-lg font-medium">Network Stats</h1>
           <div id="internet-stats" className="">
-            <dl className="mt-3 grid grid-cols-1 lg:grid-cols-2 px-8 gap-5">
-              {networkStats.map((item) => (
-                <div
-                  key={item.id}
-                  className="overflow-hidden rounded-xl bg-white px-4 pt-5 pb-5 sm:px-6 sm:pt-6 shadow-[0_3px_10px_rgb(0,0,0,0.2)]"
-                >
-                  <dt>
-                    <div className="absolute rounded-md w-16 h-15 flex justify-center ">
-                      <Image src={item.icon} alt="" width={58} height={58} />
+            <dl className="mt-5 grid grid-cols-1 lg:grid-cols-3 px-8 gap-5">
+              <div className="col-span-2">
+                <h1 className="text-lg font-medium">Network Stats</h1>
+                <div className="mt-5 gap-5 grid grid-cols-1 lg:grid-cols-2">
+                  {networkStats.map((item) => (
+                    <div
+                      key={item.id}
+                      className="overflow-hidden rounded-xl bg-white px-4 pt-5 pb-5 sm:px-6 sm:pt-6 shadow-[0_3px_10px_rgb(0,0,0,0.2)] m-auto w-full"
+                    >
+                      <dt>
+                        <div className="absolute rounded-md w-16 h-15 flex justify-center ">
+                          <Image
+                            src={item.icon}
+                            alt=""
+                            width={58}
+                            height={58}
+                          />
+                        </div>
+                        <p className="ml-20 truncate text-sm md:text-base font-medium text-gray-500">
+                          {item.name}
+                        </p>
+                      </dt>
+                      <dd className="ml-20 flex items-baseline">
+                        <p className="text-base  xl:text-lg font-semibold text-gray-900 whitespace-nowrap">
+                          {data.data[item.key]}
+                        </p>
+                      </dd>
                     </div>
-                    <p className="ml-20 truncate text-sm md:text-base font-medium text-gray-500">
-                      {item.name}
-                    </p>
-                  </dt>
-                  <dd className="ml-20 flex items-baseline">
-                    <p className="text-base  xl:text-lg font-semibold text-gray-900 whitespace-nowrap">
-                      {data.data[item.key]}
-                    </p>
-                  </dd>
+                  ))}
                 </div>
-              ))}
+              </div>
+              <div className="col-span-1">
+                <h1 className="text-lg font-medium">Storage Distribution</h1>
+                <div className="mt-5 px-8 mb-10">
+                  <PieActiveArc
+                    storageData={JSON.parse(data.data.storage_json)}
+                  />
+                </div>
+              </div>
             </dl>
-          </div>
-        </div>
-        <div className="flex-[3]">
-          <h1 className="px-8 mt-5 text-lg font-medium">Storage Usage</h1>
-          <div className="">
-            <p>Add Graph here</p>
           </div>
         </div>
       </div>

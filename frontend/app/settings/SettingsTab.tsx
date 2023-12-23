@@ -224,7 +224,7 @@ export default function SettingsTab(props: any) {
                 )}
                 {props.data.verified === true && (
                   <div>
-                    <p className="font-medium tracking-tight text-green-500">
+                    <p className="font-medium tracking-tight text-green-600">
                       (Verified)
                     </p>
                   </div>
