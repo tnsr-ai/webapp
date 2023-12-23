@@ -103,7 +103,7 @@ const AppBar = () => {
       <nav>
         <div className="w-full h-full flex justify-center items-center">
           <div
-            className={`w-[90%] h-[80px] navbar mt-5 rounded-3xl backdrop-blur-3xl bg-opacity-40 flex flex-row items-center border-2 border-solid lg:border-none ${
+            className={`w-[90%] h-[70px] md:h-[80px] navbar mt-5 rounded-3xl backdrop-blur-3xl bg-opacity-40 flex flex-row items-center border-2 border-solid lg:border-none ${
               isScrolled ? "bg-zinc-300" : "bg-white"
             }`}
           >
