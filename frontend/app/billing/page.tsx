@@ -10,6 +10,7 @@ import { Loader } from "@mantine/core";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Toaster, toast } from "sonner";
+import { useRef } from "react";
 
 function getCurrentDimension() {
   return {
@@ -24,6 +25,7 @@ export default function Billing() {
   const searchParams = useSearchParams();
   const paymentStatus = searchParams.get("payment_status");
   const token = searchParams.get("token");
+  const [toastStatus, setToastStatus] = useState(false);
 
   const getIP = useGetIP();
   const [userCountry, setUserCountry] = useState("");
@@ -54,8 +56,8 @@ export default function Billing() {
       });
     }
   };
+
   useEffect(() => {
-    showToast();
     if (screenSize.width === 0) {
       setScreenSize(getCurrentDimension());
     }
@@ -71,14 +73,14 @@ export default function Billing() {
     if (getIP.isError) {
       setUserCountry("US");
     }
-  }, [userCountry, paymentStatus, token, getIP, screenSize]);
+    if (toastStatus === false) {
+      showToast();
+      setToastStatus(true);
+    }
+  }, [userCountry, paymentStatus, token, getIP, screenSize, toastStatus]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[296px_1fr] grid-rows-[minmax(62px,_90px)_1fr]">
-      {screenSize.width < 1030 && (
-        <Toaster position="bottom-right" richColors />
-      )}
-      {screenSize.width > 1030 && <Toaster position="top-right" richColors />}
       <div className="lg:col-start-1 lg:col-end-2 lg:row-start-1 lg:row-span-2 hidden lg:block">
         <div className="fixed top-0 h-full">
           <SideDrawer></SideDrawer>
@@ -108,6 +110,12 @@ export default function Billing() {
             {isError === true && <Error />}
           </div>
         </div>
+      </div>
+      <div>
+        <Toaster
+          position={screenSize.width <= 1030 ? "bottom-right" : "top-right"}
+          richColors
+        />
       </div>
     </div>
   );
