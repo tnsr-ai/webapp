@@ -212,47 +212,47 @@ export function SingleFileUpload(props: any = null) {
         <div className="flex flex-row gap-2 md:gap-4">
           {title_len > 20 && (
             <Tooltip label={props.file.name} className="hidden">
-              <h1 className="text-black font-normal text-base md:text-lg flex m-auto">
+              <h1 className="text-black font-normal text-base md:text-lg flex m-auto text-center">
                 {title}
               </h1>
             </Tooltip>
           )}
           {title_len <= 20 && (
-            <h1 className="text-black font-normal text-base md:text-lg flex m-auto">
+            <h1 className="text-black font-normal text-base md:text-lg flex m-auto text-center">
               {title}
             </h1>
           )}
-          <h1 className="text-black font-light text-sm flex m-auto">
+          <h1 className="text-black font-light text-sm flex m-auto text-center">
             {niceBytes(Number(props.file.size))}
           </h1>
           {displayMsg === "Please wait while we index your file" && (
             <div className="flex">
-              <CircleStackIcon className="fill-purple-400 h-8 w-8 inline-flex m-auto mr-1 md:mr-2" />
-              <h1 className="text-black font-normal text-sm md:text-base inline-flex m-auto">
+              <CircleStackIcon className="fill-purple-400 h-8 w-8 inline-flex m-auto md:mr-2" />
+              <h1 className="text-black font-normal text-sm md:text-base inline-flex m-auto text-center">
                 {displayMsg}
               </h1>
             </div>
           )}
           {displayMsg === "Upload Complete" && (
             <div className="flex">
-              <CheckIcon className="fill-green-600 h-8 w-8 inline-flex m-auto mr-1 md:mr-2" />
-              <h1 className="text-black font-normal text-sm md:text-base inline-flex m-auto">
+              <CheckIcon className="fill-green-600 h-8 w-8 inline-flex m-auto md:mr-2" />
+              <h1 className="text-black font-normal text-sm md:text-base inline-flex m-auto text-center">
                 {displayMsg}
               </h1>
             </div>
           )}
           {isCancelled && (
             <div className="flex">
-              <XCircleIcon className="fill-red-600 h-8 w-8 inline-flex m-auto mr-1 md:mr-2" />
-              <h1 className="text-black font-normal text-sm md:text-base inline-flex m-auto">
+              <XCircleIcon className="fill-red-600 h-8 w-8 inline-flex m-auto md:mr-2" />
+              <h1 className="text-black font-normal text-sm md:text-base inline-flex m-auto text-center">
                 {displayMsg}
               </h1>
             </div>
           )}
           {showProgress == false && (
             <div className="flex">
-              <CogIcon className="fill-purple-400 h-8 w-8 inline-flex m-auto mr-1 md:mr-2" />
-              <h1 className="text-black font-normal text-sm md:text-base inline-flex m-auto">
+              <CogIcon className="fill-purple-400 h-8 w-8 inline-flex m-auto md:mr-2" />
+              <h1 className="text-black font-normal text-sm md:text-base inline-flex m-auto text-center">
                 Processing...
               </h1>
             </div>
