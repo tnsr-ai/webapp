@@ -255,7 +255,7 @@ def create_user_task(
             storage_used=0,
             storage_limit=storage_limit,
             gpu_usage=0,
-            storage_json="""{'video':0, 'audio':0, 'image':0}""",
+            storage_json="""{"video":0, "audio":0, "image":0}""",
             created_at=created_at,
             updated_at=0,
         )
