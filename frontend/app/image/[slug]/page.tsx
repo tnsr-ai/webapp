@@ -13,11 +13,11 @@ export default function ImageTabs({ params }: { params: { slug: string } }) {
           <SideDrawer />
         </div>
       </div>
-      <div className="sticky top-0 w-[100%]">
+      <div className="sticky top-0 w-[100%] z-50">
         <AppBar />
       </div>
-      <div className="">
-        <div className="max-w-[1500px] m-auto">
+      <div className="mt-5">
+        <div className="flex-col max-w-[1500px] flex m-auto mt-5 mb-10">
           <div className="sm:flex sm:items-center">
             <div className="sm:flex-auto">
               <div>

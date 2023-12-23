@@ -84,7 +84,7 @@ export default function Billing() {
           <SideDrawer></SideDrawer>
         </div>
       </div>
-      <div className="sticky top-0">
+      <div className="sticky top-0 z-50">
         <AppBar />
       </div>
       <div className="mt-5">
