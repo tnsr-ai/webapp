@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import Modal from "@mui/material/Modal";
-import { Button } from "@mui/material";
 import { getCookie } from "cookies-next";
 import { XMarkIcon } from "@heroicons/react/20/solid";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -146,19 +145,18 @@ export default function RenamePrompt(props: any) {
               </div>
             </div>
             <div className="flex justify-end items-center p-2 space-x-5 mt-3">
-              <Button
-                variant="outlined"
+              <button
+                type="button"
+                className="rounded-md bg-white px-3.5 py-2.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
                 onClick={() => {
                   props.setRenamePrompt(false);
                 }}
-                color="warning"
               >
                 Cancel
-              </Button>
-              <Button
-                variant="contained"
-                color="secondary"
-                disabled={btnDisabled}
+              </button>
+              <button
+                type="button"
+                className="rounded-md bg-purple-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-purple-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-600"
                 onClick={() => {
                   mutate({
                     id: props.id,
@@ -173,7 +171,7 @@ export default function RenamePrompt(props: any) {
                 }}
               >
                 Rename
-              </Button>
+              </button>
             </div>
           </div>
         </div>
