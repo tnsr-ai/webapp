@@ -809,7 +809,7 @@ async def forgot_password(
     db.commit()
     result = forgot_password_task(
         user.first_name,
-        os.getenv("DOMAIN") + "/auth/forgotpassword/" + forgotpassword_token["token"],
+        TNSR_DOMAIN + "/auth/forgotpassword/" + forgotpassword_token["token"],
         user.email,
     )
     if result["detail"] == "Failed":

@@ -4,7 +4,6 @@ import { StarIcon } from "@heroicons/react/20/solid";
 import Link from "next/link";
 import { dashboardStats, networkStats } from "../constants/constants";
 import PieActiveArc from "./pieChart";
-import { stringify } from "querystring";
 
 interface UserData {
   user_id: number;
