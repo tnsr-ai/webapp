@@ -92,6 +92,7 @@ export default function Home() {
               <span
                 className="text-purple-500 font-medium cursor-pointer tracking-tight"
                 data-testid="createAccount"
+                data-cy="signup-link"
               >
                 {" "}
                 Create an Account
@@ -122,6 +123,7 @@ export default function Home() {
                   href="/forgot-password"
                   className="text-center text-purple-600 hover:text-purple-500 font-medium tracking-tight"
                   data-testid="forgotPassword"
+                  data-cy="forgot-password-link"
                 >
                   Forgot password?
                 </Link>
@@ -154,6 +156,7 @@ export default function Home() {
                 disabled={disabled}
                 onClick={handleSubmit}
                 data-testid="signInButton"
+                data-cy="signin-button"
               >
                 Sign in
               </button>

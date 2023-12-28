@@ -14,6 +14,7 @@ from routers import (
     options,
     machines,
     billing,
+    dev,
 )
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
@@ -53,6 +54,7 @@ app.include_router(jobs.router)
 app.include_router(options.router)
 app.include_router(machines.router)
 app.include_router(billing.router)
+app.include_router(dev.router)
 
 
 @app.get("/")

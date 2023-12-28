@@ -20,6 +20,8 @@ import ssl
 
 load_dotenv()
 
+ENV = os.getenv("ENV")
+
 CONTENT_EXPIRE = int(os.getenv("CONTENT_EXPIRE"))
 
 # Cloudflare Credentials
