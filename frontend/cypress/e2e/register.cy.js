@@ -17,7 +17,9 @@ describe("Register E2E", () => {
         cy.visit("/register");
         cy.request({
           method: "GET",
-          url: "http://localhost:8000/dev/delete-user?email=admin%40email.com",
+          url: `${Cypress.env(
+            "backend"
+          )}/dev/delete-user?email=admin%40email.com`,
           body: { email: "admin@email.com" },
           form: true,
         });

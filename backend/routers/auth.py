@@ -370,7 +370,7 @@ async def create_user(
         max_age=minutes_to_delta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
         path="/",
         secure=True,
-        samesite="strict",
+        samesite="none",
     )
     response.set_cookie(
         key="refreshToken",
@@ -378,7 +378,7 @@ async def create_user(
         max_age=minutes_to_delta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES),
         path="/",
         secure=True,
-        samesite="strict",
+        samesite="none",
     )
     verification_link = f"{TNSR_DOMAIN}/verifyemail/?user_id={get_user.id}&email_token={result['data']['email_token']}"
     send_email_task.delay(
@@ -454,7 +454,7 @@ async def login_user(
         max_age=minutes_to_delta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
         path="/",
         secure=True,
-        samesite="strict",
+        samesite="none",
     )
     response.set_cookie(
         key="refreshToken",
@@ -462,7 +462,7 @@ async def login_user(
         max_age=minutes_to_delta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES),
         path="/",
         secure=True,
-        samesite="strict",
+        samesite="none",
     )
     return {
         "data": content,
@@ -618,7 +618,7 @@ async def check_user_refresh(
         max_age=minutes_to_delta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
         path="/",
         secure=True,
-        samesite="strict",
+        samesite="none",
     )
     response.set_cookie(
         key="refreshToken",
@@ -626,7 +626,7 @@ async def check_user_refresh(
         max_age=minutes_to_delta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES),
         path="/",
         secure=True,
-        samesite="strict",
+        samesite="none",
     )
     return {"data": content, "detail": "Success"}
 
@@ -746,7 +746,7 @@ async def google_callback(
         max_age=minutes_to_delta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
         path="/",
         secure=True,
-        samesite="strict",
+        samesite="none",
     )
     response.set_cookie(
         key="refreshToken",
@@ -754,7 +754,7 @@ async def google_callback(
         max_age=minutes_to_delta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES),
         path="/",
         secure=True,
-        samesite="strict",
+        samesite="none",
     )
     content.update(
         {

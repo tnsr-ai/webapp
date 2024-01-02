@@ -6,5 +6,9 @@ export default defineConfig({
     setupNodeEvents(on, config) {
       // implement node event listeners here
     },
+    env: {
+      backend: "http://localhost:8000",
+    },
   },
+  video: true,
 });
