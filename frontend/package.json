@@ -9,7 +9,8 @@
     "lint": "next lint",
     "analyze": "cross-env ANALYZE=true next build",
     "test": "jest",
-    "test:watch": "jest --watchAll"
+    "test:watch": "jest --watchAll",
+    "ga": "next dev -H 127.0.0.1"
   },
   "dependencies": {
     "@emotion/styled": "^11.11.0",

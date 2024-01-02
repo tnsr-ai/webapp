@@ -14,7 +14,7 @@ from typing import Optional, Annotated
 import time
 import json
 from celeryworker import celeryapp
-from utils import throttler
+from utils import throttler, get_hashed_password
 from utils import ENV
 
 
@@ -38,6 +38,35 @@ def get_db():
 
 
 db_dependency = Annotated[Session, Depends(get_db)]
+
+
+@router.get("/create-user")
+async def create_user(
+    email: str,
+    password: str,
+    db: Session = Depends(get_db),
+    test_mode: bool = Depends(is_test_mode),
+):
+    if test_mode:
+        user = db.query(models.Users).filter(models.Users.email == email).first()
+        if user:
+            raise HTTPException(status_code=200, detail="User already exists")
+        user = models.Users(
+            first_name="fname",
+            last_name="lname",
+            email=email,
+            hashed_password=get_hashed_password(password),
+            user_tier="free",
+            verified=False,
+            google_login=False,
+            created_at=int(time.time()),
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return {"message": "User created"}
+    else:
+        raise HTTPException(status_code=403, detail="Not authorized")
 
 
 @router.get("/delete-user")
