@@ -40,6 +40,14 @@ describe("Auth Login E2E", () => {
       });
 
       it("check for incorrect credentials", () => {
+        cy.request({
+          method: "GET",
+          url: `${Cypress.env(
+            "backend"
+          )}/dev/delete-user?email=admin%40email.com`,
+          body: { email: "admin@email.com" },
+          form: true,
+        });
         cy.contains("Sign In to tnsr.ai").should("be.visible");
         cy.get("input[name=email]").type("test@email.com");
         cy.get("input[name=password]").type("testpassword");
