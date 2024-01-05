@@ -34,6 +34,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 18
+      - uses: oven-sh/setup-bun@v1
       - name: Cache node modules
         id: cache-npm
         uses: actions/cache@v3
@@ -51,12 +52,12 @@ jobs:
       - if: ${{ steps.cache-npm.outputs.cache-hit != 'true' }}
         name: List the state of node modules
         continue-on-error: true
-        run: npm list
+        run: bun list
 
       - name: Compile node modules
         run: |
-          npm install
-          npm run build
+          bun install
+          bun run build
         working-directory: ./frontend
       - name: Install Ubuntu dependencies
         run: |
@@ -82,7 +83,7 @@ jobs:
           JWT_REFRESH_TOKEN_EXPIRE_MINUTES: "60 * 24 * 7"
           JWT_AUTH_TOKEN: "NwBH9UcQ6m0I6zRp+UqJ0VeVoGOdbMX+ijKYOmWz//4="
           ENV: "development"
-          TNSR_DOMAIN: "http://localhost:3000"
+          TNSR_DOMAIN: "http://127.0.0.1:3000"
           POSTGRES_HOST: 127.0.0.1
           POSTGRES_PORT: 5432
           POSTGRES_USERNAME: "admin"
@@ -92,17 +93,13 @@ jobs:
           REDIS_BACKEND: "redis://127.0.0.1:6379/0"
           REDIS_HOST: 127.0.0.1
           REDIS_PORT: "6379"
-          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
-          SMTP_PORT: ${{ secrets.SMTP_PORT }}
-          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
-          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
         working-directory: ./backend
       - name: Ping FastAPI server
         run: |
           echo $(curl http://127.0.0.1:8000/jobs/fetch_routes)
       - name: Cypress Headed Test
         run: |
-          npm run ga &
+          nohup npm run ga &
           npx cypress run --headed
         env:
           BASEURL: "http://127.0.0.1:8000"
