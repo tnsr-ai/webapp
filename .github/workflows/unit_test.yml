@@ -33,7 +33,7 @@ jobs:
         image: postgres:13.3
         env:
           POSTGRES_USER: admin
-          POSTGRES_PASSWORD: amitbera
+          POSTGRES_PASSWORD: password
           POSTGRES_DB: development
         ports:
           - 5432:5432
@@ -73,6 +73,11 @@ jobs:
           JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${{ secrets.JWT_ACCESS_TOKEN_EXPIRE_MINUTES }}
           JWT_REFRESH_TOKEN_EXPIRE_MINUTES: ${{ secrets.JWT_REFRESH_TOKEN_EXPIRE_MINUTES }}
           JWT_AUTH_TOKEN: ${{ secrets.JWT_AUTH_TOKEN }}
+          POSTGRES_HOST: "127.0.0.1"
+          POSTGRES_PORT: "5432"
+          POSTGRES_USERNAME: "admin"
+          POSTGRES_PASSWORD: "password"
+          POSTGRES_DATABASE: "development"
           ENV: "development"
           TNSR_DOMAIN: "http://localhost:3000"
         working-directory: ./backend
