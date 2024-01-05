@@ -13,6 +13,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 18
+      - uses: oven-sh/setup-bun@v1
       - name: Cache node modules
         id: cache-npm
         uses: actions/cache@v3
@@ -30,12 +31,12 @@ jobs:
       - if: ${{ steps.cache-npm.outputs.cache-hit != 'true' }}
         name: List the state of node modules
         continue-on-error: true
-        run: npm list
+        run: bun list
 
       - name: Compile node modules
         run: |
-          npm install
-          npm run build
+          bun install
+          bun run build
         working-directory: ./frontend
       - name: Lint code
         run: npm run lint
