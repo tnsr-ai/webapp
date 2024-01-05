@@ -68,53 +68,47 @@ describe("Auth Login E2E", () => {
         cy.url().should("include", "/register");
       });
 
-      it(
-        "check for login and redirect",
-        {
-          defaultCommandTimeout: 10000,
-        },
-        () => {
-          cy.request({
-            method: "GET",
-            url: `${Cypress.env(
-              "backend"
-            )}/dev/delete-user?email=admin%40email.com`,
-          }).then((response) => {
-            expect(response.status).to.eq(200);
-          });
+      it("check for login and redirect", () => {
+        cy.request({
+          method: "GET",
+          url: `${Cypress.env(
+            "backend"
+          )}/dev/delete-user?email=admin%40email.com`,
+        }).then((response) => {
+          expect(response.status).to.eq(200);
+        });
 
-          cy.request({
-            method: "POST",
-            url: `${Cypress.env("backend")}/auth/signup`,
-            body: {
-              firstname: "fname",
-              lastname: "lname",
-              email: "admin@email.com",
-              password: "password",
-            },
-            headers: {
-              "Content-Type": "application/json",
-            },
-          }).then((response) => {
-            expect(response.status).to.eq(201);
-          });
-          cy.intercept("POST", `${Cypress.env("backend")}/auth/login`).as(
-            "login"
-          );
-          cy.clearAllCookies();
-          cy.clearAllLocalStorage();
-          cy.visit("/");
-          cy.contains("Sign In to tnsr.ai").should("be.visible");
-          cy.get("input[name=email]").type("admin@email.com");
-          cy.get("input[name=password]").type("password");
-          cy.get('[data-cy="signin-button"]').should("not.be.disabled");
-          cy.get('[data-cy="signin-button"]').click();
-          cy.url().should("include", "/dashboard");
-          cy.contains(
-            "Please verify your email address to continue using the app."
-          ).should("be.visible");
-        }
-      );
+        cy.request({
+          method: "POST",
+          url: `${Cypress.env("backend")}/auth/signup`,
+          body: {
+            firstname: "fname",
+            lastname: "lname",
+            email: "admin@email.com",
+            password: "password",
+          },
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }).then((response) => {
+          expect(response.status).to.eq(201);
+        });
+        cy.intercept("POST", `${Cypress.env("backend")}/auth/login`).as(
+          "login"
+        );
+        cy.clearAllCookies();
+        cy.clearAllLocalStorage();
+        cy.visit("/");
+        cy.contains("Sign In to tnsr.ai").should("be.visible");
+        cy.get("input[name=email]").type("admin@email.com");
+        cy.get("input[name=password]").type("password");
+        cy.get('[data-cy="signin-button"]').should("not.be.disabled");
+        cy.get('[data-cy="signin-button"]').click();
+        cy.url().should("include", "/dashboard");
+        cy.contains(
+          "Please verify your email address to continue using the app."
+        ).should("be.visible");
+      });
     });
   });
 });
