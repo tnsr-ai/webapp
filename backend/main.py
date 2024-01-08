@@ -19,6 +19,7 @@ from routers import (
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from utils import throttler, GOOGLE_SECRET
+from prometheus_client import make_asgi_app
 
 
 def get_db():
@@ -31,7 +32,11 @@ def get_db():
 
 app = FastAPI()
 
-origins = ["https://localhost:3000", "http://localhost:3000", "http://127.0.0.1:3000"]
+origins = [
+    "https://localhost:3000",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
 
 app.add_middleware(
     CORSMiddleware,
@@ -62,6 +67,10 @@ async def root(db: Session = Depends(get_db)):
     if throttler.consume(identifier="user_id"):
         return {"message": "Server is running"}
     raise HTTPException(status_code=429, detail="Too Many Requests")
+
+
+metrics_app = make_asgi_app()
+app.mount("/metrics", metrics_app)
 
 
 if __name__ == "__main__":
