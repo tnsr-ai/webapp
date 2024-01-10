@@ -19,6 +19,15 @@ import re
 import ssl
 
 load_dotenv()
+APP_ENV = os.getenv("APP_ENV")
+if APP_ENV == "development":
+    load_dotenv(dotenv_path=".env.development")
+elif APP_ENV == "github":
+    load_dotenv(dotenv_path=".env.github")
+elif APP_ENV == "docker":
+    load_dotenv(dotenv_path=".env.docker")
+else:
+    load_dotenv(dotenv_path=".env.production")
 
 ENV = os.getenv("ENV")
 
