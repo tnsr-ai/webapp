@@ -15,11 +15,11 @@ import time
 import json
 from celeryworker import celeryapp
 from utils import get_hashed_password
-from utils import ENV
+from utils import APP_ENV
 
 
 def is_test_mode():
-    return ENV == "development"
+    return APP_ENV != "production"
 
 
 router = APIRouter(
