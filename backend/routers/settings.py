@@ -16,7 +16,6 @@ from routers.auth import authenticate_user, get_current_user, TokenData
 import models
 from script_utils.util import *
 from dotenv import load_dotenv
-from utils import throttler
 
 load_dotenv()
 
@@ -82,8 +81,6 @@ async def change_password(
     current_user: TokenData = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     try:
         task = change_password_task(passworddict.dict(), int(current_user.user_id), db)
         return task
@@ -131,8 +128,6 @@ def get_settings_task(user_id: int, db: Session) -> None:
 async def get_settings(
     db: Session = Depends(get_db), current_user: TokenData = Depends(get_current_user)
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     try:
         get_details = get_settings_task(current_user.user_id, db)
         return get_details
@@ -165,8 +160,6 @@ async def update_settings(
     db: Session = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     try:
         update_settings_task(new_settings.dict(), current_user.user_id, db)
         return {"detail": "Success", "data": "Settings updated successfully"}

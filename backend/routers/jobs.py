@@ -18,7 +18,6 @@ import hashlib
 from celeryworker import celeryapp
 from cryptography.fernet import Fernet
 from routers.auth import authenticate_user, get_current_user, TokenData
-from utils import throttler
 from utils import LOKI_URL, LOKI_USERNAME, LOKI_PASSWORD, CRYPTO_TOKEN
 
 load_dotenv()
@@ -84,8 +83,6 @@ async def register_job(
     db: db_dependency,
     current_user: TokenData = Depends(get_current_user),
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     try:
         result = register_job_celery.delay(job_dict.dict(), current_user.user_id)
         result = result.get()
@@ -129,8 +126,6 @@ def fetch_jobs_celery(job_id: int, key: str):
 
 @router.get("/fetch_jobs")
 async def fetch_jobs(job_id: int, key: str, db: db_dependency):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     try:
         result = fetch_jobs_celery.delay(job_id, key)
         result = result.get()
@@ -143,8 +138,6 @@ async def fetch_jobs(job_id: int, key: str, db: db_dependency):
 
 @router.get("/fetch_routes")
 async def fetch_routes():
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     try:
         ROUTES = {
             "getjob": "/jobs/fetch_jobs",
@@ -177,8 +170,6 @@ def update_job_status_celery(job_id: int, job_status: str, job_process: str, key
 async def update_job_status(
     job_id: int, job_status: str, job_process: str, key: str, db: db_dependency
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     try:
         result = update_job_status_celery.delay(job_id, job_status, job_process, key)
         result = result.get()
@@ -200,8 +191,6 @@ async def send_notification_celery(user_id: int, job_id: int):
 
 @router.post("/send_notification")
 async def send_notification(user_id: int, job_id: int, db: db_dependency):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     try:
         result = send_notification_celery.delay(user_id, job_id)
         result = result.get()

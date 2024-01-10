@@ -14,7 +14,7 @@ from typing import Optional, Annotated
 import time
 import json
 from celeryworker import celeryapp
-from utils import throttler, get_hashed_password
+from utils import get_hashed_password
 from utils import ENV
 
 

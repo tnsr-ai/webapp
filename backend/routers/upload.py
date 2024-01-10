@@ -22,7 +22,6 @@ from dotenv import load_dotenv
 import ast
 import shutil
 import binascii
-from utils import throttler
 
 load_dotenv()
 
@@ -162,8 +161,6 @@ async def generate_url(
     current_user: TokenData = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     result = generate_signed_url_task(upload.dict(), current_user.user_id, db)
     if result["detail"] == "Failed":
         if "Storage limit exceeded" in result["data"]:
@@ -365,8 +362,6 @@ async def file_index(
     current_user: TokenData = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     if indexdata.processtype not in ["video", "audio", "image"]:
         raise HTTPException(status_code=400, detail="Invalid processtype")
     result = index_media_task(indexdata.dict(), current_user.user_id, db)

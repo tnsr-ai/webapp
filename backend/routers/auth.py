@@ -40,7 +40,7 @@ from utils import (
     TNSR_DOMAIN,
     GOOGLE_REDIRECT_URI,
 )
-from utils import throttler, isValidEmail
+from utils import isValidEmail
 from utils import registration_email, forgotpassword_email
 from dotenv import load_dotenv
 
@@ -287,8 +287,6 @@ async def create_user(
     create_user_request: CreateUser,
     db: Session = Depends(get_db),
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     if user_exists(create_user_request.email, db):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="Email already exists"
@@ -412,8 +410,6 @@ async def login_user(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     db: Session = Depends(get_db),
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     result = login_user_task(form_data.username, form_data.password, db)
     if result["detail"] == "Failed":
         raise HTTPException(
@@ -492,8 +488,6 @@ async def logout_user(
     db: Session = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     result = logout_user_task(current_user.user_id, db)
     if result["detail"] == "Failed":
         raise HTTPException(
@@ -542,8 +536,6 @@ async def check_user(
     authorization: Optional[str] = Header(None),
     rd: redis.Redis = Depends(get_redis),
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     auth_token = authorization.split(" ")[1]
     if len(auth_token.split(".")) != 3:
         raise HTTPException(
@@ -598,8 +590,6 @@ async def check_user_refresh(
     db: Session = Depends(get_db),
     current_user: TokenData = Depends(get_current_user_refresh),
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     result = refresh_user_task(current_user.user_id, db)
     if result["detail"] == "Failed":
         raise HTTPException(
@@ -646,8 +636,6 @@ google_sso = GoogleSSO(
 
 @router.get("/google/login")
 async def google_login():
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     return await google_sso.get_login_redirect(
         params={"prompt": "consent", "access_type": "offline"}
     )
@@ -704,8 +692,6 @@ def google_callback_task(user_data: dict, db: db_dependency):
 async def google_callback(
     response: Response, request: Request, db: Session = Depends(get_db)
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     user = await google_sso.verify_and_process(request)
     if user is None:
         raise HTTPException(401, detail="Failed to fetch user information")
@@ -794,8 +780,6 @@ def forgot_password_task(name: str, verification_link: str, receiver_email: str)
 async def forgot_password(
     response: Response, forgot_model: ForgotPassword, db: Session = Depends(get_db)
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     user = (
         db.query(models.Users).filter(models.Users.email == forgot_model.email).first()
     )
@@ -846,8 +830,6 @@ async def verify_email(
     db: Session = Depends(get_db),
     rd: redis.Redis = Depends(get_redis),
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     result = verify_email_task(user_id, email_token, rd, db)
     if result["detail"] == "Failed":
         raise HTTPException(

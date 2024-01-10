@@ -22,8 +22,6 @@ from pyhtml2pdf import converter
 import stripe
 from utils import TNSR_DOMAIN, STRIPE_SECRET_KEY, OPENEXCHANGERATES_API_KEY
 from utils import (
-    throttler,
-    throttler_checkout,
     sql_dict,
     paymentinitiated_email,
     paymentsuccessfull_email,
@@ -89,8 +87,6 @@ def billing_task(id: int, db: Session):
 async def get_stats(
     current_user: TokenData = Depends(get_current_user), db: Session = Depends(get_db)
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     result = billing_task(current_user.user_id, db)
     if result["detail"] == "Success":
         return result
@@ -167,8 +163,6 @@ async def price_conversion(
     countryCode: str,
     db: Session = Depends(get_db),
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     result = pricing_task(countryCode, db)
     if result["detail"] == "Success":
         return result
@@ -311,8 +305,6 @@ async def create_checkout_session(
     current_user: TokenData = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if throttler_checkout.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     if checkout.token < 5:
         raise HTTPException(status_code=400, detail="Minimum token is 5")
     result = checkout_task(
@@ -486,8 +478,6 @@ async def get_invoices(
     current_user: TokenData = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     if limit > 10:
         raise HTTPException(status_code=400, detail="Limit cannot be greater than 10")
     result = get_invoices_task(current_user.user_id, limit, offset, db)
@@ -572,8 +562,6 @@ async def download_invoice(
     current_user: TokenData = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     result = download_invoice_task(current_user.user_id, invoice_id, db)
     if result["detail"] == "Success":
         path = os.path.abspath(f"invoice/{invoice_id}.html")

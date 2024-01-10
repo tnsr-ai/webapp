@@ -17,7 +17,6 @@ from script_utils.util import *
 from dotenv import load_dotenv
 from utils import TNSR_DOMAIN, CLOUDFLARE_CONTENT, CLOUDFLARE_METADATA
 from celeryworker import celeryapp
-from utils import throttler
 
 load_dotenv()
 
@@ -159,8 +158,6 @@ async def delete_project(
     db: Session = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     try:
         result = delete_project_celery(id, content_type, current_user.user_id, db)
         if result["detail"] == "Success":
@@ -209,8 +206,6 @@ async def rename_project(
     db: Session = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     try:
         result = rename_project_celery(
             id, content_type, newtitle, current_user.user_id, db
@@ -252,7 +247,5 @@ async def resend_email(
     response: Response,
     current_user: TokenData = Depends(get_current_user),
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     resend_email_task.delay(current_user.user_id)
     return {"detail": "Success", "data": "Email sent successfully"}

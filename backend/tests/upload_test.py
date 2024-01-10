@@ -9,10 +9,9 @@ client = TestClient(app)
 
 
 def test_generate_presigned_post(client, create_test_db):
-    with patch("routers.upload.throttler.consume") as mock_consume, patch(
+    with patch(
         "routers.upload.generate_signed_url_task"
     ) as mock_generate_signed_url_task:
-        mock_consume.return_value = True
         mock_generate_signed_url_task.return_value = {
             "detail": "Success",
             "data": {
@@ -41,28 +40,10 @@ def test_generate_presigned_post(client, create_test_db):
         }
 
 
-def test_generate_presigned_post_rate_limited(client, create_test_db):
-    with patch("routers.upload.throttler.consume") as mock_consume, patch(
-        "routers.upload.generate_signed_url_task"
-    ) as mock_generate_signed_url_task:
-        mock_consume.return_value = False
-        response = client.post(
-            "/upload/generate_presigned_post",
-            json=UploadDict(
-                filename="unique_filename.mp4",
-                filetype="video.mp4",
-                md5="md5_hash",
-                filesize=1000000,
-            ).dict(),
-        )
-        assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
-
-
 def test_generate_presigned_post_storagelimited(client, create_test_db):
-    with patch("routers.upload.throttler.consume") as mock_consume, patch(
+    with patch(
         "routers.upload.generate_signed_url_task"
     ) as mock_generate_signed_url_task:
-        mock_consume.return_value = True
         mock_generate_signed_url_task.return_value = {
             "detail": "Failed",
             "data": "Storage limit exceeded",
@@ -80,10 +61,7 @@ def test_generate_presigned_post_storagelimited(client, create_test_db):
 
 
 def test_indexfile_success(client, create_test_db):
-    with patch("routers.upload.throttler.consume") as mock_consume, patch(
-        "routers.upload.index_media_task"
-    ) as mock_index_media_task:
-        mock_consume.return_value = True
+    with patch("routers.upload.index_media_task") as mock_index_media_task:
         mock_index_media_task.return_value = {
             "detail": "Success",
             "data": {
@@ -118,27 +96,8 @@ def test_indexfile_success(client, create_test_db):
         }
 
 
-def test_indexfile_rate_limited(client, create_test_db):
-    with patch("routers.upload.throttler.consume") as mock_consume, patch(
-        "routers.upload.index_media_task"
-    ) as mock_index_media_task:
-        mock_consume.return_value = False
-        response = client.post(
-            "/upload/indexfile",
-            json=IndexContent(
-                config={"data": {}},
-                processtype="video",
-                md5="md5_hash",
-            ).dict(),
-        )
-        assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
-
-
 def test_indexfile_failed(client, create_test_db):
-    with patch("routers.upload.throttler.consume") as mock_consume, patch(
-        "routers.upload.index_media_task"
-    ) as mock_index_media_task:
-        mock_consume.return_value = True
+    with patch("routers.upload.index_media_task") as mock_index_media_task:
         mock_index_media_task.return_value = {
             "detail": "Failed",
             "data": "File not found",

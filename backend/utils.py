@@ -12,8 +12,6 @@ import pystache
 from pathlib import Path
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from token_throttler import TokenBucket, TokenThrottler
-from token_throttler.storage import RuntimeStorage
 import smtplib
 import re
 import ssl
@@ -27,7 +25,7 @@ elif APP_ENV == "github":
 elif APP_ENV == "docker":
     load_dotenv(dotenv_path=".env.docker")
 else:
-    load_dotenv(dotenv_path=".env.production")
+    load_dotenv(dotenv_path=".env")
 
 ENV = os.getenv("ENV")
 
@@ -94,6 +92,10 @@ STRIPE_PUBLIC_KEY = os.getenv("STRIPE_PUBLIC_KEY")
 # Openexchange Credentials
 OPENEXCHANGERATES_API_KEY = os.getenv("OPENEXCHANGERATES_API_KEY")
 
+# FastAPI Config
+HOST = os.getenv("HOST")
+PORT = os.getenv("PORT")
+
 
 STORAGE_LIMITS = {
     "free": 2 * 1024**3,  # 2GB
@@ -120,15 +122,6 @@ r2_resource = boto3.resource(
     endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
 )
 
-throttler: TokenThrottler = TokenThrottler(cost=1, storage=RuntimeStorage())
-throttler.add_bucket(
-    identifier="user_id", bucket=TokenBucket(replenish_time=60, max_tokens=100)
-)
-
-throttler_checkout = TokenThrottler(cost=1, storage=RuntimeStorage())
-throttler_checkout.add_bucket(
-    identifier="user_id", bucket=TokenBucket(replenish_time=600, max_tokens=10)
-)
 
 password_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

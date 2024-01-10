@@ -1,8 +1,6 @@
-from celery import Celery
 from fastapi import FastAPI, Depends, HTTPException
 import models
 from sqlalchemy.orm import Session
-import os
 from database import engine, SessionLocal
 from routers import (
     auth,
@@ -18,7 +16,7 @@ from routers import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from utils import throttler, GOOGLE_SECRET
+from utils import GOOGLE_SECRET, HOST, PORT
 from prometheus_client import make_asgi_app
 
 
@@ -64,9 +62,7 @@ app.include_router(dev.router)
 
 @app.get("/")
 async def root(db: Session = Depends(get_db)):
-    if throttler.consume(identifier="user_id"):
-        return {"message": "Server is running"}
-    raise HTTPException(status_code=429, detail="Too Many Requests")
+    return {"message": "Server is running"}
 
 
 metrics_app = make_asgi_app()
@@ -75,14 +71,10 @@ app.mount("/metrics", metrics_app)
 
 if __name__ == "__main__":
     import uvicorn
-    import ssl
 
     uvicorn.run(
         "main:app",
-        host="localhost",
-        port=8000,
-        ssl_version=ssl.PROTOCOL_SSLv23,
-        ssl_keyfile="./localhost-key.pem",
-        ssl_certfile="./localhost.pem",
+        host=HOST,
+        port=PORT,
         reload=True,
     )

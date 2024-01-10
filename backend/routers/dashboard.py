@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from starlette import status
 from routers.auth import TokenData, get_current_user
 from utils import sql_dict
-from utils import throttler, STORAGE_LIMITS
+from utils import STORAGE_LIMITS
 from script_utils.util import *
 
 
@@ -97,8 +97,6 @@ def dashboard_task(id: int, db: Session):
 async def get_stats(
     current_user: TokenData = Depends(get_current_user), db: Session = Depends(get_db)
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     result = dashboard_task(current_user.user_id, db)
     if result["detail"] == "Success":
         result["data"]["downloads"] = nice_unit(niceBytes(result["data"]["downloads"]))

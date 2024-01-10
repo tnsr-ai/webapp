@@ -27,7 +27,7 @@ from utils import (
     CLOUDFLARE_CONTENT,
     CONTENT_EXPIRE,
 )
-from utils import throttler, remove_key
+from utils import remove_key
 
 
 router = APIRouter(
@@ -210,8 +210,6 @@ async def generate_url(
     db: Session = Depends(get_db),
     rd: redis.Redis = Depends(get_redis),
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     try:
         if limit > 12:
             raise HTTPException(status_code=400, detail="Limit cannot be more than 10")
@@ -328,8 +326,6 @@ async def get_content_list(
     db: Session = Depends(get_db),
     rd: redis.Redis = Depends(get_redis),
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     if limit > 5:
         raise HTTPException(status_code=400, detail="Limit cannot be more than 5")
     try:
@@ -388,8 +384,6 @@ async def download_content(
     db: Session = Depends(get_db),
     rd: redis.Redis = Depends(get_redis),
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     result = download_content_task(
         current_user.user_id, content_id, content_type, db, rd
     )
@@ -439,8 +433,6 @@ async def download_complete(
     db: Session = Depends(get_db),
     rd: redis.Redis = Depends(get_redis),
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     result = download_complete_task(
         current_user.user_id, content_id, content_type, db, rd
     )
@@ -492,8 +484,6 @@ async def rename_project(
     db: Session = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     try:
         result = rename_content_celery(
             id, content_type, newtitle, current_user.user_id, db

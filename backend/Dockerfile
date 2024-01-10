@@ -1,17 +1,6 @@
 # Use an official Python runtime as a parent image
 FROM python:3.9-slim
 
-# Set environment variables
-ENV ENV "development"
-ENV TNSR_DOMAIN "https//localhost3000"
-ENV CONTENT_EXPIRE "86400"
-ENV JWT_SECRET "dcc9aef90f841fbf5bdfcc4eb15a3a45bf644ddfe1c88927c45af177e2db49e3"
-ENV JWT_REFRESH_SECRET "653197c40bddf183fbb3bad4bde9f976e908f1c462651903bf742170509d386f"
-ENV JWT_ALGORITHM "HS256"
-ENV JWT_ACCESS_TOKEN_EXPIRE_MINUTES "2880"
-ENV JWT_REFRESH_TOKEN_EXPIRE_MINUTES "60 * 24 * 7"
-ENV JWT_AUTH_TOKEN "NwBH9UcQ6m0I6zRp+UqJ0VeVoGOdbMX+ijKYOmWz//"
-
 # Set work directory
 WORKDIR /app
 COPY . /app

@@ -48,12 +48,9 @@ def test_user(test_db_session):
 
 
 def test_create_user_success(client, create_test_db):
-    with patch("routers.auth.throttler.consume") as mock_consume, patch(
-        "routers.auth.user_exists"
-    ) as mock_user_exists, patch(
+    with patch("routers.auth.user_exists") as mock_user_exists, patch(
         "routers.auth.send_email_task.delay"
     ) as mock_send_email:
-        mock_consume.return_value = True
         mock_user_exists.return_value = False
         create_user_data = {
             "firstname": "John",
@@ -81,10 +78,7 @@ def test_create_user_success(client, create_test_db):
 
 
 def test_create_user_existing_user(client, create_test_db):
-    with patch("routers.auth.throttler.consume") as mock_consume, patch(
-        "routers.auth.user_exists"
-    ) as mock_user_exists:
-        mock_consume.return_value = True
+    with patch("routers.auth.user_exists") as mock_user_exists:
         mock_user_exists.return_value = True
         create_user_data = {
             "firstname": "Jane",
@@ -97,27 +91,10 @@ def test_create_user_existing_user(client, create_test_db):
         assert response.json()["detail"] == "Email already exists"
 
 
-def test_create_user_rate_limited(client, create_test_db):
-    with patch("routers.auth.throttler.consume") as mock_consume:
-        mock_consume.return_value = False
-        create_user_data = {
-            "firstname": "Alice",
-            "lastname": "Johnson",
-            "email": "alice.johnson@example.com",
-            "password": "securepassword123",
-        }
-        response = client.post("/auth/signup", json=create_user_data)
-        assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
-        assert response.json()["detail"] == "Too Many Requests"
-
-
 def test_create_user_internal_error(client, create_test_db):
-    with patch("routers.auth.throttler.consume") as mock_consume, patch(
-        "routers.auth.user_exists"
-    ) as mock_user_exists, patch(
+    with patch("routers.auth.user_exists") as mock_user_exists, patch(
         "routers.auth.create_user_task"
     ) as mock_create_user_task:
-        mock_consume.return_value = True
         mock_user_exists.return_value = False
         mock_create_user_task.return_value = {
             "detail": "Failed",
@@ -139,11 +116,8 @@ def test_login_user_success(client, create_test_db):
         "routers.auth.create_access_token"
     ) as mock_create_access_token, patch(
         "routers.auth.create_refresh_token"
-    ) as mock_create_refresh_token, patch(
-        "routers.auth.throttler.consume"
-    ) as mock_consume:
+    ) as mock_create_refresh_token:
         mock_authenticate_user.return_value = True
-        mock_consume.return_value = True
         mock_create_access_token.return_value = "access_token_example"
         mock_create_refresh_token.return_value = "refresh_token_example"
         login_data = {
@@ -159,12 +133,8 @@ def test_login_user_success(client, create_test_db):
 
 
 def test_login_user_invalid_credentials(client, create_test_db):
-    with patch("routers.auth.authenticate_user") as mock_authenticate_user, patch(
-        "routers.auth.throttler.consume"
-    ) as mock_consume:
+    with patch("routers.auth.authenticate_user") as mock_authenticate_user:
         mock_authenticate_user.return_value = False
-        mock_consume.return_value = True
-
         login_data = {"username": "john.doe@example.com", "password": "wrongpassword"}
 
         response = client.post("/auth/login", data=login_data)
@@ -173,30 +143,12 @@ def test_login_user_invalid_credentials(client, create_test_db):
         assert response.json()["detail"] == "Invalid email or password"
 
 
-def test_login_user_rate_limited(client, create_test_db):
-    with patch("routers.auth.throttler.consume") as mock_consume:
-        mock_consume.return_value = False
-
-        login_data = {
-            "username": "john.doe@example.com",
-            "password": "securepassword123",
-        }
-
-        response = client.post("/auth/login", data=login_data)
-
-        assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
-        assert response.json()["detail"] == "Too Many Requests"
-
-
 def test_login_user_internal_error(client, create_test_db):
-    with patch("routers.auth.login_user_task") as mock_login_user_task, patch(
-        "routers.auth.throttler.consume"
-    ) as mock_consume:
+    with patch("routers.auth.login_user_task") as mock_login_user_task:
         mock_login_user_task.return_value = {
             "detail": "Failed",
             "data": "Internal server error",
         }
-        mock_consume.return_value = True
 
         login_data = {
             "username": "john.doe@example.com",
@@ -208,10 +160,7 @@ def test_login_user_internal_error(client, create_test_db):
 
 
 def test_logout_user_success(client, create_test_db):
-    with patch("routers.auth.throttler.consume") as mock_consume, patch(
-        "routers.auth.logout_user_task"
-    ) as mock_logout_user_task:
-        mock_consume.return_value = True
+    with patch("routers.auth.logout_user_task") as mock_logout_user_task:
         mock_logout_user_task.return_value = {
             "data": "Logout Successfully",
             "detail": "Success",
@@ -225,10 +174,7 @@ def test_logout_user_success(client, create_test_db):
 
 
 def test_logout_user_failed(client, create_test_db):
-    with patch("routers.auth.throttler.consume") as mock_consume, patch(
-        "routers.auth.logout_user_task"
-    ) as mock_logout_user_task:
-        mock_consume.return_value = True
+    with patch("routers.auth.logout_user_task") as mock_logout_user_task:
         mock_logout_user_task.return_value = {
             "data": "Logout Successfully",
             "detail": "Failed",
@@ -237,19 +183,8 @@ def test_logout_user_failed(client, create_test_db):
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
-def test_logout_user_rate_limited(client, create_test_db):
-    with patch("routers.auth.throttler.consume") as mock_consume:
-        mock_consume.return_value = False
-        response = client.get("/auth/logout")
-        assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
-        assert response.json()["detail"] == "Too Many Requests"
-
-
 def test_verify_success(client, create_test_db):
-    with patch("routers.auth.throttler.consume") as mock_consume, patch(
-        "routers.auth.verify_user_task"
-    ) as mock_verify_user_task:
-        mock_consume.return_value = True
+    with patch("routers.auth.verify_user_task") as mock_verify_user_task:
         mock_verify_user_task.return_value = {
             "detail": "Success",
             "data": {
@@ -272,10 +207,7 @@ def test_verify_success(client, create_test_db):
 
 
 def test_verify_failed(client, create_test_db):
-    with patch("routers.auth.throttler.consume") as mock_consume, patch(
-        "routers.auth.verify_user_task"
-    ) as mock_verify_user_task:
-        mock_consume.return_value = True
+    with patch("routers.auth.verify_user_task") as mock_verify_user_task:
         mock_verify_user_task.return_value = {
             "detail": "Success",
             "data": {
@@ -295,10 +227,7 @@ def test_verify_failed(client, create_test_db):
 
 
 def test_refresh_success(client, create_test_db):
-    with patch("routers.auth.throttler.consume") as mock_consume, patch(
-        "routers.auth.refresh_user_task"
-    ) as mock_refresh_user_task:
-        mock_consume.return_value = True
+    with patch("routers.auth.refresh_user_task") as mock_refresh_user_task:
         mock_refresh_user_task.return_value = {
             "data": {
                 "access_token": "eyJ.eySJ9.HO_8jt_W7fQIFr0",
@@ -314,10 +243,7 @@ def test_refresh_success(client, create_test_db):
 
 
 def test_refresh_failed(client, create_test_db):
-    with patch("routers.auth.throttler.consume") as mock_consume, patch(
-        "routers.auth.refresh_user_task"
-    ) as mock_refresh_user_task:
-        mock_consume.return_value = True
+    with patch("routers.auth.refresh_user_task") as mock_refresh_user_task:
         mock_refresh_user_task.return_value = {
             "data": {
                 "access_token": "eyJ.eySJ9.HO_8jt_W7fQIFr0",
@@ -332,17 +258,16 @@ def test_refresh_failed(client, create_test_db):
 
 def test_google_login_success(client, create_test_db):
     redirect_url = "https://example.com/redirect"
-    with patch("routers.auth.throttler.consume") as mock_consume, patch(
+    with patch(
         "routers.auth.google_sso.get_login_redirect", return_value=redirect_url
     ) as mock_login_redirect:
-        mock_consume.return_value = True
         response = client.get("/auth/google/login")
         assert response.status_code == status.HTTP_200_OK
         assert response.text == f'"{redirect_url}"'
 
 
 def test_google_callback_success(client, create_test_db):
-    with patch("routers.auth.throttler.consume") as mock_consume, patch(
+    with patch(
         "routers.auth.google_sso.verify_and_process"
     ) as mock_verify_and_process, patch(
         "routers.auth.google_callback_task"
@@ -351,7 +276,6 @@ def test_google_callback_success(client, create_test_db):
     ) as mock_create_access_token, patch(
         "routers.auth.create_refresh_token"
     ) as mock_create_refresh_token:
-        mock_consume.return_value = True
         mock_verify_and_process.return_value = GoogleData(
             id=1,
             picture="pic_link",
@@ -371,12 +295,9 @@ def test_google_callback_success(client, create_test_db):
 
 def test_forgot_password_success(client, test_user):
     forgot_model = ForgotPassword(email=test_user.email)
-    with patch("routers.auth.throttler.consume") as mock_consume, patch(
-        "routers.auth.forgot_password_task"
-    ) as mock_forgot_password_task, patch(
+    with patch("routers.auth.forgot_password_task") as mock_forgot_password_task, patch(
         "os.getenv", return_value="https://example.com"
     ) as mock_getenv:
-        mock_consume.return_value = True
         mock_forgot_password_task.return_value = {
             "detail": "Success",
             "data": f"Email sent to {test_user.email}",
@@ -389,12 +310,9 @@ def test_forgot_password_success(client, test_user):
 
 def test_forgot_password_failed(client):
     forgot_model = ForgotPassword(email="demo@tnsr.ai")
-    with patch("routers.auth.throttler.consume") as mock_consume, patch(
-        "routers.auth.forgot_password_task"
-    ) as mock_forgot_password_task, patch(
+    with patch("routers.auth.forgot_password_task") as mock_forgot_password_task, patch(
         "os.getenv", return_value="https://example.com"
     ) as mock_getenv:
-        mock_consume.return_value = True
         mock_forgot_password_task.return_value = {
             "detail": "Failed",
             "data": f"Email sent to demo@tnsr.ai",
@@ -406,10 +324,7 @@ def test_forgot_password_failed(client):
 
 
 def test_verify_email_success(client, test_user):
-    with patch("routers.auth.throttler.consume") as mock_consume, patch(
-        "routers.auth.verify_email_task"
-    ) as mock_verify_email_task:
-        mock_consume.return_value = True
+    with patch("routers.auth.verify_email_task") as mock_verify_email_task:
         mock_verify_email_task.return_value = {
             "detail": "Success",
             "data": "Email verified successfully",
@@ -421,10 +336,7 @@ def test_verify_email_success(client, test_user):
 
 
 def test_verify_email_failed(client, test_user):
-    with patch("routers.auth.throttler.consume") as mock_consume, patch(
-        "routers.auth.verify_email_task"
-    ) as mock_verify_email_task:
-        mock_consume.return_value = True
+    with patch("routers.auth.verify_email_task") as mock_verify_email_task:
         mock_verify_email_task.return_value = {
             "detail": "Failed",
             "data": "Email not verified",
