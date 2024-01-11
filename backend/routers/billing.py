@@ -19,6 +19,7 @@ import requests
 import pystache
 from pathlib import Path
 from pyhtml2pdf import converter
+from fastapi_limiter.depends import RateLimiter
 import stripe
 from utils import TNSR_DOMAIN, STRIPE_SECRET_KEY, OPENEXCHANGERATES_API_KEY
 from utils import (
@@ -83,7 +84,11 @@ def billing_task(id: int, db: Session):
         return {"detail": "Failed", "data": str(e)}
 
 
-@router.get("/get_balance", status_code=status.HTTP_200_OK)
+@router.get(
+    "/get_balance",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(RateLimiter(times=10, seconds=60))],
+)
 async def get_stats(
     current_user: TokenData = Depends(get_current_user), db: Session = Depends(get_db)
 ):
@@ -158,7 +163,11 @@ def pricing_task(country_code: str, db: Session):
         return {"detail": "Failed", "data": str(e)}
 
 
-@router.get("/price_conversion", status_code=status.HTTP_200_OK)
+@router.get(
+    "/price_conversion",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(RateLimiter(times=10, seconds=60))],
+)
 async def price_conversion(
     countryCode: str,
     db: Session = Depends(get_db),
@@ -299,7 +308,7 @@ def send_paymentFailed_email_task(user_id: int, credits: int, amount: str):
     return {"detail": "Success", "data": "Email sent successfully"}
 
 
-@router.post("/checkout")
+@router.post("/checkout", dependencies=[Depends(RateLimiter(times=5, seconds=60))])
 async def create_checkout_session(
     checkout: CheckoutModel,
     current_user: TokenData = Depends(get_current_user),
@@ -471,7 +480,11 @@ def get_invoices_task(user_id: int, limit: int, offset: int, db: Session):
         return {"detail": "Failed", "data": str(e)}
 
 
-@router.get("/get_invoices", status_code=status.HTTP_200_OK)
+@router.get(
+    "/get_invoices",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+)
 async def get_invoices(
     limit: int = 5,
     offset: int = 0,
@@ -555,7 +568,11 @@ def remove_file(path: str):
         os.remove(path)
 
 
-@router.get("/download_invoice", status_code=status.HTTP_200_OK)
+@router.get(
+    "/download_invoice",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+)
 async def download_invoice(
     invoice_id: int,
     background_tasks: BackgroundTasks,

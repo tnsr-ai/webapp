@@ -18,6 +18,7 @@ import hashlib
 from celeryworker import celeryapp
 from cryptography.fernet import Fernet
 from routers.auth import authenticate_user, get_current_user, TokenData
+from fastapi_limiter.depends import RateLimiter
 from utils import LOKI_URL, LOKI_USERNAME, LOKI_PASSWORD, CRYPTO_TOKEN
 
 load_dotenv()
@@ -77,7 +78,7 @@ def register_job_celery(job_details: dict, user_id: int) -> None:
         return {"detail": "Failed", "data": "Unable to update settings"}
 
 
-@router.post("/register_job")
+@router.post("/register_job", dependencies=[Depends(RateLimiter(times=5, seconds=60))])
 async def register_job(
     job_dict: RegisterJobModel,
     db: db_dependency,
@@ -136,7 +137,7 @@ async def fetch_jobs(job_id: int, key: str, db: db_dependency):
         raise HTTPException(status_code=400, detail="Unable to fetch jobs")
 
 
-@router.get("/fetch_routes")
+@router.get("/fetch_routes", dependencies=[Depends(RateLimiter(times=60, seconds=60))])
 async def fetch_routes():
     try:
         ROUTES = {
@@ -166,7 +167,9 @@ def update_job_status_celery(job_id: int, job_status: str, job_process: str, key
         return {"detail": "Failed", "data": str(e)}
 
 
-@router.post("/update_job_status")
+@router.post(
+    "/update_job_status", dependencies=[Depends(RateLimiter(times=60, seconds=60))]
+)
 async def update_job_status(
     job_id: int, job_status: str, job_process: str, key: str, db: db_dependency
 ):
@@ -189,7 +192,9 @@ async def send_notification_celery(user_id: int, job_id: int):
         return {"detail": "Failed", "data": str(e)}
 
 
-@router.post("/send_notification")
+@router.post(
+    "/send_notification", dependencies=[Depends(RateLimiter(times=30, seconds=60))]
+)
 async def send_notification(user_id: int, job_id: int, db: db_dependency):
     try:
         result = send_notification_celery.delay(user_id, job_id)

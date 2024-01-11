@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 from utils import *
 from routers.auth import authenticate_user, get_current_user, TokenData
 import models
+from fastapi_limiter.depends import RateLimiter
 from script_utils.util import *
 from dotenv import load_dotenv
 
@@ -75,7 +76,9 @@ def change_password_task(passworddict: dict, user_id: int, db: Session) -> None:
         return {"detail": "Failed", "data": "Unable to change password"}
 
 
-@router.post("/change_password")
+@router.post(
+    "/change_password", dependencies=[Depends(RateLimiter(times=10, seconds=60))]
+)
 async def change_password(
     passworddict: PasswordDict,
     current_user: TokenData = Depends(get_current_user),
@@ -124,7 +127,7 @@ def get_settings_task(user_id: int, db: Session) -> None:
         return {"detail": "Failed", "data": "Unable to retrieve data"}
 
 
-@router.get("/get_settings")
+@router.get("/get_settings", dependencies=[Depends(RateLimiter(times=30, seconds=60))])
 async def get_settings(
     db: Session = Depends(get_db), current_user: TokenData = Depends(get_current_user)
 ):
@@ -154,7 +157,9 @@ def update_settings_task(new_settings: dict, user_id: int, db: Session) -> None:
         return {"detail": "Failed", "data": "Unable to update settings"}
 
 
-@router.post("/update_settings")
+@router.post(
+    "/update_settings", dependencies=[Depends(RateLimiter(times=10, seconds=60))]
+)
 async def update_settings(
     new_settings: NotificationDict,
     db: Session = Depends(get_db),

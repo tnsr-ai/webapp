@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, Request, Response, HTTPException
 import models
 from sqlalchemy.orm import Session
 from database import engine, SessionLocal
@@ -14,10 +14,16 @@ from routers import (
     billing,
     dev,
 )
+import redis.asyncio as redis
+from datetime import datetime, timedelta
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from utils import GOOGLE_SECRET, HOST, PORT
+from typing import Annotated, Any, Callable, TypeVar
+from utils import GOOGLE_SECRET, HOST, PORT, REDIS_HOST, REDIS_PORT
 from prometheus_client import make_asgi_app
+from fastapi_limiter import FastAPILimiter
+from fastapi_limiter.depends import RateLimiter
 
 
 def get_db():
@@ -60,9 +66,17 @@ app.include_router(billing.router)
 app.include_router(dev.router)
 
 
-@app.get("/")
-async def root(db: Session = Depends(get_db)):
-    return {"message": "Server is running"}
+@app.on_event("startup")
+async def startup():
+    redis_connection = redis.from_url(
+        "redis://127.0.0.1", encoding="utf-8", decode_responses=True
+    )
+    await FastAPILimiter.init(redis_connection)
+
+
+@app.get("/", dependencies=[Depends(RateLimiter(times=10, seconds=60))])
+async def root(req: Request):
+    return {"status": "Server is running"}
 
 
 metrics_app = make_asgi_app()

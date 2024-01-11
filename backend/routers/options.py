@@ -17,6 +17,7 @@ from script_utils.util import *
 from dotenv import load_dotenv
 from utils import TNSR_DOMAIN, CLOUDFLARE_CONTENT, CLOUDFLARE_METADATA
 from celeryworker import celeryapp
+from fastapi_limiter.depends import RateLimiter
 
 load_dotenv()
 
@@ -151,7 +152,10 @@ def delete_project_celery(id: int, content_type: str, user_id: int, db: Session)
         return {"detail": "Failed", "data": str(e)}
 
 
-@router.delete("/delete-project/{id}/{content_type}")
+@router.delete(
+    "/delete-project/{id}/{content_type}",
+    dependencies=[Depends(RateLimiter(times=10, seconds=60))],
+)
 async def delete_project(
     id: int,
     content_type: str,
@@ -198,7 +202,10 @@ def rename_project_celery(
         return {"detail": "Failed", "data": str(e)}
 
 
-@router.put("/rename-project/{id}/{content_type}/{newtitle}")
+@router.put(
+    "/rename-project/{id}/{content_type}/{newtitle}",
+    dependencies=[Depends(RateLimiter(times=10, seconds=60))],
+)
 async def rename_project(
     id: int,
     content_type: str,
@@ -242,7 +249,11 @@ def resend_email_task(user_id: int):
     return {"detail": "Success", "data": "Email sent successfully"}
 
 
-@router.post("/resend-email", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/resend-email",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+)
 async def resend_email(
     response: Response,
     current_user: TokenData = Depends(get_current_user),

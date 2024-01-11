@@ -23,6 +23,7 @@ import secrets
 import redis
 import copy
 from celeryworker import celeryapp
+from fastapi_limiter.depends import RateLimiter
 from utils import (
     get_hashed_password,
     verify_password,
@@ -281,7 +282,11 @@ def send_email_task(name: int, verification_link: str, receiver_email: str):
     return {"detail": "Success", "data": "Email sent successfully"}
 
 
-@router.post("/signup", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/signup",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+)
 async def create_user(
     response: Response,
     create_user_request: CreateUser,
@@ -404,7 +409,12 @@ def login_user_task(email: str, password: str, db: db_dependency):
         return {"detail": "Failed", "data": str(e)}
 
 
-@router.post("/login", response_model=User, status_code=status.HTTP_200_OK)
+@router.post(
+    "/login",
+    response_model=User,
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+)
 async def login_user(
     response: Response,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
@@ -482,7 +492,11 @@ def logout_user_task(user_id: int, db: db_dependency):
         return {"detail": "Failed", "data": str(e)}
 
 
-@router.get("/logout", status_code=status.HTTP_200_OK)
+@router.get(
+    "/logout",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+)
 async def logout_user(
     response: Response,
     db: Session = Depends(get_db),
@@ -529,7 +543,11 @@ def verify_user_task(
         return {"detail": "Failed", "data": str(e)}
 
 
-@router.get("/verify", status_code=status.HTTP_200_OK)
+@router.get(
+    "/verify",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+)
 async def check_user(
     db: Session = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
@@ -584,7 +602,11 @@ def refresh_user_task(user_id: int, db: db_dependency):
         return {"detail": "Failed", "data": str(e)}
 
 
-@router.get("/refresh", status_code=status.HTTP_200_OK)
+@router.get(
+    "/refresh",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+)
 async def check_user_refresh(
     response: Response,
     db: Session = Depends(get_db),
@@ -634,7 +656,7 @@ google_sso = GoogleSSO(
 )
 
 
-@router.get("/google/login")
+@router.get("/google/login", dependencies=[Depends(RateLimiter(times=10, seconds=60))])
 async def google_login():
     return await google_sso.get_login_redirect(
         params={"prompt": "consent", "access_type": "offline"}
@@ -776,7 +798,11 @@ def forgot_password_task(name: str, verification_link: str, receiver_email: str)
         return {"detail": "Failed", "data": str(e)}
 
 
-@router.post("/forgotpassword", status_code=status.HTTP_200_OK)
+@router.post(
+    "/forgotpassword",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+)
 async def forgot_password(
     response: Response, forgot_model: ForgotPassword, db: Session = Depends(get_db)
 ):
@@ -823,7 +849,11 @@ def verify_email_task(
         return {"detail": "Failed", "data": str(e)}
 
 
-@router.get("/verifyemail", status_code=status.HTTP_201_CREATED)
+@router.get(
+    "/verifyemail",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+)
 async def verify_email(
     user_id: int,
     email_token: str,

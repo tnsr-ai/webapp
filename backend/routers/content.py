@@ -16,6 +16,7 @@ from celeryworker import celeryapp
 from routers.auth import get_current_user, TokenData
 import json
 import re
+from fastapi_limiter.depends import RateLimiter
 from utils import (
     REDIS_HOST,
     REDIS_PORT,
@@ -201,7 +202,11 @@ def get_content_table(user_id, table_name, limit, offset, db):
         return {"detail": "Failed", "data": "Unable to fetch content"}
 
 
-@router.get("/get_content", status_code=status.HTTP_200_OK)
+@router.get(
+    "/get_content",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(RateLimiter(times=60, seconds=60))],
+)
 async def generate_url(
     limit: int,
     offset: int,
@@ -316,7 +321,11 @@ def get_content_list_celery(
         return {"detail": "Failed", "data": "Unable to fetch content"}
 
 
-@router.get("/get_content_list", status_code=status.HTTP_200_OK)
+@router.get(
+    "/get_content_list",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(RateLimiter(times=60, seconds=60))],
+)
 async def get_content_list(
     limit: int,
     offset: int,
@@ -376,7 +385,11 @@ def download_content_task(
         return {"detail": "Failed", "data": "Unable to fetch content"}
 
 
-@router.get("/download_content", status_code=status.HTTP_200_OK)
+@router.get(
+    "/download_content",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(RateLimiter(times=10, seconds=60))],
+)
 async def download_content(
     content_id: int,
     content_type: str,
@@ -425,7 +438,11 @@ def download_complete_task(
         return {"detail": "Failed", "data": "Unable to fetch content"}
 
 
-@router.get("/download_complete", status_code=status.HTTP_200_OK)
+@router.get(
+    "/download_complete",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(RateLimiter(times=60, seconds=60))],
+)
 async def download_complete(
     content_id: int,
     content_type: str,
@@ -476,7 +493,10 @@ def rename_content_celery(
         return {"detail": "Failed", "data": str(e)}
 
 
-@router.put("/rename-content/{id}/{content_type}/{newtitle}")
+@router.put(
+    "/rename-content/{id}/{content_type}/{newtitle}",
+    dependencies=[Depends(RateLimiter(times=10, seconds=60))],
+)
 async def rename_project(
     id: int,
     content_type: str,

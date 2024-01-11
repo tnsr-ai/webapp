@@ -19,6 +19,7 @@ from routers.auth import get_current_user, TokenData
 import models
 from script_utils.util import *
 from dotenv import load_dotenv
+from fastapi_limiter.depends import RateLimiter
 import ast
 import shutil
 import binascii
@@ -155,7 +156,11 @@ def generate_signed_url_task(uploaddict: dict, user_id: int, db: Session):
         return {"detail": "Failed", "data": "Filetype not supported"}
 
 
-@router.post("/generate_presigned_post", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/generate_presigned_post",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(RateLimiter(times=20, seconds=60))],
+)
 async def generate_url(
     upload: UploadDict,
     current_user: TokenData = Depends(get_current_user),
@@ -356,7 +361,11 @@ def index_media_task(indexdata: dict, user_id: int, db: Session):
         return {"detail": "Failed", "data": "Invalid processtype"}
 
 
-@router.post("/indexfile", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/indexfile",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(RateLimiter(times=20, seconds=60))],
+)
 async def file_index(
     indexdata: IndexContent,
     current_user: TokenData = Depends(get_current_user),

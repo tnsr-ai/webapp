@@ -12,6 +12,7 @@ from starlette import status
 from routers.auth import TokenData, get_current_user
 from utils import sql_dict
 from utils import STORAGE_LIMITS
+from fastapi_limiter.depends import RateLimiter
 from script_utils.util import *
 
 
@@ -93,7 +94,11 @@ def dashboard_task(id: int, db: Session):
         return {"detail": "Failed", "data": str(e)}
 
 
-@router.get("/get_stats", status_code=status.HTTP_200_OK)
+@router.get(
+    "/get_stats",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(RateLimiter(times=30, seconds=60))],
+)
 async def get_stats(
     current_user: TokenData = Depends(get_current_user), db: Session = Depends(get_db)
 ):

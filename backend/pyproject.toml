@@ -58,6 +58,7 @@ opentelemetry-instrumentation-fastapi = "^0.43b0"
 opentelemetry-instrumentation-logging = "^0.43b0"
 opentelemetry-exporter-otlp = "^1.22.0"
 opentelemetry-distro = "^0.43b0"
+fastapi-limiter = "^0.1.6"
 
 [tool.poetry.dev-dependencies]
 

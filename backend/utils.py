@@ -15,6 +15,8 @@ from email.mime.text import MIMEText
 import smtplib
 import re
 import ssl
+from token_throttler import TokenBucket, TokenThrottler
+from token_throttler.storage import RuntimeStorage
 
 load_dotenv()
 APP_ENV = os.getenv("APP_ENV")
@@ -98,9 +100,9 @@ PORT = os.getenv("PORT")
 
 
 STORAGE_LIMITS = {
-    "free": 2 * 1024**3,  # 2GB
-    "standard": 20 * 1024**3,  # 20GB
-    "deluxe": 100 * 1024**3,  # 100GB
+    "free": 2 * 1024**3,
+    "standard": 20 * 1024**3,
+    "deluxe": 100 * 1024**3,
 }
 
 r2_client = boto3.client(
@@ -122,6 +124,10 @@ r2_resource = boto3.resource(
     endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
 )
 
+throttler: TokenThrottler = TokenThrottler(cost=1, storage=RuntimeStorage())
+throttler.add_bucket(
+    identifier="user_id", bucket=TokenBucket(replenish_time=60, max_tokens=10)
+)
 
 password_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
