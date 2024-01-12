@@ -23,6 +23,7 @@ from fastapi_limiter.depends import RateLimiter
 import ast
 import shutil
 import binascii
+from utils import logger
 
 load_dotenv()
 
@@ -168,9 +169,13 @@ async def generate_url(
 ):
     result = generate_signed_url_task(upload.dict(), current_user.user_id, db)
     if result["detail"] == "Failed":
+        logger.error(f"Failed to generate presigned url for {current_user.user_id}")
         if "Storage limit exceeded" in result["data"]:
+            logger.error(f"Storage limit exceeded for {current_user.user_id}")
             raise HTTPException(status_code=507, detail=result["data"])
+        logger.error(f"Failed to generate presigned url for {current_user.user_id}")
         raise HTTPException(status_code=400, detail=result["data"])
+    logger.info(f"Presigned url generated for {current_user.user_id}")
     return result
 
 
@@ -372,8 +377,11 @@ async def file_index(
     db: Session = Depends(get_db),
 ):
     if indexdata.processtype not in ["video", "audio", "image"]:
+        logger.error(f"Invalid processtype for {current_user.user_id}")
         raise HTTPException(status_code=400, detail="Invalid processtype")
     result = index_media_task(indexdata.dict(), current_user.user_id, db)
     if result["detail"] == "Failed":
+        logger.error(f"Failed to index file for {current_user.user_id}")
         raise HTTPException(status_code=400, detail=result["data"])
+    logger.info(f"File indexed for {current_user.user_id}")
     return HTTPException(status_code=201, detail="File indexed")

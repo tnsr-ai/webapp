@@ -28,7 +28,7 @@ from utils import (
     CLOUDFLARE_CONTENT,
     CONTENT_EXPIRE,
 )
-from utils import remove_key
+from utils import remove_key, logger
 
 
 router = APIRouter(
@@ -217,11 +217,13 @@ async def generate_url(
 ):
     try:
         if limit > 12:
+            logger.error("Limit cannot be more than 12")
             raise HTTPException(status_code=400, detail="Limit cannot be more than 10")
         result_ = get_content_table(
             current_user.user_id, content_type, limit, offset, db
         )
         if result_["detail"] == "Failed":
+            logger.error("Unable to fetch content")
             raise HTTPException(status_code=400, detail="Unable to fetch content")
         result_ = result_["data"]
         result = add_presigned(
@@ -229,8 +231,10 @@ async def generate_url(
         )
         result = filter_data(result)
         result = {"data": result, "detail": "Success", "total": result_[1]}
+        logger.info("Content fetched successfully")
         return result
     except Exception as e:
+        logger.error("Something went wrong - " + str(e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Something went wrong"
         )
@@ -336,14 +340,17 @@ async def get_content_list(
     rd: redis.Redis = Depends(get_redis),
 ):
     if limit > 5:
+        logger.error("Limit cannot be more than 5")
         raise HTTPException(status_code=400, detail="Limit cannot be more than 5")
     try:
         result = get_content_list_celery(
             db, content_id, content_type, current_user.user_id, limit, offset
         )
         if result["detail"] == "Failed":
+            logger.error("Unable to fetch content - " + str(result["data"]))
             raise HTTPException(status_code=400, detail="Unable to fetch content")
         if len(result["data"]) == 0:
+            logger.error("No more content")
             raise HTTPException(status_code=400, detail="No more content")
         result["data"] = add_presigned(
             result["data"], "thumbnail", "thumbnail_link", CLOUDFLARE_METADATA, rd
@@ -352,8 +359,10 @@ async def get_content_list(
             result["data"], "link", "content_link", CLOUDFLARE_CONTENT, rd
         )
         result["data"] = filter_data(result["data"])
+        logger.info("Content fetched successfully")
         return result
     except Exception as e:
+        logger.error("Something went wrong - " + str(e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Something went wrong"
         )
@@ -401,7 +410,9 @@ async def download_content(
         current_user.user_id, content_id, content_type, db, rd
     )
     if result["detail"] == "Failed":
+        logger.error("Unable to fetch content - " + str(result["data"]))
         raise HTTPException(status_code=400, detail="Unable to fetch content")
+    logger.info("Content fetched successfully")
     return result
 
 
@@ -454,7 +465,9 @@ async def download_complete(
         current_user.user_id, content_id, content_type, db, rd
     )
     if result["detail"] == "Failed":
+        logger.error("Unable to fetch content - " + str(result["data"]))
         raise HTTPException(status_code=400, detail="Unable to fetch content")
+    logger.info("Download completed successfully")
     return result
 
 
@@ -509,8 +522,11 @@ async def rename_project(
             id, content_type, newtitle, current_user.user_id, db
         )
         if result["detail"] == "Success":
+            logger.info("Content renamed successfully")
             return {"detail": "Success", "data": "Content renamed"}
         else:
+            logger.error("Failed to rename content - " + str(result["data"]))
             raise HTTPException(status_code=400, detail=result["data"])
     except:
+        logger.error("Failed to rename content")
         raise HTTPException(status_code=400, detail="Failed to rename content")

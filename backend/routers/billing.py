@@ -29,6 +29,7 @@ from utils import (
     paymentfailed_email,
     increase_and_round,
 )
+from utils import logger
 
 
 router = APIRouter(
@@ -94,8 +95,10 @@ async def get_stats(
 ):
     result = billing_task(current_user.user_id, db)
     if result["detail"] == "Success":
+        logger.info(f"User {current_user.user_id} get balance")
         return result
     else:
+        logger.error(f"User {current_user.user_id} get balance failed")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=result["data"]
         )
@@ -174,8 +177,10 @@ async def price_conversion(
 ):
     result = pricing_task(countryCode, db)
     if result["detail"] == "Success":
+        logger.info(f"User get price conversion")
         return result
     else:
+        logger.error(f"User get price conversion failed")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=result["data"]
         )
@@ -315,16 +320,21 @@ async def create_checkout_session(
     db: Session = Depends(get_db),
 ):
     if checkout.token < 5:
+        logger.error(
+            f"User {current_user.user_id} checkout failed - Minimum token is 5"
+        )
         raise HTTPException(status_code=400, detail="Minimum token is 5")
     result = checkout_task(
         current_user.user_id, checkout.token, checkout.currency_code, db
     )
     if result["detail"] == "Success":
+        logger.info(f"User {current_user.user_id} checkout initiated")
         send_paymentInitiated_email_task.delay(
             current_user.user_id, "Initiated", checkout.token, result["amount"]
         )
         return result
     else:
+        logger.error(f"User {current_user.user_id} checkout failed")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=result["data"]
         )
@@ -338,6 +348,7 @@ def checkout_status_task(session_id: str, status: str, db: Session):
             .first()
         )
         if invoice is None:
+            logger.error(f"Checkout status failed - Invoice not found")
             return {"detail": "Failed", "data": "Invoice not found"}
         invoice_data = json.loads(invoice.data)
         if status == "success":
@@ -367,6 +378,7 @@ def checkout_status_task(session_id: str, status: str, db: Session):
                 invoice_data["credits"],
                 f"{invoice_data['symbol'].strip()}{invoice_data['amount']['original']}",
             )
+            logger.info(f"Checkout status success - Payment completed")
             return {"detail": "Success", "data": "Payment completed"}
         else:
             invoice.status = "failed"
@@ -376,8 +388,10 @@ def checkout_status_task(session_id: str, status: str, db: Session):
                 invoice_data["credits"],
                 f"{invoice_data['symbol'].strip()}{invoice_data['amount']['original']}",
             )
+            logger.info(f"Checkout status success - Payment failed")
             return {"detail": "Failed", "data": "Payment failed"}
     except Exception as e:
+        logger.error(f"Checkout status failed - {str(e)}")
         return {"detail": "Failed", "data": str(e)}
 
 
@@ -388,16 +402,19 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     try:
         event = stripe.Event.construct_from(json.loads(payload), stripe.api_key)
     except ValueError as e:
+        logger.error(f"Invalid payload - {str(e)}")
         raise HTTPException(status_code=400, detail="Invalid payload")
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
         result = checkout_status_task(session.id, "success", db)
         if result["detail"] == "Success":
+            logger.info(f"Checkout status success - Payment completed")
             return JSONResponse(
                 status_code=200,
                 content={"detail": "Success", "data": "Payment completed"},
             )
         else:
+            logger.error(f"Checkout status failed - Payment failed")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail=result["data"]
             )
@@ -405,14 +422,17 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
         session = event["data"]["object"]
         result = checkout_status_task(session.id, "failed", db)
         if result["detail"] == "Success":
+            logger.info(f"Checkout status success - Payment failed")
             return JSONResponse(
                 status_code=200, content={"detail": "Success", "data": "Payment failed"}
             )
         else:
+            logger.error(f"Checkout status failed - Payment failed")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail=result["data"]
             )
     else:
+        logger.error(f"Checkout status failed - Payment failed")
         return JSONResponse(
             status_code=200, content={"detail": "Success", "data": "Payment failed"}
         )
@@ -492,11 +512,14 @@ async def get_invoices(
     db: Session = Depends(get_db),
 ):
     if limit > 10:
+        logger.error(f"User {current_user.user_id} get invoices failed - Limit > 10")
         raise HTTPException(status_code=400, detail="Limit cannot be greater than 10")
     result = get_invoices_task(current_user.user_id, limit, offset, db)
     if result["detail"] == "Success":
+        logger.info(f"User {current_user.user_id} get invoices")
         return result
     else:
+        logger.error(f"User {current_user.user_id} get invoices failed")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=result["data"]
         )
@@ -585,12 +608,14 @@ async def download_invoice(
         converter.convert(f"file:///{path}", f"invoice/{invoice_id}.pdf", compress=True)
         background_tasks.add_task(remove_file, f"invoice/{invoice_id}.html")
         background_tasks.add_task(remove_file, f"invoice/{invoice_id}.pdf")
+        logger.info(f"User {current_user.user_id} download invoice")
         return FileResponse(
             f"invoice/{invoice_id}.pdf",
             media_type="application/pdf",
             filename=f"{invoice_id}.pdf",
         )
     else:
+        logger.error(f"User {current_user.user_id} download invoice failed")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=result["data"]
         )

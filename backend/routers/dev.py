@@ -14,7 +14,7 @@ from typing import Optional, Annotated
 import time
 import json
 from celeryworker import celeryapp
-from utils import get_hashed_password
+from utils import get_hashed_password, logger
 from utils import APP_ENV
 
 
@@ -50,6 +50,7 @@ async def create_user(
     if test_mode:
         user = db.query(models.Users).filter(models.Users.email == email).first()
         if user:
+            logger.error("User already exists")
             raise HTTPException(status_code=200, detail="User already exists")
         user = models.Users(
             first_name="fname",
@@ -64,8 +65,10 @@ async def create_user(
         db.add(user)
         db.commit()
         db.refresh(user)
+        logger.info("User created")
         return {"message": "User created"}
     else:
+        logger.error("Not authorized")
         raise HTTPException(status_code=403, detail="Not authorized")
 
 
@@ -76,6 +79,7 @@ async def delete_user(
     if test_mode:
         user = db.query(models.Users).filter(models.Users.email == email).first()
         if not user:
+            logger.error("User not found")
             raise HTTPException(status_code=200, detail="User not found")
         user_id = user.id
         db.query(models.Balance).filter(models.Balance.user_id == user_id).delete()
@@ -85,8 +89,10 @@ async def delete_user(
         ).delete()
         db.query(models.Users).filter(models.Users.id == user_id).delete()
         db.commit()
+        logger.info("User deleted")
         return {"message": "User deleted"}
     else:
+        logger.error("Not authorized")
         raise HTTPException(status_code=403, detail="Not authorized")
 
 
@@ -97,11 +103,14 @@ async def verify_user(
     if test_mode:
         user = db.query(models.Users).filter(models.Users.email == email).first()
         if not user:
+            logger.error("User not found")
             raise HTTPException(status_code=200, detail="User not found")
         user_id = user.id
         user_details = db.query(models.Users).filter(models.Users.id == user_id).first()
         user_details.verified = True
         db.commit()
+        logger.info("User verified")
         return {"message": "User verified"}
     else:
+        logger.error("Not authorized")
         raise HTTPException(status_code=403, detail="Not authorized")

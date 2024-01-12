@@ -17,6 +17,7 @@ import models
 from fastapi_limiter.depends import RateLimiter
 from script_utils.util import *
 from dotenv import load_dotenv
+from utils import logger
 
 load_dotenv()
 
@@ -86,8 +87,10 @@ async def change_password(
 ):
     try:
         task = change_password_task(passworddict.dict(), int(current_user.user_id), db)
+        logger.info(f"Password changed for {current_user.user_id}")
         return task
     except Exception as e:
+        logger.error(f"Password change failed for {current_user.user_id}")
         return {"detail": "Failed", "data": "Unable to change password"}
 
 
@@ -133,8 +136,10 @@ async def get_settings(
 ):
     try:
         get_details = get_settings_task(current_user.user_id, db)
+        logger.info(f"Settings retrieved for {current_user.user_id}")
         return get_details
     except Exception as e:
+        logger.error(f"Settings retrieval failed for {current_user.user_id}")
         return {"detail": "Failed", "data": "Unable to retrieve data"}
 
 
@@ -167,6 +172,8 @@ async def update_settings(
 ):
     try:
         update_settings_task(new_settings.dict(), current_user.user_id, db)
+        logger.info(f"Settings updated for {current_user.user_id}")
         return {"detail": "Success", "data": "Settings updated successfully"}
     except Exception as e:
+        logger.error(f"Settings update failed for {current_user.user_id}")
         return {"detail": "Failed", "data": "Unable to update settings"}

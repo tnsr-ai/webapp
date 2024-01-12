@@ -10,7 +10,7 @@ from database import engine, SessionLocal
 from sqlalchemy.orm import Session
 from starlette import status
 from routers.auth import TokenData, get_current_user
-from utils import sql_dict
+from utils import sql_dict, logger
 from utils import STORAGE_LIMITS
 from fastapi_limiter.depends import RateLimiter
 from script_utils.util import *
@@ -104,14 +104,17 @@ async def get_stats(
 ):
     result = dashboard_task(current_user.user_id, db)
     if result["detail"] == "Success":
+        logger.info(f"Dashboard stats for {current_user.user_id}")
         result["data"]["downloads"] = nice_unit(niceBytes(result["data"]["downloads"]))
         result["data"]["uploads"] = nice_unit(niceBytes(result["data"]["uploads"]))
         result["data"]["gpu_usage"] = str(result["data"]["gpu_usage"]) + " Min"
         result["data"][
             "storage"
         ] = f"{nice_unit(niceBytes(result['data']['storage_used']))} / {nice_unit(niceBytes(result['data']['storage_limit']))}"
+        logger.info(f"Dashboard stats for {current_user.user_id} success")
         return result
     else:
+        logger.error(f"Dashboard stats for {current_user.user_id} failed")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=result["data"]
         )

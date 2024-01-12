@@ -1,6 +1,5 @@
-from fastapi import FastAPI, Depends, Request, Response, HTTPException
+from fastapi import FastAPI, Depends, Request
 import models
-from sqlalchemy.orm import Session
 from database import engine, SessionLocal
 from routers import (
     auth,
@@ -14,16 +13,18 @@ from routers import (
     billing,
     dev,
 )
+import os
 import redis.asyncio as redis
-from datetime import datetime, timedelta
-from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from typing import Annotated, Any, Callable, TypeVar
-from utils import GOOGLE_SECRET, HOST, PORT, REDIS_HOST, REDIS_PORT
-from prometheus_client import make_asgi_app
+from utils import GOOGLE_SECRET, HOST, PORT, REDIS_HOST
 from fastapi_limiter import FastAPILimiter
 from fastapi_limiter.depends import RateLimiter
+from utils import PrometheusMiddleware, metrics, setting_otlp, logger
+
+APP_NAME = os.environ.get("APP_NAME", "fastapi-backend")
+EXPOSE_PORT = os.environ.get("EXPOSE_PORT", 8000)
+OTLP_GRPC_ENDPOINT = os.environ.get("OTLP_GRPC_ENDPOINT", "http://tempo:4317")
 
 
 def get_db():
@@ -35,6 +36,10 @@ def get_db():
 
 
 app = FastAPI()
+
+app.add_middleware(PrometheusMiddleware, app_name=APP_NAME)
+
+setting_otlp(app, APP_NAME, OTLP_GRPC_ENDPOINT)
 
 origins = [
     "https://localhost:3000",
@@ -69,26 +74,25 @@ app.include_router(dev.router)
 @app.on_event("startup")
 async def startup():
     redis_connection = redis.from_url(
-        "redis://127.0.0.1", encoding="utf-8", decode_responses=True
+        f"redis://{REDIS_HOST}", encoding="utf-8", decode_responses=True
     )
     await FastAPILimiter.init(redis_connection)
 
 
 @app.get("/", dependencies=[Depends(RateLimiter(times=10, seconds=60))])
 async def root(req: Request):
+    logger.info(f"Request from {req.client.host}")
     return {"status": "Server is running"}
 
 
-metrics_app = make_asgi_app()
-app.mount("/metrics", metrics_app)
+app.add_route("/metrics", metrics)
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(
-        "main:app",
-        host=HOST,
-        port=int(PORT),
-        reload=True,
-    )
+    log_config = uvicorn.config.LOGGING_CONFIG  # set timezone to UTC
+    log_config["formatters"]["access"][
+        "fmt"
+    ] = "%(asctime)s %(levelname)s [%(name)s] [%(filename)s:%(lineno)d] [trace_id=%(otelTraceID)s span_id=%(otelSpanID)s resource.service.name=%(otelServiceName)s] - %(message)s"
+    uvicorn.run("main:app", host=HOST, port=int(PORT), log_config=log_config)

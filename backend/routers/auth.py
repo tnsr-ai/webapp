@@ -41,7 +41,7 @@ from utils import (
     TNSR_DOMAIN,
     GOOGLE_REDIRECT_URI,
 )
-from utils import isValidEmail
+from utils import isValidEmail, hide_email, logger
 from utils import registration_email, forgotpassword_email
 from dotenv import load_dotenv
 
@@ -293,19 +293,23 @@ async def create_user(
     db: Session = Depends(get_db),
 ):
     if user_exists(create_user_request.email, db):
+        logger.error(f"Email already exists - {hide_email(create_user_request.email)}")
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="Email already exists"
         )
     if isValidEmail(create_user_request.email) == False:
+        logger.error(f"Invalid email - {create_user_request.email}")
         raise HTTPException(
             status_code=status.HTTP_406_NOT_ACCEPTABLE, detail="Invalid email"
         )
     if len(create_user_request.password) < 8:
+        logger.error(f"Password too short")
         raise HTTPException(
             status_code=status.HTTP_406_NOT_ACCEPTABLE,
             detail="Password must be at least 8 characters",
         )
     if len(create_user_request.password) > 50:
+        logger.error(f"Password too long")
         raise HTTPException(
             status_code=status.HTTP_406_NOT_ACCEPTABLE,
             detail="Password must be less than 50 characters",
@@ -314,6 +318,7 @@ async def create_user(
         len(create_user_request.firstname) == 0
         or len(create_user_request.lastname) == 0
     ):
+        logger.error(f"First name or last name empty")
         raise HTTPException(
             status_code=status.HTTP_406_NOT_ACCEPTABLE,
             detail="First name and last name cannot be empty",
@@ -322,6 +327,7 @@ async def create_user(
         len(create_user_request.firstname) > 50
         or len(create_user_request.lastname) > 50
     ):
+        logger.error(f"First name or last name too long")
         raise HTTPException(
             status_code=status.HTTP_406_NOT_ACCEPTABLE,
             detail="First name and last name cannot be more than 50 characters",
@@ -337,6 +343,9 @@ async def create_user(
         db,
     )
     if result["detail"] == "Failed":
+        logger.error(
+            f"Failed to create user - {hide_email(create_user_request.email)}, data - {result['data']}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=result["data"]
         )
@@ -383,10 +392,12 @@ async def create_user(
         secure=False,
         samesite="lax",
     )
+    logger.info(f"User created - {hide_email(create_user_request.email)}")
     verification_link = f"{TNSR_DOMAIN}/verifyemail/?user_id={get_user.id}&email_token={result['data']['email_token']}"
     send_email_task.delay(
         create_user_request.firstname, verification_link, create_user_request.email
     )
+    logger.info(f"Email sent to {hide_email(create_user_request.email)}")
     return {
         "data": content,
         "detail": "Success",
@@ -422,6 +433,9 @@ async def login_user(
 ):
     result = login_user_task(form_data.username, form_data.password, db)
     if result["detail"] == "Failed":
+        logger.error(
+            f"Failed to login user - {hide_email(form_data.username)}, data - {result['data']}"
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail=result["data"]
         )
@@ -470,6 +484,7 @@ async def login_user(
         secure=False,
         samesite="lax",
     )
+    logger.info(f"User logged in - {hide_email(form_data.username)}")
     return {
         "data": content,
         "detail": "Success",
@@ -504,11 +519,15 @@ async def logout_user(
 ):
     result = logout_user_task(current_user.user_id, db)
     if result["detail"] == "Failed":
+        logger.error(
+            f"Failed to logout user - {current_user.user_id}, data - {result['data']}"
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail=result["data"]
         )
     response.delete_cookie(key="refreshToken")
     response.delete_cookie(key="access_token")
+    logger.info(f"User logged out - {current_user.user_id}")
     return {"data": "Logout Successfully", "detail": "Success"}
 
 
@@ -556,6 +575,7 @@ async def check_user(
 ):
     auth_token = authorization.split(" ")[1]
     if len(auth_token.split(".")) != 3:
+        logger.error(f"Invalid access token")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
@@ -566,10 +586,14 @@ async def check_user(
         current_user.user_id, auth_token, int(payload["exp"]), rd, db
     )
     if result["detail"] == "Failed":
+        logger.error(
+            f"Failed to verify user - {current_user.user_id}, data - {result['data']}"
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail=result["data"]
         )
     content = result["data"]
+    logger.info(f"User verified - {current_user.user_id}")
     return {"data": content, "detail": "Success"}
 
 
@@ -614,6 +638,9 @@ async def check_user_refresh(
 ):
     result = refresh_user_task(current_user.user_id, db)
     if result["detail"] == "Failed":
+        logger.error(
+            f"Failed to refresh user - {current_user.user_id}, data - {result['data']}"
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail=result["data"]
         )
@@ -640,6 +667,7 @@ async def check_user_refresh(
         secure=False,
         samesite="lax",
     )
+    logger.info(f"User refreshed - {current_user.user_id}")
     return {"data": content, "detail": "Success"}
 
 
@@ -658,6 +686,7 @@ google_sso = GoogleSSO(
 
 @router.get("/google/login", dependencies=[Depends(RateLimiter(times=10, seconds=60))])
 async def google_login():
+    logger.info(f"Google login initiated")
     return await google_sso.get_login_redirect(
         params={"prompt": "consent", "access_type": "offline"}
     )
@@ -704,9 +733,12 @@ def google_callback_task(user_data: dict, db: db_dependency):
             db.add(create_dashboard_model)
             db.commit()
             db.refresh(create_dashboard_model)
-
+        logger.info(f"Google login success - {hide_email(user_data['email'])}")
         return {"detail": "Success", "data": int(user.id)}
     except Exception as e:
+        logger.error(
+            f"Google login failed - {hide_email(user_data['email'])}, data - {str(e)}"
+        )
         return {"detail": "Failed", "data": str(e)}
 
 
@@ -716,6 +748,7 @@ async def google_callback(
 ):
     user = await google_sso.verify_and_process(request)
     if user is None:
+        logger.error(f"Failed to fetch user information")
         raise HTTPException(401, detail="Failed to fetch user information")
     user_data = {
         "id": user.id,
@@ -726,6 +759,9 @@ async def google_callback(
     }
     result = google_callback_task(user_data, db)
     if result["detail"] == "Failed":
+        logger.error(
+            f"Google login failed - {hide_email(user_data['email'])}, data - {result['data']}"
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail=result["data"]
         )
@@ -778,6 +814,7 @@ async def google_callback(
         }
     )
     content_str = json.dumps(content)
+    logger.info(f"Google login success - {hide_email(user_data['email'])}")
     return HTMLResponse(
         content=f"""
       <script>
@@ -810,6 +847,7 @@ async def forgot_password(
         db.query(models.Users).filter(models.Users.email == forgot_model.email).first()
     )
     if not user:
+        logger.error(f"Email not found - {forgot_model.email}")
         return {"detail": "Failed", "data": "Email not found"}
     forgotpassword_token = {
         "token": secrets.token_urlsafe(32),
@@ -823,7 +861,11 @@ async def forgot_password(
         user.email,
     )
     if result["detail"] == "Failed":
+        logger.error(
+            f"Failed to send email - {forgot_model.email}, data - {result['data']}"
+        )
         return {"detail": "Failed", "data": result["data"]}
+    logger.info(f"Forgot password email sent - {forgot_model.email}")
     return {"detail": "Success", "data": result["data"]}
 
 
@@ -862,7 +904,9 @@ async def verify_email(
 ):
     result = verify_email_task(user_id, email_token, rd, db)
     if result["detail"] == "Failed":
+        logger.error(f"Failed to verify email - {user_id}, data - {result['data']}")
         raise HTTPException(
             status_code=status.HTTP_406_NOT_ACCEPTABLE, detail=result["data"]
         )
+    logger.info(f"Email verified - {user_id}")
     return {"detail": "Success", "data": result["data"]}
