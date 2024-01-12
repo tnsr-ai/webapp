@@ -19,10 +19,11 @@ from routers.auth import get_current_user, TokenData
 import models
 from script_utils.util import *
 from dotenv import load_dotenv
+from fastapi_limiter.depends import RateLimiter
 import ast
 import shutil
 import binascii
-from utils import throttler
+from utils import logger
 
 load_dotenv()
 
@@ -156,19 +157,25 @@ def generate_signed_url_task(uploaddict: dict, user_id: int, db: Session):
         return {"detail": "Failed", "data": "Filetype not supported"}
 
 
-@router.post("/generate_presigned_post", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/generate_presigned_post",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(RateLimiter(times=20, seconds=60))],
+)
 async def generate_url(
     upload: UploadDict,
     current_user: TokenData = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     result = generate_signed_url_task(upload.dict(), current_user.user_id, db)
     if result["detail"] == "Failed":
+        logger.error(f"Failed to generate presigned url for {current_user.user_id}")
         if "Storage limit exceeded" in result["data"]:
+            logger.error(f"Storage limit exceeded for {current_user.user_id}")
             raise HTTPException(status_code=507, detail=result["data"])
+        logger.error(f"Failed to generate presigned url for {current_user.user_id}")
         raise HTTPException(status_code=400, detail=result["data"])
+    logger.info(f"Presigned url generated for {current_user.user_id}")
     return result
 
 
@@ -359,17 +366,22 @@ def index_media_task(indexdata: dict, user_id: int, db: Session):
         return {"detail": "Failed", "data": "Invalid processtype"}
 
 
-@router.post("/indexfile", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/indexfile",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(RateLimiter(times=20, seconds=60))],
+)
 async def file_index(
     indexdata: IndexContent,
     current_user: TokenData = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     if indexdata.processtype not in ["video", "audio", "image"]:
+        logger.error(f"Invalid processtype for {current_user.user_id}")
         raise HTTPException(status_code=400, detail="Invalid processtype")
     result = index_media_task(indexdata.dict(), current_user.user_id, db)
     if result["detail"] == "Failed":
+        logger.error(f"Failed to index file for {current_user.user_id}")
         raise HTTPException(status_code=400, detail=result["data"])
+    logger.info(f"File indexed for {current_user.user_id}")
     return HTTPException(status_code=201, detail="File indexed")

@@ -8,10 +8,7 @@ client = TestClient(app)
 
 
 def test_change_password_success(client, create_test_db):
-    with patch("routers.settings.throttler.consume") as mock_consume, patch(
-        "routers.settings.change_password_task"
-    ) as mock_change_password_task:
-        mock_consume.return_value = True
+    with patch("routers.settings.change_password_task") as mock_change_password_task:
         mock_change_password_task.return_value = {
             "detail": "Success",
             "data": "Password changed successfully",
@@ -32,10 +29,7 @@ def test_change_password_success(client, create_test_db):
 
 
 def test_change_password_fail(client, create_test_db):
-    with patch("routers.settings.throttler.consume") as mock_consume, patch(
-        "routers.settings.change_password_task"
-    ) as mock_change_password_task:
-        mock_consume.return_value = True
+    with patch("routers.settings.change_password_task") as mock_change_password_task:
         mock_change_password_task.return_value = {
             "detail": "Failed",
             "data": "Unable to change password",
@@ -56,10 +50,7 @@ def test_change_password_fail(client, create_test_db):
 
 
 def test_get_settings_success(client, create_test_db):
-    with patch("routers.settings.throttler.consume") as mock_consume, patch(
-        "routers.settings.get_settings_task"
-    ) as mock_get_settings_task:
-        mock_consume.return_value = True
+    with patch("routers.settings.get_settings_task") as mock_get_settings_task:
         mock_get_settings_task.return_value = {
             "detail": "Success",
             "data": "data",
@@ -71,10 +62,7 @@ def test_get_settings_success(client, create_test_db):
 
 
 def test_get_settings_fail(client, create_test_db):
-    with patch("routers.settings.throttler.consume") as mock_consume, patch(
-        "routers.settings.get_settings_task"
-    ) as mock_get_settings_task:
-        mock_consume.return_value = True
+    with patch("routers.settings.get_settings_task") as mock_get_settings_task:
         mock_get_settings_task.return_value = {
             "detail": "Failed",
             "data": "Unable to get settings",
@@ -90,10 +78,7 @@ def test_get_settings_fail(client, create_test_db):
 
 
 def test_update_settings_success(client, create_test_db):
-    with patch("routers.settings.throttler.consume") as mock_consume, patch(
-        "routers.settings.update_settings_task"
-    ) as mock_update_settings_task:
-        mock_consume.return_value = True
+    with patch("routers.settings.update_settings_task") as mock_update_settings_task:
         mock_update_settings_task.return_value = {
             "detail": "Success",
             "data": "Settings updated successfully",
@@ -114,10 +99,7 @@ def test_update_settings_success(client, create_test_db):
 
 
 def test_update_settings_fail(client, create_test_db):
-    with patch("routers.settings.throttler.consume") as mock_consume, patch(
-        "routers.settings.update_settings_task"
-    ) as mock_update_settings_task:
-        mock_consume.return_value = True
+    with patch("routers.settings.update_settings_task") as mock_update_settings_task:
         mock_update_settings_task.return_value = {
             "detail": "Failed",
             "data": "Unable to update settings",

@@ -38,7 +38,6 @@ slowapi = "^0.1.8"
 hruid = "^0.0.3"
 mjml = "^0.9.1"
 pystache = "^0.6.5"
-token-throttler = "^1.4.2"
 stripe = "^7.0.0"
 eventlet = "^0.33.3"
 weasyprint = "^60.1"
@@ -59,6 +58,7 @@ opentelemetry-instrumentation-fastapi = "^0.43b0"
 opentelemetry-instrumentation-logging = "^0.43b0"
 opentelemetry-exporter-otlp = "^1.22.0"
 opentelemetry-distro = "^0.43b0"
+fastapi-limiter = "^0.1.6"
 
 [tool.poetry.dev-dependencies]
 

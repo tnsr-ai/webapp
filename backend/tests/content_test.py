@@ -8,14 +8,9 @@ client = TestClient(app)
 
 
 def test_get_content_success(client, create_test_db):
-    with patch("routers.content.throttler.consume") as mock_consume, patch(
-        "routers.content.get_content_table"
-    ) as mock_get_content_table, patch(
+    with patch("routers.content.get_content_table") as mock_get_content_table, patch(
         "routers.content.add_presigned"
-    ) as mock_add_presigned, patch(
-        "routers.content.filter_data"
-    ) as mock_filter_data:
-        mock_consume.return_value = True
+    ) as mock_add_presigned, patch("routers.content.filter_data") as mock_filter_data:
         mock_get_content_table.return_value = {
             "detail": "Success",
             "data": ["all_result", "get_counts"],
@@ -40,14 +35,9 @@ def test_get_content_success(client, create_test_db):
 
 
 def test_get_content_fail(client, create_test_db):
-    with patch("routers.content.throttler.consume") as mock_consume, patch(
-        "routers.content.get_content_table"
-    ) as mock_get_content_table, patch(
+    with patch("routers.content.get_content_table") as mock_get_content_table, patch(
         "routers.content.add_presigned"
-    ) as mock_add_presigned, patch(
-        "routers.content.filter_data"
-    ) as mock_filter_data:
-        mock_consume.return_value = True
+    ) as mock_add_presigned, patch("routers.content.filter_data") as mock_filter_data:
         mock_get_content_table.return_value = {
             "detail": "Failed",
             "data": ["all_result", "get_counts"],
@@ -67,14 +57,13 @@ def test_get_content_fail(client, create_test_db):
 
 
 def test_get_content_list_success(client, create_test_db):
-    with patch("routers.content.throttler.consume") as mock_consume, patch(
+    with patch(
         "routers.content.get_content_list_celery"
     ) as mock_get_content_list_celery, patch(
         "routers.content.add_presigned"
     ) as mock_add_presigned, patch(
         "routers.content.filter_data"
     ) as mock_filter_data:
-        mock_consume.return_value = True
         mock_get_content_list_celery.return_value = {
             "detail": "Success",
             "data": ["all_result", "get_counts"],
@@ -94,14 +83,13 @@ def test_get_content_list_success(client, create_test_db):
 
 
 def test_get_content_list_fail(client, create_test_db):
-    with patch("routers.content.throttler.consume") as mock_consume, patch(
+    with patch(
         "routers.content.get_content_list_celery"
     ) as mock_get_content_list_celery, patch(
         "routers.content.add_presigned"
     ) as mock_add_presigned, patch(
         "routers.content.filter_data"
     ) as mock_filter_data:
-        mock_consume.return_value = True
         mock_get_content_list_celery.return_value = {
             "detail": "Failed",
             "data": ["all_result", "get_counts"],
@@ -121,10 +109,7 @@ def test_get_content_list_fail(client, create_test_db):
 
 
 def test_download_content_success(client, create_test_db):
-    with patch("routers.content.throttler.consume") as mock_consume, patch(
-        "routers.content.download_content_task"
-    ) as mock_download_content_task:
-        mock_consume.return_value = True
+    with patch("routers.content.download_content_task") as mock_download_content_task:
         mock_download_content_task.return_value = {
             "detail": "Success",
             "data": ["all_result", "get_counts"],
@@ -136,10 +121,7 @@ def test_download_content_success(client, create_test_db):
 
 
 def test_download_content_fail(client, create_test_db):
-    with patch("routers.content.throttler.consume") as mock_consume, patch(
-        "routers.content.download_content_task"
-    ) as mock_download_content_task:
-        mock_consume.return_value = True
+    with patch("routers.content.download_content_task") as mock_download_content_task:
         mock_download_content_task.return_value = {
             "detail": "Failed",
             "data": ["all_result", "get_counts"],
@@ -151,10 +133,7 @@ def test_download_content_fail(client, create_test_db):
 
 
 def test_download_complete_success(client, create_test_db):
-    with patch("routers.content.throttler.consume") as mock_consume, patch(
-        "routers.content.download_complete_task"
-    ) as mock_download_complete_task:
-        mock_consume.return_value = True
+    with patch("routers.content.download_complete_task") as mock_download_complete_task:
         mock_download_complete_task.return_value = {
             "detail": "Success",
             "data": ["all_result", "get_counts"],
@@ -166,10 +145,7 @@ def test_download_complete_success(client, create_test_db):
 
 
 def test_download_complete_fail(client, create_test_db):
-    with patch("routers.content.throttler.consume") as mock_consume, patch(
-        "routers.content.download_complete_task"
-    ) as mock_download_complete_task:
-        mock_consume.return_value = True
+    with patch("routers.content.download_complete_task") as mock_download_complete_task:
         mock_download_complete_task.return_value = {
             "detail": "Failed",
             "data": ["all_result", "get_counts"],
@@ -181,10 +157,7 @@ def test_download_complete_fail(client, create_test_db):
 
 
 def test_rename_content_success(client, create_test_db):
-    with patch("routers.content.throttler.consume") as mock_consume, patch(
-        "routers.content.rename_content_celery"
-    ) as mock_rename_content_celery:
-        mock_consume.return_value = True
+    with patch("routers.content.rename_content_celery") as mock_rename_content_celery:
         mock_rename_content_celery.return_value = {
             "detail": "Success",
             "data": ["all_result", "get_counts"],
@@ -194,10 +167,7 @@ def test_rename_content_success(client, create_test_db):
 
 
 def test_rename_content_fail(client, create_test_db):
-    with patch("routers.content.throttler.consume") as mock_consume, patch(
-        "routers.content.rename_content_celery"
-    ) as mock_rename_content_celery:
-        mock_consume.return_value = True
+    with patch("routers.content.rename_content_celery") as mock_rename_content_celery:
         mock_rename_content_celery.return_value = {
             "detail": "Failed",
             "data": ["all_result", "get_counts"],

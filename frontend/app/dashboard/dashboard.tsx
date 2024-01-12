@@ -33,7 +33,6 @@ interface DashboardContentProps {
 }
 
 export default function DashboardContent({ data }: DashboardContentProps) {
-  console.log(JSON.parse(data.data.storage_json), "JSON");
   return (
     <div className="max-w-[1500px] m-auto" data-testid="dashboardContent">
       <div className="flex flex-col ">

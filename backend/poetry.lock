@@ -1074,6 +1074,21 @@ doc = ["mdx-include (>=1.4.1,<2.0.0)", "mkdocs (>=1.1.2,<2.0.0)", "mkdocs-markdo
 test = ["anyio[trio] (>=3.2.1,<4.0.0)", "black (==23.1.0)", "coverage[toml] (>=6.5.0,<8.0)", "databases[sqlite] (>=0.3.2,<0.7.0)", "email-validator (>=1.1.1,<2.0.0)", "flask (>=1.1.2,<3.0.0)", "httpx (>=0.23.0,<0.24.0)", "isort (>=5.0.6,<6.0.0)", "mypy (==0.982)", "orjson (>=3.2.1,<4.0.0)", "passlib[bcrypt] (>=1.7.2,<2.0.0)", "peewee (>=3.13.3,<4.0.0)", "pytest (>=7.1.3,<8.0.0)", "python-jose[cryptography] (>=3.3.0,<4.0.0)", "python-multipart (>=0.0.5,<0.0.7)", "pyyaml (>=5.3.1,<7.0.0)", "ruff (==0.0.138)", "sqlalchemy (>=1.3.18,<1.4.43)", "types-orjson (==3.6.2)", "types-ujson (==5.7.0.1)", "ujson (>=4.0.1,!=4.0.2,!=4.1.0,!=4.2.0,!=4.3.0,!=5.0.0,!=5.1.0,<6.0.0)"]
 
 [[package]]
+name = "fastapi-limiter"
+version = "0.1.6"
+description = "A request rate limiter for fastapi"
+optional = false
+python-versions = ">=3.9,<4.0"
+files = [
+    {file = "fastapi_limiter-0.1.6-py3-none-any.whl", hash = "sha256:2e53179a4208b8f2c8795e38bb001324d3dc37d2800ff49fd28ec5caabf7a240"},
+    {file = "fastapi_limiter-0.1.6.tar.gz", hash = "sha256:6f5fde8efebe12eb33861bdffb91009f699369a3c2862cdc7c1d9acf912ff443"},
+]
+
+[package.dependencies]
+fastapi = "*"
+redis = ">=4.2.0rc1"
+
+[[package]]
 name = "fastapi-sso"
 version = "0.6.4"
 description = "FastAPI plugin to enable SSO to most common providers (such as Facebook login, Google login and login via Microsoft Office 365 Account)"
@@ -3753,21 +3768,6 @@ doc = ["sphinx", "sphinx_rtd_theme"]
 test = ["flake8", "isort", "pytest"]
 
 [[package]]
-name = "token-throttler"
-version = "1.4.2"
-description = "Token throttler is an extendable rate-limiting library somewhat based on a token bucket algorithm"
-optional = false
-python-versions = ">=3.7,<4.0"
-files = [
-    {file = "token_throttler-1.4.2-py3-none-any.whl", hash = "sha256:63ef71abce115266b79d35e9e71a54ffdd1344be0d8973e6d7e93068181acb41"},
-    {file = "token_throttler-1.4.2.tar.gz", hash = "sha256:3f4b2240e9f0966aefeae01622e2feff2744de266ad7e20fd70946f6fdff1647"},
-]
-
-[package.extras]
-fastapi = ["fastapi (>=0.102.0,<0.103.0)"]
-redis = ["redis (>=4.4,<5.0)"]
-
-[[package]]
 name = "tomli"
 version = "2.0.1"
 description = "A lil' TOML parser"
@@ -4399,4 +4399,4 @@ test = ["pytest"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "309f6830db6b6921189807bb26ee5b09b7733d6094c0e0904311b47d237610bc"
+content-hash = "1e30476e5b912917e30b45a2251f88e38debb57862ee460e6047f3bdba143f10"

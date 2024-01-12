@@ -8,10 +8,7 @@ client = TestClient(app)
 
 
 def test_get_status_success(client, create_test_db):
-    with patch("routers.dashboard.throttler.consume") as mock_consume, patch(
-        "routers.dashboard.dashboard_task"
-    ) as mock_dashboard_task:
-        mock_consume.return_value = True
+    with patch("routers.dashboard.dashboard_task") as mock_dashboard_task:
         mock_dashboard_task.return_value = {
             "detail": "Success",
             "data": {
@@ -51,21 +48,8 @@ def test_get_status_success(client, create_test_db):
         }
 
 
-def test_get_status_rate_limited(client, create_test_db):
-    with patch("routers.dashboard.throttler.consume") as mock_consume, patch(
-        "routers.dashboard.dashboard_task"
-    ) as mock_dashboard_task:
-        mock_consume.return_value = False
-        response = client.get("/dashboard/get_stats")
-        assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
-        assert response.json() == {"detail": "Too Many Requests"}
-
-
 def test_get_status_failed(client, create_test_db):
-    with patch("routers.dashboard.throttler.consume") as mock_consume, patch(
-        "routers.dashboard.dashboard_task"
-    ) as mock_dashboard_task:
-        mock_consume.return_value = True
+    with patch("routers.dashboard.dashboard_task") as mock_dashboard_task:
         mock_dashboard_task.return_value = {"detail": "Failed", "data": "Error"}
         response = client.get("/dashboard/get_stats")
         assert response.status_code == status.HTTP_400_BAD_REQUEST

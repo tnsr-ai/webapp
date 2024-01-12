@@ -9,10 +9,7 @@ client = TestClient(app)
 
 
 def test_get_balance_success(client, create_test_db):
-    with patch("routers.billing.throttler.consume") as mock_consume, patch(
-        "routers.billing.billing_task"
-    ) as mock_billing_task:
-        mock_consume.return_value = True
+    with patch("routers.billing.billing_task") as mock_billing_task:
         mock_billing_task.return_value = {
             "detail": "Success",
             "data": 0,
@@ -22,25 +19,8 @@ def test_get_balance_success(client, create_test_db):
         assert response.status_code == status.HTTP_200_OK
 
 
-def test_get_balance_throttler(client, create_test_db):
-    with patch("routers.billing.throttler.consume") as mock_consume, patch(
-        "routers.billing.billing_task"
-    ) as mock_billing_task:
-        mock_consume.return_value = False
-        mock_billing_task.return_value = {
-            "detail": "Success",
-            "data": 0,
-            "verified": True,
-        }
-        response = client.get("/billing/get_balance")
-        assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
-
-
 def test_get_balance_task_error(client, create_test_db):
-    with patch("routers.billing.throttler.consume") as mock_consume, patch(
-        "routers.billing.billing_task"
-    ) as mock_billing_task:
-        mock_consume.return_value = True
+    with patch("routers.billing.billing_task") as mock_billing_task:
         mock_billing_task.return_value = {
             "detail": "Failed",
             "data": 0,
@@ -51,10 +31,7 @@ def test_get_balance_task_error(client, create_test_db):
 
 
 def test_price_conversion(client, create_test_db):
-    with patch("routers.billing.throttler.consume") as mock_consume, patch(
-        "routers.billing.pricing_task"
-    ) as mock_pricing_task:
-        mock_consume.return_value = True
+    with patch("routers.billing.pricing_task") as mock_pricing_task:
         mock_pricing_task.return_value = {
             "detail": "Success",
             "data": {
@@ -69,12 +46,9 @@ def test_price_conversion(client, create_test_db):
 
 
 def test_checkout_success(client, create_test_db):
-    with patch("routers.billing.throttler.consume") as mock_consume, patch(
-        "routers.billing.checkout_task"
-    ) as mock_checkout_task, patch(
+    with patch("routers.billing.checkout_task") as mock_checkout_task, patch(
         "routers.billing.send_paymentInitiated_email_task"
     ) as mock_send_paymentInitiated_email_task:
-        mock_consume.return_value = True
         mock_checkout_task.return_value = {
             "detail": "Success",
             "data": {"session_id": "1234"},
@@ -92,12 +66,9 @@ def test_checkout_success(client, create_test_db):
 
 
 def test_checkout_failed(client, create_test_db):
-    with patch("routers.billing.throttler.consume") as mock_consume, patch(
-        "routers.billing.checkout_task"
-    ) as mock_checkout_task, patch(
+    with patch("routers.billing.checkout_task") as mock_checkout_task, patch(
         "routers.billing.send_paymentInitiated_email_task"
     ) as mock_send_paymentInitiated_email_task:
-        mock_consume.return_value = True
         mock_checkout_task.return_value = {
             "detail": "Failed",
             "data": {"session_id": "1234"},
@@ -115,10 +86,7 @@ def test_checkout_failed(client, create_test_db):
 
 
 def test_get_invoices(client, create_test_db):
-    with patch("routers.billing.throttler.consume") as mock_consume, patch(
-        "routers.billing.get_invoices_task"
-    ) as mock_get_invoices_task:
-        mock_consume.return_value = True
+    with patch("routers.billing.get_invoices_task") as mock_get_invoices_task:
         mock_get_invoices_task.return_value = {
             "detail": "Success",
             "data": [
@@ -137,10 +105,7 @@ def test_get_invoices(client, create_test_db):
 
 
 def test_get_invoices_failed(client, create_test_db):
-    with patch("routers.billing.throttler.consume") as mock_consume, patch(
-        "routers.billing.get_invoices_task"
-    ) as mock_get_invoices_task:
-        mock_consume.return_value = True
+    with patch("routers.billing.get_invoices_task") as mock_get_invoices_task:
         mock_get_invoices_task.return_value = {
             "detail": "Success",
             "data": [

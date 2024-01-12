@@ -19,17 +19,17 @@ import requests
 import pystache
 from pathlib import Path
 from pyhtml2pdf import converter
+from fastapi_limiter.depends import RateLimiter
 import stripe
 from utils import TNSR_DOMAIN, STRIPE_SECRET_KEY, OPENEXCHANGERATES_API_KEY
 from utils import (
-    throttler,
-    throttler_checkout,
     sql_dict,
     paymentinitiated_email,
     paymentsuccessfull_email,
     paymentfailed_email,
     increase_and_round,
 )
+from utils import logger
 
 
 router = APIRouter(
@@ -85,16 +85,20 @@ def billing_task(id: int, db: Session):
         return {"detail": "Failed", "data": str(e)}
 
 
-@router.get("/get_balance", status_code=status.HTTP_200_OK)
+@router.get(
+    "/get_balance",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(RateLimiter(times=10, seconds=60))],
+)
 async def get_stats(
     current_user: TokenData = Depends(get_current_user), db: Session = Depends(get_db)
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     result = billing_task(current_user.user_id, db)
     if result["detail"] == "Success":
+        logger.info(f"User {current_user.user_id} get balance")
         return result
     else:
+        logger.error(f"User {current_user.user_id} get balance failed")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=result["data"]
         )
@@ -162,17 +166,21 @@ def pricing_task(country_code: str, db: Session):
         return {"detail": "Failed", "data": str(e)}
 
 
-@router.get("/price_conversion", status_code=status.HTTP_200_OK)
+@router.get(
+    "/price_conversion",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(RateLimiter(times=10, seconds=60))],
+)
 async def price_conversion(
     countryCode: str,
     db: Session = Depends(get_db),
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     result = pricing_task(countryCode, db)
     if result["detail"] == "Success":
+        logger.info(f"User get price conversion")
         return result
     else:
+        logger.error(f"User get price conversion failed")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=result["data"]
         )
@@ -305,25 +313,28 @@ def send_paymentFailed_email_task(user_id: int, credits: int, amount: str):
     return {"detail": "Success", "data": "Email sent successfully"}
 
 
-@router.post("/checkout")
+@router.post("/checkout", dependencies=[Depends(RateLimiter(times=5, seconds=60))])
 async def create_checkout_session(
     checkout: CheckoutModel,
     current_user: TokenData = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if throttler_checkout.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     if checkout.token < 5:
+        logger.error(
+            f"User {current_user.user_id} checkout failed - Minimum token is 5"
+        )
         raise HTTPException(status_code=400, detail="Minimum token is 5")
     result = checkout_task(
         current_user.user_id, checkout.token, checkout.currency_code, db
     )
     if result["detail"] == "Success":
+        logger.info(f"User {current_user.user_id} checkout initiated")
         send_paymentInitiated_email_task.delay(
             current_user.user_id, "Initiated", checkout.token, result["amount"]
         )
         return result
     else:
+        logger.error(f"User {current_user.user_id} checkout failed")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=result["data"]
         )
@@ -337,6 +348,7 @@ def checkout_status_task(session_id: str, status: str, db: Session):
             .first()
         )
         if invoice is None:
+            logger.error(f"Checkout status failed - Invoice not found")
             return {"detail": "Failed", "data": "Invoice not found"}
         invoice_data = json.loads(invoice.data)
         if status == "success":
@@ -366,6 +378,7 @@ def checkout_status_task(session_id: str, status: str, db: Session):
                 invoice_data["credits"],
                 f"{invoice_data['symbol'].strip()}{invoice_data['amount']['original']}",
             )
+            logger.info(f"Checkout status success - Payment completed")
             return {"detail": "Success", "data": "Payment completed"}
         else:
             invoice.status = "failed"
@@ -375,8 +388,10 @@ def checkout_status_task(session_id: str, status: str, db: Session):
                 invoice_data["credits"],
                 f"{invoice_data['symbol'].strip()}{invoice_data['amount']['original']}",
             )
+            logger.info(f"Checkout status success - Payment failed")
             return {"detail": "Failed", "data": "Payment failed"}
     except Exception as e:
+        logger.error(f"Checkout status failed - {str(e)}")
         return {"detail": "Failed", "data": str(e)}
 
 
@@ -387,16 +402,19 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     try:
         event = stripe.Event.construct_from(json.loads(payload), stripe.api_key)
     except ValueError as e:
+        logger.error(f"Invalid payload - {str(e)}")
         raise HTTPException(status_code=400, detail="Invalid payload")
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
         result = checkout_status_task(session.id, "success", db)
         if result["detail"] == "Success":
+            logger.info(f"Checkout status success - Payment completed")
             return JSONResponse(
                 status_code=200,
                 content={"detail": "Success", "data": "Payment completed"},
             )
         else:
+            logger.error(f"Checkout status failed - Payment failed")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail=result["data"]
             )
@@ -404,14 +422,17 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
         session = event["data"]["object"]
         result = checkout_status_task(session.id, "failed", db)
         if result["detail"] == "Success":
+            logger.info(f"Checkout status success - Payment failed")
             return JSONResponse(
                 status_code=200, content={"detail": "Success", "data": "Payment failed"}
             )
         else:
+            logger.error(f"Checkout status failed - Payment failed")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail=result["data"]
             )
     else:
+        logger.error(f"Checkout status failed - Payment failed")
         return JSONResponse(
             status_code=200, content={"detail": "Success", "data": "Payment failed"}
         )
@@ -479,21 +500,26 @@ def get_invoices_task(user_id: int, limit: int, offset: int, db: Session):
         return {"detail": "Failed", "data": str(e)}
 
 
-@router.get("/get_invoices", status_code=status.HTTP_200_OK)
+@router.get(
+    "/get_invoices",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+)
 async def get_invoices(
     limit: int = 5,
     offset: int = 0,
     current_user: TokenData = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     if limit > 10:
+        logger.error(f"User {current_user.user_id} get invoices failed - Limit > 10")
         raise HTTPException(status_code=400, detail="Limit cannot be greater than 10")
     result = get_invoices_task(current_user.user_id, limit, offset, db)
     if result["detail"] == "Success":
+        logger.info(f"User {current_user.user_id} get invoices")
         return result
     else:
+        logger.error(f"User {current_user.user_id} get invoices failed")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=result["data"]
         )
@@ -565,27 +591,31 @@ def remove_file(path: str):
         os.remove(path)
 
 
-@router.get("/download_invoice", status_code=status.HTTP_200_OK)
+@router.get(
+    "/download_invoice",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+)
 async def download_invoice(
     invoice_id: int,
     background_tasks: BackgroundTasks,
     current_user: TokenData = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     result = download_invoice_task(current_user.user_id, invoice_id, db)
     if result["detail"] == "Success":
         path = os.path.abspath(f"invoice/{invoice_id}.html")
         converter.convert(f"file:///{path}", f"invoice/{invoice_id}.pdf", compress=True)
         background_tasks.add_task(remove_file, f"invoice/{invoice_id}.html")
         background_tasks.add_task(remove_file, f"invoice/{invoice_id}.pdf")
+        logger.info(f"User {current_user.user_id} download invoice")
         return FileResponse(
             f"invoice/{invoice_id}.pdf",
             media_type="application/pdf",
             filename=f"{invoice_id}.pdf",
         )
     else:
+        logger.error(f"User {current_user.user_id} download invoice failed")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=result["data"]
         )

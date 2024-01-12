@@ -47,6 +47,10 @@ jobs:
   backendtest:
     runs-on: ubuntu-22.04
     services:
+      redis:
+        image: redis:latest
+        ports:
+          - 6379:6379
       postgres:
         image: postgres:13.3
         env:
@@ -96,6 +100,10 @@ jobs:
           POSTGRES_USERNAME: "admin"
           POSTGRES_PASSWORD: "password"
           POSTGRES_DATABASE: "development"
-          ENV: "development"
-          TNSR_DOMAIN: "http://localhost:3000"
+          REDIS_BROKER: "redis://127.0.0.1:6379/0"
+          REDIS_BACKEND: "redis://127.0.0.1:6379/0"
+          REDIS_HOST: 127.0.0.1
+          REDIS_PORT: "6379"
+          APP_ENV: "github"
+          TNSR_DOMAIN: "http://127.0.0.1:3000"
         working-directory: ./backend

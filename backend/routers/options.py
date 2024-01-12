@@ -10,14 +10,14 @@ import models
 from database import engine, SessionLocal
 from sqlalchemy.orm import Session
 import re
-from utils import r2_resource, r2_client
+from utils import r2_resource, r2_client, logger
 from routers.auth import get_current_user, TokenData
 import models
 from script_utils.util import *
 from dotenv import load_dotenv
 from utils import TNSR_DOMAIN, CLOUDFLARE_CONTENT, CLOUDFLARE_METADATA
 from celeryworker import celeryapp
-from utils import throttler
+from fastapi_limiter.depends import RateLimiter
 
 load_dotenv()
 
@@ -152,22 +152,26 @@ def delete_project_celery(id: int, content_type: str, user_id: int, db: Session)
         return {"detail": "Failed", "data": str(e)}
 
 
-@router.delete("/delete-project/{id}/{content_type}")
+@router.delete(
+    "/delete-project/{id}/{content_type}",
+    dependencies=[Depends(RateLimiter(times=10, seconds=60))],
+)
 async def delete_project(
     id: int,
     content_type: str,
     db: Session = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     try:
         result = delete_project_celery(id, content_type, current_user.user_id, db)
         if result["detail"] == "Success":
+            logger.info(f"Project deleted {id}")
             return {"detail": "Success", "data": "Project deleted"}
         else:
+            logger.error(f"Failed to delete project {id}")
             raise HTTPException(status_code=400, detail=result["data"])
     except:
+        logger.error(f"Failed to delete project {id}")
         raise HTTPException(status_code=400, detail="Failed to delete project")
 
 
@@ -201,7 +205,10 @@ def rename_project_celery(
         return {"detail": "Failed", "data": str(e)}
 
 
-@router.put("/rename-project/{id}/{content_type}/{newtitle}")
+@router.put(
+    "/rename-project/{id}/{content_type}/{newtitle}",
+    dependencies=[Depends(RateLimiter(times=10, seconds=60))],
+)
 async def rename_project(
     id: int,
     content_type: str,
@@ -209,17 +216,18 @@ async def rename_project(
     db: Session = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     try:
         result = rename_project_celery(
             id, content_type, newtitle, current_user.user_id, db
         )
         if result["detail"] == "Success":
+            logger.info(f"Project renamed {id}")
             return {"detail": "Success", "data": "Project renamed"}
         else:
+            logger.error(f"Failed to rename project {id}")
             raise HTTPException(status_code=400, detail=result["data"])
     except:
+        logger.error(f"Failed to rename project {id}")
         raise HTTPException(status_code=400, detail="Failed to rename project")
 
 
@@ -247,12 +255,25 @@ def resend_email_task(user_id: int):
     return {"detail": "Success", "data": "Email sent successfully"}
 
 
-@router.post("/resend-email", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/resend-email",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+)
 async def resend_email(
     response: Response,
     current_user: TokenData = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
+    user = (
+        db.query(models.Users).filter(models.Users.id == current_user.user_id).first()
+    )
+    if not user:
+        logger.error(f"User not found {current_user.user_id}")
+        raise HTTPException(status_code=400, detail="User not found")
+    if user.verified == True:
+        logger.error(f"Email already verified {current_user.user_id}")
+        raise HTTPException(status_code=400, detail="Email already verified")
     resend_email_task.delay(current_user.user_id)
+    logger.info(f"Resend email {current_user.user_id}")
     return {"detail": "Success", "data": "Email sent successfully"}

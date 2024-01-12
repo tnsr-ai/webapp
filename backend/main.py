@@ -1,8 +1,5 @@
-from celery import Celery
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, Request
 import models
-from sqlalchemy.orm import Session
-import os
 from database import engine, SessionLocal
 from routers import (
     auth,
@@ -16,10 +13,18 @@ from routers import (
     billing,
     dev,
 )
+import os
+import redis.asyncio as redis
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from utils import throttler, GOOGLE_SECRET
-from prometheus_client import make_asgi_app
+from utils import GOOGLE_SECRET, HOST, PORT, REDIS_HOST
+from fastapi_limiter import FastAPILimiter
+from fastapi_limiter.depends import RateLimiter
+from utils import PrometheusMiddleware, metrics, setting_otlp, logger
+
+APP_NAME = os.environ.get("APP_NAME", "fastapi-backend")
+EXPOSE_PORT = os.environ.get("EXPOSE_PORT", 8000)
+OTLP_GRPC_ENDPOINT = os.environ.get("OTLP_GRPC_ENDPOINT", "http://tempo:4317")
 
 
 def get_db():
@@ -31,6 +36,10 @@ def get_db():
 
 
 app = FastAPI()
+
+app.add_middleware(PrometheusMiddleware, app_name=APP_NAME)
+
+setting_otlp(app, APP_NAME, OTLP_GRPC_ENDPOINT)
 
 origins = [
     "https://localhost:3000",
@@ -62,27 +71,28 @@ app.include_router(billing.router)
 app.include_router(dev.router)
 
 
-@app.get("/")
-async def root(db: Session = Depends(get_db)):
-    if throttler.consume(identifier="user_id"):
-        return {"message": "Server is running"}
-    raise HTTPException(status_code=429, detail="Too Many Requests")
+@app.on_event("startup")
+async def startup():
+    redis_connection = redis.from_url(
+        f"redis://{REDIS_HOST}", encoding="utf-8", decode_responses=True
+    )
+    await FastAPILimiter.init(redis_connection)
 
 
-metrics_app = make_asgi_app()
-app.mount("/metrics", metrics_app)
+@app.get("/", dependencies=[Depends(RateLimiter(times=10, seconds=60))])
+async def root(req: Request):
+    logger.info(f"Request from {req.client.host}")
+    return {"status": "Server is running"}
+
+
+app.add_route("/metrics", metrics)
 
 
 if __name__ == "__main__":
     import uvicorn
-    import ssl
 
-    uvicorn.run(
-        "main:app",
-        host="localhost",
-        port=8000,
-        ssl_version=ssl.PROTOCOL_SSLv23,
-        ssl_keyfile="./localhost-key.pem",
-        ssl_certfile="./localhost.pem",
-        reload=True,
-    )
+    log_config = uvicorn.config.LOGGING_CONFIG  # set timezone to UTC
+    log_config["formatters"]["access"][
+        "fmt"
+    ] = "%(asctime)s %(levelname)s [%(name)s] [%(filename)s:%(lineno)d] [trace_id=%(otelTraceID)s span_id=%(otelSpanID)s resource.service.name=%(otelServiceName)s] - %(message)s"
+    uvicorn.run("main:app", host=HOST, port=int(PORT), log_config=log_config)

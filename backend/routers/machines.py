@@ -14,7 +14,6 @@ from typing import Optional, Annotated
 from celeryworker import celeryapp
 from cryptography.fernet import Fernet
 from routers.auth import authenticate_user, get_current_user, TokenData
-from utils import throttler
 
 load_dotenv()
 

@@ -75,14 +75,14 @@ jobs:
           sleep 10
           echo $(curl http://127.0.0.1:8000/jobs/fetch_routes)
         env:
-          CONTENT_EXPIRE: 86400
-          JWT_SECRET: "dcc9aef90f841fbf5bdfcc4eb15a3a45bf644ddfe1c88927c45af177e2db49e3"
-          JWT_REFRESH_SECRET: "653197c40bddf183fbb3bad4bde9f976e908f1c462651903bf742170509d386f"
-          JWT_ALGORITHM: "HS256"
-          JWT_ACCESS_TOKEN_EXPIRE_MINUTES: "2880"
-          JWT_REFRESH_TOKEN_EXPIRE_MINUTES: "60 * 24 * 7"
-          JWT_AUTH_TOKEN: "NwBH9UcQ6m0I6zRp+UqJ0VeVoGOdbMX+ijKYOmWz//4="
-          ENV: "development"
+          CONTENT_EXPIRE: ${{ secrets.CONTENT_EXPIRE }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+          JWT_ALGORITHM: ${{ secrets.JWT_ALGORITHM }}
+          JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${{ secrets.JWT_ACCESS_TOKEN_EXPIRE_MINUTES }}
+          JWT_REFRESH_TOKEN_EXPIRE_MINUTES: ${{ secrets.JWT_REFRESH_TOKEN_EXPIRE_MINUTES}}
+          JWT_AUTH_TOKEN: ${{ secrets.JWT_AUTH_TOKEN }}
+          APP_ENV: "github"
           TNSR_DOMAIN: "http://127.0.0.1:3000"
           POSTGRES_HOST: 127.0.0.1
           POSTGRES_PORT: 5432
