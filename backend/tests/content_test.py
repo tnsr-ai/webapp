@@ -3,8 +3,13 @@ from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
 from fastapi import status
 from utils import *
+import pytest
 
-client = TestClient(app)
+
+@pytest.fixture
+def client():
+    with TestClient(app) as client:
+        yield client
 
 
 def test_get_content_success(client, create_test_db):

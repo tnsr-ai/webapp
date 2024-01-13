@@ -1,10 +1,15 @@
 from main import app
 from fastapi.testclient import TestClient
+import pytest
 
-client = TestClient(app)
+
+@pytest.fixture
+def client():
+    with TestClient(app) as client:
+        yield client
 
 
-def test_fetch_routes():
+def test_fetch_routes(client):
     response = client.get("/jobs/fetch_routes")
     assert response.status_code == 200
     assert response.json() == {

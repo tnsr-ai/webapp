@@ -8,9 +8,13 @@ import time
 from pydantic import BaseModel
 import pytest
 import models
+import pytest
 
 
-client = TestClient(app)
+@pytest.fixture
+def client():
+    with TestClient(app) as client:
+        yield client
 
 
 class GoogleData(BaseModel):

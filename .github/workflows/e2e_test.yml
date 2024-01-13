@@ -93,6 +93,8 @@ jobs:
           REDIS_BACKEND: "redis://127.0.0.1:6379/0"
           REDIS_HOST: 127.0.0.1
           REDIS_PORT: "6379"
+          HOST: "127.0.0.1"
+          PORT: "8000"
         working-directory: ./backend
       - name: Ping FastAPI server
         run: |

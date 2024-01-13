@@ -285,7 +285,7 @@ def send_email_task(name: int, verification_link: str, receiver_email: str):
 @router.post(
     "/signup",
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+    dependencies=[Depends(RateLimiter(times=20, seconds=60))],
 )
 async def create_user(
     response: Response,
@@ -424,7 +424,7 @@ def login_user_task(email: str, password: str, db: db_dependency):
     "/login",
     response_model=User,
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+    dependencies=[Depends(RateLimiter(times=20, seconds=60))],
 )
 async def login_user(
     response: Response,
@@ -510,7 +510,7 @@ def logout_user_task(user_id: int, db: db_dependency):
 @router.get(
     "/logout",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+    dependencies=[Depends(RateLimiter(times=20, seconds=60))],
 )
 async def logout_user(
     response: Response,
@@ -565,7 +565,7 @@ def verify_user_task(
 @router.get(
     "/verify",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+    dependencies=[Depends(RateLimiter(times=20, seconds=60))],
 )
 async def check_user(
     db: Session = Depends(get_db),
@@ -629,7 +629,7 @@ def refresh_user_task(user_id: int, db: db_dependency):
 @router.get(
     "/refresh",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+    dependencies=[Depends(RateLimiter(times=10, seconds=60))],
 )
 async def check_user_refresh(
     response: Response,
@@ -838,7 +838,7 @@ def forgot_password_task(name: str, verification_link: str, receiver_email: str)
 @router.post(
     "/forgotpassword",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+    dependencies=[Depends(RateLimiter(times=20, seconds=60))],
 )
 async def forgot_password(
     response: Response, forgot_model: ForgotPassword, db: Session = Depends(get_db)
@@ -894,7 +894,7 @@ def verify_email_task(
 @router.get(
     "/verifyemail",
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+    dependencies=[Depends(RateLimiter(times=20, seconds=60))],
 )
 async def verify_email(
     user_id: int,

@@ -4,8 +4,13 @@ from unittest.mock import patch
 from fastapi import status
 from utils import *
 from routers.upload import UploadDict, Upload, IndexContent
+import pytest
 
-client = TestClient(app)
+
+@pytest.fixture
+def client():
+    with TestClient(app) as client:
+        yield client
 
 
 def test_generate_presigned_post(client, create_test_db):

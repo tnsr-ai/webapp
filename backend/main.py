@@ -17,7 +17,7 @@ import os
 import redis.asyncio as redis
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from utils import GOOGLE_SECRET, HOST, PORT, REDIS_HOST
+from utils import GOOGLE_SECRET, HOST, PORT, REDIS_HOST, APP_ENV
 from fastapi_limiter import FastAPILimiter
 from fastapi_limiter.depends import RateLimiter
 from utils import PrometheusMiddleware, metrics, setting_otlp, logger
@@ -37,9 +37,10 @@ def get_db():
 
 app = FastAPI()
 
-app.add_middleware(PrometheusMiddleware, app_name=APP_NAME)
+if APP_ENV != "github":
+    app.add_middleware(PrometheusMiddleware, app_name=APP_NAME)
+    setting_otlp(app, APP_NAME, OTLP_GRPC_ENDPOINT)
 
-setting_otlp(app, APP_NAME, OTLP_GRPC_ENDPOINT)
 
 origins = [
     "https://localhost:3000",
