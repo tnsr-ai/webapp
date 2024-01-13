@@ -13,8 +13,10 @@ export default function InvoiceTable() {
   const queryClient = useQueryClient();
   const limit = 5;
   const [offset, setOffset] = useState(0);
-  const { data, isLoading, isSuccess, refetch, isError } =
-    useGetInvoice(limit, offset);
+  const { data, isLoading, isSuccess, refetch, isError } = useGetInvoice(
+    limit,
+    offset
+  );
   const [invoiceId, setInvoiceId] = useState("");
   const [download, setDownload] = useState(false);
 
@@ -65,108 +67,120 @@ export default function InvoiceTable() {
             </div>
           </div>
           <div className="-mx-4 mt-8 overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:-mx-6 md:mx-0 md:rounded-lg">
-            <table className="min-w-full divide-y divide-gray-300 rounded-2xl">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th
-                    scope="col"
-                    className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6"
-                  >
-                    Order
-                  </th>
-                  <th
-                    scope="col"
-                    className="hidden px-3 py-3.5 text-left text-sm font-semibold text-gray-900 sm:table-cell"
-                  >
-                    Date
-                  </th>
-                  <th
-                    scope="col"
-                    className="hidden px-3 py-3.5 text-left text-sm font-semibold text-gray-900 lg:table-cell"
-                  >
-                    Source
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
-                  >
-                    Amount
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
-                  >
-                    Status
-                  </th>
-                  <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
-                    <span className="sr-only">Edit</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 bg-white">
-                {data.data.map((invoice: any) => (
-                  <tr key={invoice.orderID}>
-                    <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
-                      {`#${invoice.orderID + 1000}`}
-                    </td>
-                    <td className="hidden whitespace-nowrap px-3 py-4 text-sm text-gray-500 sm:table-cell">
-                      {invoice.date}
-                    </td>
-                    <td className="hidden whitespace-nowrap px-3 py-4 text-sm  lg:table-cell">
-                      <div className="flex space-x-1 justify-start">
-                        {invoice.payment_details.card != null && (
-                          <Image
-                            src={`/card_logo/${invoice.payment_details.card}.svg`}
-                            alt="Visa"
-                            width={30}
-                            height={30}
-                          />
+            {data.data.length === 0 && (
+              <div className="w-full flex justify-center items-center">
+                <p className="text-black font-medium text-center">
+                  {"No invoice's found"}
+                </p>
+              </div>
+            )}
+            {data.data.length > 0 && (
+              <table className="min-w-full divide-y divide-gray-300 rounded-2xl">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th
+                      scope="col"
+                      className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6"
+                    >
+                      Order
+                    </th>
+                    <th
+                      scope="col"
+                      className="hidden px-3 py-3.5 text-left text-sm font-semibold text-gray-900 sm:table-cell"
+                    >
+                      Date
+                    </th>
+                    <th
+                      scope="col"
+                      className="hidden px-3 py-3.5 text-left text-sm font-semibold text-gray-900 lg:table-cell"
+                    >
+                      Source
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
+                    >
+                      Amount
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
+                    >
+                      Status
+                    </th>
+                    <th
+                      scope="col"
+                      className="relative py-3.5 pl-3 pr-4 sm:pr-6"
+                    >
+                      <span className="sr-only">Edit</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 bg-white w-full">
+                  {data.data.map((invoice: any) => (
+                    <tr key={invoice.orderID}>
+                      <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
+                        {`#${invoice.orderID + 1000}`}
+                      </td>
+                      <td className="hidden whitespace-nowrap px-3 py-4 text-sm text-gray-500 sm:table-cell">
+                        {invoice.date}
+                      </td>
+                      <td className="hidden whitespace-nowrap px-3 py-4 text-sm  lg:table-cell">
+                        <div className="flex space-x-1 justify-start">
+                          {invoice.payment_details.card != null && (
+                            <Image
+                              src={`/card_logo/${invoice.payment_details.card}.svg`}
+                              alt="Visa"
+                              width={30}
+                              height={30}
+                            />
+                          )}
+                          {invoice.payment_details.last4 != null && (
+                            <p className="text-gray-500">
+                              {`** ${invoice.payment_details.last4}`}
+                            </p>
+                          )}
+                          {invoice.payment_details.last4 == null && (
+                            <div className="w-full flex justify-start">
+                              <MinusSmallIcon className="w-[20px] fill-gray-500" />
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                        {`${invoice.currency} ${invoice.amount}`}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4">
+                        {invoice.status.toLowerCase() === "completed" && (
+                          <span className="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
+                            {invoice.status}
+                          </span>
                         )}
-                        {invoice.payment_details.last4 != null && (
-                          <p className="text-gray-500">
-                            {`** ${invoice.payment_details.last4}`}
+                        {invoice.status.toLowerCase() === "pending" && (
+                          <span className="inline-flex items-center rounded-md bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-700 ring-1 ring-inset ring-yellow-600/20">
+                            {invoice.status}
+                          </span>
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                        {invoice.status.toLowerCase() === "completed" && (
+                          <p
+                            className="text-purple-600 hover:text-purple-900 cursor-pointer"
+                            onClick={() => {
+                              setInvoiceId(invoice.orderID);
+                              setDownload(true);
+                            }}
+                          >
+                            Download
                           </p>
                         )}
-                        {invoice.payment_details.last4 == null && (
-                          <div className="w-full flex justify-start">
-                            <MinusSmallIcon className="w-[20px] fill-gray-500" />
-                          </div>
-                        )}
-                      </div>
-                    </td>
-
-                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                      {`${invoice.currency} ${invoice.amount}`}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-4">
-                      {invoice.status.toLowerCase() === "completed" && (
-                        <span className="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
-                          {invoice.status}
-                        </span>
-                      )}
-                      {invoice.status.toLowerCase() === "pending" && (
-                        <span className="inline-flex items-center rounded-md bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-700 ring-1 ring-inset ring-yellow-600/20">
-                          {invoice.status}
-                        </span>
-                      )}
-                    </td>
-                    <td className="whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                      {invoice.status.toLowerCase() === "completed" && (
-                        <p
-                          className="text-purple-600 hover:text-purple-900 cursor-pointer"
-                          onClick={() => {
-                            setInvoiceId(invoice.orderID);
-                            setDownload(true);
-                          }}
-                        >
-                          Download
-                        </p>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
           <div className="w-full flex justify-center mt-5" id="pageInvoice">
             <Pagination

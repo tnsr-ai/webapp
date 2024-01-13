@@ -31,10 +31,8 @@ describe("BillingContent Component", () => {
   it("renders with correct data", () => {
     render(<BillingContent data={mockData} />);
     expect(screen.getByText("Token Balance")).toBeInTheDocument();
-    expect(
-      screen.getByText("Current Balance: 100 credits")
-    ).toBeInTheDocument();
-    expect(screen.getByText("Lifetime Usage: 200 credits")).toBeInTheDocument();
+    expect(screen.getByText("100 credits")).toBeInTheDocument();
+    expect(screen.getByText("200 credits")).toBeInTheDocument();
     expect(screen.getByText("Plan: Free")).toBeInTheDocument();
   });
 

@@ -140,14 +140,18 @@ export default function DashboardContent({ data }: DashboardContentProps) {
                   ))}
                 </div>
               </div>
-              <div className="col-span-1">
-                <h1 className="text-lg font-medium">Storage Distribution</h1>
-                <div className="mt-5 px-8 mb-10">
-                  <PieActiveArc
-                    storageData={JSON.parse(data.data.storage_json)}
-                  />
+              {data.data.storage_used > 0 && (
+                <div className="col-span-1">
+                  <h1 className="text-lg font-medium">
+                    Storage Distribution (in MB)
+                  </h1>
+                  <div className="mt-5 px-8 mb-10">
+                    <PieActiveArc
+                      storageData={JSON.parse(data.data.storage_json)}
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
             </dl>
           </div>
         </div>

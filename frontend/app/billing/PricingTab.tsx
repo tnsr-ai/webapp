@@ -38,7 +38,7 @@ export default function PricingTab({ country }: PricingTabProps) {
             Pricing Tier
           </h3>
           <div className="mt-3 max-w-xl">
-            <p>
+            <p className="text-center">
               No subscription required. Tier is based on how much you use the
               service.
             </p>

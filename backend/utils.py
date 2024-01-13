@@ -1,6 +1,5 @@
 import jwt
 from dotenv import load_dotenv
-from fastapi import HTTPException, status, Request
 import os
 from typing import Union, Any
 from datetime import datetime, timedelta
@@ -12,13 +11,43 @@ import pystache
 from pathlib import Path
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from token_throttler import TokenBucket, TokenThrottler
-from token_throttler.storage import RuntimeStorage
 import smtplib
 import re
 import ssl
+import time
+from typing import Tuple
+import logging as logger
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.instrumentation.logging import LoggingInstrumentor
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from prometheus_client import REGISTRY, Counter, Gauge, Histogram
+from prometheus_client.openmetrics.exposition import (
+    CONTENT_TYPE_LATEST,
+    generate_latest,
+)
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.requests import Request
+from starlette.responses import Response
+from starlette.routing import Match
+from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
+from starlette.types import ASGIApp
 
 load_dotenv()
+APP_ENV = os.getenv("APP_ENV")
+if APP_ENV == "development":
+    load_dotenv(dotenv_path=".env.development")
+elif APP_ENV == "github":
+    load_dotenv(dotenv_path=".env.github")
+elif APP_ENV == "docker":
+    load_dotenv(dotenv_path=".env.docker")
+else:
+    load_dotenv(dotenv_path=".env")
+
+ENV = os.getenv("ENV")
 
 CONTENT_EXPIRE = int(os.getenv("CONTENT_EXPIRE"))
 
@@ -49,6 +78,13 @@ GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
 TNSR_DOMAIN = os.getenv("TNSR_DOMAIN")
 TNSR_BACKEND_DOMAIN = os.getenv("TNSR_BACKEND_DOMAIN")
 
+# Database Credentials
+POSTGRES_HOST = os.getenv("POSTGRES_HOST")
+POSTGRES_PORT = os.getenv("POSTGRES_PORT")
+POSTGRES_USERNAME = os.getenv("POSTGRES_USERNAME")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
+POSTGRES_DATABASE = os.getenv("POSTGRES_DATABASE")
+
 # Redis Credentials
 REDIS_BROKER = os.getenv("REDIS_BROKER")
 REDIS_BACKEND = os.getenv("REDIS_BACKEND")
@@ -76,12 +112,43 @@ STRIPE_PUBLIC_KEY = os.getenv("STRIPE_PUBLIC_KEY")
 # Openexchange Credentials
 OPENEXCHANGERATES_API_KEY = os.getenv("OPENEXCHANGERATES_API_KEY")
 
+# FastAPI Config
+HOST = os.getenv("HOST")
+PORT = os.getenv("PORT")
+
 
 STORAGE_LIMITS = {
-    "free": 2 * 1024**3,  # 2GB
-    "standard": 20 * 1024**3,  # 20GB
-    "deluxe": 100 * 1024**3,  # 100GB
+    "free": 2 * 1024**3,
+    "standard": 20 * 1024**3,
+    "deluxe": 100 * 1024**3,
 }
+
+INFO = Gauge("fastapi_app_info", "FastAPI application information.", ["app_name"])
+REQUESTS = Counter(
+    "fastapi_requests_total",
+    "Total count of requests by method and path.",
+    ["method", "path", "app_name"],
+)
+RESPONSES = Counter(
+    "fastapi_responses_total",
+    "Total count of responses by method, path and status codes.",
+    ["method", "path", "status_code", "app_name"],
+)
+REQUESTS_PROCESSING_TIME = Histogram(
+    "fastapi_requests_duration_seconds",
+    "Histogram of requests processing time by path (in seconds)",
+    ["method", "path", "app_name"],
+)
+EXCEPTIONS = Counter(
+    "fastapi_exceptions_total",
+    "Total count of exceptions raised by path and exception type",
+    ["method", "path", "exception_type", "app_name"],
+)
+REQUESTS_IN_PROGRESS = Gauge(
+    "fastapi_requests_in_progress",
+    "Gauge of requests by method and path currently being processed",
+    ["method", "path", "app_name"],
+)
 
 r2_client = boto3.client(
     "s3",
@@ -102,15 +169,6 @@ r2_resource = boto3.resource(
     endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
 )
 
-throttler: TokenThrottler = TokenThrottler(cost=1, storage=RuntimeStorage())
-throttler.add_bucket(
-    identifier="user_id", bucket=TokenBucket(replenish_time=60, max_tokens=100)
-)
-
-throttler_checkout = TokenThrottler(cost=1, storage=RuntimeStorage())
-throttler_checkout.add_bucket(
-    identifier="user_id", bucket=TokenBucket(replenish_time=600, max_tokens=10)
-)
 
 password_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -387,15 +445,15 @@ def increase_and_round(number_val: int, credits: int) -> dict:
 
     discount = 0
     if 50 <= credits < 100:
-        discount = 0.05  # 5% discount
+        discount = 0.05
     elif 100 <= credits < 200:
-        discount = 0.1  # 10% discount
+        discount = 0.1
     elif 200 <= credits < 300:
-        discount = 0.15  # 15% discount
+        discount = 0.15
     elif 300 <= credits < 400:
-        discount = 0.2  # 20% discount
+        discount = 0.2
     elif 400 <= credits <= 500:
-        discount = 0.25  # 25% discount
+        discount = 0.25
 
     if discount == 0:
         return {
@@ -411,3 +469,112 @@ def increase_and_round(number_val: int, credits: int) -> dict:
         "percentage": discount * 100,
         "final_amt": round(rounded_no * (1 - discount)),
     }
+
+
+class PrometheusMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app: ASGIApp, app_name: str = "fastapi-app") -> None:
+        super().__init__(app)
+        self.app_name = app_name
+        INFO.labels(app_name=self.app_name).inc()
+
+    async def dispatch(
+        self, request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
+        method = request.method
+        path, is_handled_path = self.get_path(request)
+
+        if not is_handled_path:
+            return await call_next(request)
+
+        REQUESTS_IN_PROGRESS.labels(
+            method=method, path=path, app_name=self.app_name
+        ).inc()
+        REQUESTS.labels(method=method, path=path, app_name=self.app_name).inc()
+        before_time = time.perf_counter()
+        try:
+            response = await call_next(request)
+        except BaseException as e:
+            status_code = HTTP_500_INTERNAL_SERVER_ERROR
+            EXCEPTIONS.labels(
+                method=method,
+                path=path,
+                exception_type=type(e).__name__,
+                app_name=self.app_name,
+            ).inc()
+            raise e from None
+        else:
+            status_code = response.status_code
+            after_time = time.perf_counter()
+            # retrieve trace id for exemplar
+            span = trace.get_current_span()
+            trace_id = trace.format_trace_id(span.get_span_context().trace_id)
+
+            REQUESTS_PROCESSING_TIME.labels(
+                method=method, path=path, app_name=self.app_name
+            ).observe(after_time - before_time, exemplar={"TraceID": trace_id})
+        finally:
+            RESPONSES.labels(
+                method=method,
+                path=path,
+                status_code=status_code,
+                app_name=self.app_name,
+            ).inc()
+            REQUESTS_IN_PROGRESS.labels(
+                method=method, path=path, app_name=self.app_name
+            ).dec()
+
+        return response
+
+    @staticmethod
+    def get_path(request: Request) -> Tuple[str, bool]:
+        for route in request.app.routes:
+            match, child_scope = route.matches(request.scope)
+            if match == Match.FULL:
+                return route.path, True
+
+        return request.url.path, False
+
+
+def metrics(request: Request) -> Response:
+    return Response(
+        generate_latest(REGISTRY), headers={"Content-Type": CONTENT_TYPE_LATEST}
+    )
+
+
+def setting_otlp(
+    app: ASGIApp, app_name: str, endpoint: str, log_correlation: bool = True
+) -> None:
+    resource = Resource.create(
+        attributes={"service.name": app_name, "compose_service": app_name}
+    )
+    tracer = TracerProvider(resource=resource)
+    trace.set_tracer_provider(tracer)
+
+    tracer.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint)))
+
+    if log_correlation:
+        LoggingInstrumentor().instrument(set_logging_format=True)
+
+    FastAPIInstrumentor.instrument_app(app, tracer_provider=tracer)
+
+
+def hide_email(email):
+    local_part, domain = email.split("@")
+    mask_length = len(local_part) - 2 if len(local_part) > 2 else len(local_part)
+    show_length = (len(local_part) - mask_length) // 2
+    if show_length > 0:
+        masked_local = (
+            local_part[:show_length] + "*" * mask_length + local_part[-show_length:]
+        )
+    else:
+        masked_local = "*" * mask_length
+    masked_email = masked_local + "@" + domain
+    return masked_email
+
+
+class EndpointFilter(logger.Filter):
+    def filter(self, record: logger.LogRecord) -> bool:
+        return record.getMessage().find("GET /metrics") == -1
+
+
+logger.getLogger("uvicorn.access").addFilter(EndpointFilter())

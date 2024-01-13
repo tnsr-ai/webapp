@@ -1,50 +1,50 @@
 export const dashboardStats = [
-    {
-      id: 1,
-      name: "Video",
-      icon: "/icons/video_stats.png",
-      key: "video_processed",
-    },
-    {
-      id: 2,
-      name: "Image",
-      icon: "/icons/image_stats.png",
-      key: "image_processed",
-    },
-    {
-      id: 3,
-      name: "Audio",
-      icon: "/icons/audio_stats.png",
-      key: "audio_processed",
-    },
-  ];
-  
-export  const networkStats = [
-    {
-      id: 1,
-      name: "Download",
-      icon: "/icons/download.png",
-      key: "downloads",
-    },
-    {
-      id: 2,
-      name: "Upload",
-      icon: "/icons/upload.png",
-      key: "uploads",
-    },
-    {
-      id: 3,
-      name: "Storage",
-      icon: "/icons/storage.png",
-      key: "storage",
-    },
-    {
-      id: 4,
-      name: "GPU Usage",
-      icon: "/icons/gpu.png",
-      key: "gpu_usage",
-    },
-  ];
+  {
+    id: 1,
+    name: "Video",
+    icon: "/icons/video_stats.png",
+    key: "video_processed",
+  },
+  {
+    id: 2,
+    name: "Image",
+    icon: "/icons/image_stats.png",
+    key: "image_processed",
+  },
+  {
+    id: 3,
+    name: "Audio",
+    icon: "/icons/audio_stats.png",
+    key: "audio_processed",
+  },
+];
+
+export const networkStats = [
+  {
+    id: 1,
+    name: "Download",
+    icon: "/icons/download.png",
+    key: "downloads",
+  },
+  {
+    id: 2,
+    name: "Upload",
+    icon: "/icons/upload.png",
+    key: "uploads",
+  },
+  {
+    id: 3,
+    name: "Storage",
+    icon: "/icons/storage.png",
+    key: "storage",
+  },
+  {
+    id: 4,
+    name: "GPU Usage",
+    icon: "/icons/gpu.png",
+    key: "gpu_usage",
+  },
+];
 
 export const userPlans = [
   {
@@ -92,8 +92,8 @@ export const videoData = {
     "video/wmv": [".wmv"],
   },
   maxFileSizeInBytes: 5000000000,
-  dropzoneMsg: "MP4, MOV, MKV or WEBM (MAX. 5GB)"
-}
+  dropzoneMsg: "MP4, MOV, MKV or WEBM (MAX. 5GB)",
+};
 
 export const imageData = {
   acceptedFiles: {
@@ -103,8 +103,8 @@ export const imageData = {
     "image/webp": [".webp"],
   },
   maxFileSizeInBytes: 50000000,
-  dropzoneMsg: "PNG, JPEG, JPG or WEBP (MAX. 50MB)"
-}
+  dropzoneMsg: "PNG, JPEG, JPG or WEBP (MAX. 50MB)",
+};
 
 export const audioData = {
   acceptedFiles: {
@@ -114,7 +114,17 @@ export const audioData = {
     "audio/aac": [".aac"],
   },
   maxFileSizeInBytes: 200000000,
-  dropzoneMsg: "MP3, WAV or AAC (MAX. 200MB)"
-}
+  dropzoneMsg: "MP3, WAV or AAC (MAX. 200MB)",
+};
 
-export const fileSizeUnits = ["bytes", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"];
+export const fileSizeUnits = [
+  "bytes",
+  "KB",
+  "MB",
+  "GB",
+  "TB",
+  "PB",
+  "EB",
+  "ZB",
+  "YB",
+];

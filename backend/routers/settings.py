@@ -14,9 +14,10 @@ from pydantic import BaseModel, Field
 from utils import *
 from routers.auth import authenticate_user, get_current_user, TokenData
 import models
+from fastapi_limiter.depends import RateLimiter
 from script_utils.util import *
 from dotenv import load_dotenv
-from utils import throttler
+from utils import logger
 
 load_dotenv()
 
@@ -76,18 +77,20 @@ def change_password_task(passworddict: dict, user_id: int, db: Session) -> None:
         return {"detail": "Failed", "data": "Unable to change password"}
 
 
-@router.post("/change_password")
+@router.post(
+    "/change_password", dependencies=[Depends(RateLimiter(times=10, seconds=60))]
+)
 async def change_password(
     passworddict: PasswordDict,
     current_user: TokenData = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     try:
         task = change_password_task(passworddict.dict(), int(current_user.user_id), db)
+        logger.info(f"Password changed for {current_user.user_id}")
         return task
     except Exception as e:
+        logger.error(f"Password change failed for {current_user.user_id}")
         return {"detail": "Failed", "data": "Unable to change password"}
 
 
@@ -127,16 +130,16 @@ def get_settings_task(user_id: int, db: Session) -> None:
         return {"detail": "Failed", "data": "Unable to retrieve data"}
 
 
-@router.get("/get_settings")
+@router.get("/get_settings", dependencies=[Depends(RateLimiter(times=30, seconds=60))])
 async def get_settings(
     db: Session = Depends(get_db), current_user: TokenData = Depends(get_current_user)
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     try:
         get_details = get_settings_task(current_user.user_id, db)
+        logger.info(f"Settings retrieved for {current_user.user_id}")
         return get_details
     except Exception as e:
+        logger.error(f"Settings retrieval failed for {current_user.user_id}")
         return {"detail": "Failed", "data": "Unable to retrieve data"}
 
 
@@ -159,16 +162,18 @@ def update_settings_task(new_settings: dict, user_id: int, db: Session) -> None:
         return {"detail": "Failed", "data": "Unable to update settings"}
 
 
-@router.post("/update_settings")
+@router.post(
+    "/update_settings", dependencies=[Depends(RateLimiter(times=10, seconds=60))]
+)
 async def update_settings(
     new_settings: NotificationDict,
     db: Session = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    if throttler.consume(identifier="user_id") == False:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
     try:
         update_settings_task(new_settings.dict(), current_user.user_id, db)
+        logger.info(f"Settings updated for {current_user.user_id}")
         return {"detail": "Success", "data": "Settings updated successfully"}
     except Exception as e:
+        logger.error(f"Settings update failed for {current_user.user_id}")
         return {"detail": "Failed", "data": "Unable to update settings"}

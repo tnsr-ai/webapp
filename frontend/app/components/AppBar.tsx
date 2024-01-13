@@ -103,11 +103,12 @@ const AppBar = () => {
       <nav>
         <div className="w-full h-full flex justify-center items-center">
           <div
-            className={`w-[90%] h-[80px] navbar mt-5 rounded-3xl backdrop-blur-3xl bg-opacity-40 flex flex-row items-center border-2 border-solid lg:border-none ${
+            className={`w-[90%] h-[70px] md:h-[80px] navbar mt-5 rounded-3xl backdrop-blur-3xl bg-opacity-40 flex flex-row items-center border-2 border-solid lg:border-none lg:invisible ${
               isScrolled ? "bg-zinc-300" : "bg-white"
             }`}
           >
-            <div className="w-full flex justify-center items-center lg:hidden p-2">
+            <div className="hidden lg:block lg:w-1/3"></div>
+            <div className="w-full lg:w-1/3 flex justify-center items-center lg:hidden p-2">
               <div className="flex flex-row content-center items-center">
                 <Link href={"/"}>
                   <img
@@ -121,7 +122,7 @@ const AppBar = () => {
                 </Link>
               </div>
             </div>
-            <div className="block lg:hidden">
+            <div className="lg:w-1/3 block lg:hidden">
               <Hamburger toggled={isOpen} toggle={setOpen} size={26} />
             </div>
           </div>

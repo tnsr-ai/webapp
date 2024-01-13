@@ -10,15 +10,33 @@ jobs:
     steps:
       - name: Get Code
         uses: actions/checkout@v4
-      - name: Cache Dependencies
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - uses: oven-sh/setup-bun@v1
+      - name: Cache node modules
+        id: cache-npm
         uses: actions/cache@v3
+
+        env:
+          cache-name: cache-node-modules
         with:
           path: ~/.npm
-          key: npm-${{ hashFiles('**/package-lock.json') }}
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
-            npm-
-      - name: Install Dependencies
-        run: npm ci --ignore-scripts
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+
+      - if: ${{ steps.cache-npm.outputs.cache-hit != 'true' }}
+        name: List the state of node modules
+        continue-on-error: true
+        run: bun list
+
+      - name: Compile node modules
+        run: |
+          bun install
+          bun run build
         working-directory: ./frontend
       - name: Lint code
         run: npm run lint
@@ -29,11 +47,15 @@ jobs:
   backendtest:
     runs-on: ubuntu-22.04
     services:
+      redis:
+        image: redis:latest
+        ports:
+          - 6379:6379
       postgres:
         image: postgres:13.3
         env:
           POSTGRES_USER: admin
-          POSTGRES_PASSWORD: amitbera
+          POSTGRES_PASSWORD: password
           POSTGRES_DB: development
         ports:
           - 5432:5432
@@ -73,4 +95,15 @@ jobs:
           JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${{ secrets.JWT_ACCESS_TOKEN_EXPIRE_MINUTES }}
           JWT_REFRESH_TOKEN_EXPIRE_MINUTES: ${{ secrets.JWT_REFRESH_TOKEN_EXPIRE_MINUTES }}
           JWT_AUTH_TOKEN: ${{ secrets.JWT_AUTH_TOKEN }}
+          POSTGRES_HOST: "127.0.0.1"
+          POSTGRES_PORT: "5432"
+          POSTGRES_USERNAME: "admin"
+          POSTGRES_PASSWORD: "password"
+          POSTGRES_DATABASE: "development"
+          REDIS_BROKER: "redis://127.0.0.1:6379/0"
+          REDIS_BACKEND: "redis://127.0.0.1:6379/0"
+          REDIS_HOST: 127.0.0.1
+          REDIS_PORT: "6379"
+          APP_ENV: "github"
+          TNSR_DOMAIN: "http://127.0.0.1:3000"
         working-directory: ./backend

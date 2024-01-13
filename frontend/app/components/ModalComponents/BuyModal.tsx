@@ -1,7 +1,6 @@
 "use client";
 import * as React from "react";
 import Modal from "@mui/material/Modal";
-import { Button } from "@mui/material";
 import { getCookie } from "cookies-next";
 import { XMarkIcon } from "@heroicons/react/20/solid";
 import Image from "next/image";
@@ -194,13 +193,13 @@ export default function BuyPrompt(props: any) {
                 </p>
               </div>
               <div className="mt-5 w-full flex justify-end">
-                <Button
-                  variant="contained"
-                  color="secondary"
+                <button
+                  type="button"
+                  className="rounded-md bg-purple-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-purple-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-600"
                   onClick={makePayment}
                 >
                   Continue to Checkout
-                </Button>
+                </button>
               </div>
             </div>
           </div>
