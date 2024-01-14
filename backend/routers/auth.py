@@ -132,7 +132,7 @@ def minutes_to_delta(minutes: int):
     return int(timedelta(minutes=minutes).total_seconds())
 
 
-oauth2_bearer = OAuth2PasswordBearer(tokenUrl="auth/login")
+oauth2_bearer = OAuth2PasswordBearer(tokenUrl="auth/login", auto_error=False)
 
 
 def get_current_user(db: db_dependency, token: str = Depends(oauth2_bearer)):

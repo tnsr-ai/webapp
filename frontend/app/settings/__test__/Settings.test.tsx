@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import Settings from "../page";
 import { useGetSettings } from "../../api/index";
 import { Loader } from "@mantine/core";
-import Error from "../../components/ErrorTab";
+import { Error } from "../../components/ErrorTab";
 import SettingsTab from "../SettingsTab";
 
 // Mock the necessary modules

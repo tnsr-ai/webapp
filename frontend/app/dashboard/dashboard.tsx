@@ -33,8 +33,13 @@ interface DashboardContentProps {
 }
 
 export default function DashboardContent({ data }: DashboardContentProps) {
+  const spacingClass =
+    data.verified === false ? "mt-20 sm:mt-12 md:mt-10 lg:mt-0" : "";
   return (
-    <div className="max-w-[1500px] m-auto" data-testid="dashboardContent">
+    <div
+      className={`max-w-[1500px] m-auto ${spacingClass}`}
+      data-testid="dashboardContent"
+    >
       <div className="flex flex-col ">
         <div id="welcome-back" className="">
           <div className="flex-row xl:flex mt-5 px-6 gap-5 ">

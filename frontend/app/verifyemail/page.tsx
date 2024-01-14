@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Loader } from "@mantine/core";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function Forgot() {
   const [counter, setCounter] = useState(5);
@@ -11,6 +12,8 @@ export default function Forgot() {
   const user_id = searchParams.get("user_id");
   const email_token = searchParams.get("email_token");
   const [missing, setMissing] = useState(false);
+
+  const queryClient = useQueryClient();
 
   const { data, isLoading, isSuccess, isError, refetch } = useQuery({
     queryKey: [
@@ -28,6 +31,7 @@ export default function Forgot() {
   });
 
   useEffect(() => {
+    queryClient.invalidateQueries(["verifyUser"]);
     if (user_id && email_token) {
       refetch();
     } else {

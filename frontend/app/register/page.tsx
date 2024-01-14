@@ -6,6 +6,7 @@ import { Loader } from "@mantine/core";
 import useAuth from "@/hooks/useAuth";
 import { AuthenticationContext } from "../context/AuthContext";
 import { isValidEmail } from "../utils/utils";
+import { useQueryClient } from "@tanstack/react-query";
 
 function isStrongPassword(password: string): boolean {
   const uniqueChars = new Set(password);
@@ -26,7 +27,9 @@ export default function Register() {
   const [emailAlert, setEmailAlert] = useState("hidden");
   const [passwordAlert, setpasswordAlert] = useState("hidden");
   const [strongPasswordAlert, setStrongPasswordAlert] = useState("hidden");
+  const queryClient = useQueryClient();
   useEffect(() => {
+    queryClient.invalidateQueries(["verifyUser"]);
     setAuthState({
       loading: false,
       error: null,

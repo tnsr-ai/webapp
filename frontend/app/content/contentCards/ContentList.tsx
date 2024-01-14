@@ -8,7 +8,7 @@ import { Key, useEffect, useState } from "react";
 import { useGetContent } from "../../api/index";
 import ContentCard from "./ContentCard";
 import { ArrowSmallUpIcon } from "@heroicons/react/20/solid";
-import Error from "../../components/ErrorTab";
+import { Error, TimeoutError } from "../../components/ErrorTab";
 import { setCookie, getCookie } from "cookies-next";
 
 export default function ContentList(props: any) {
@@ -31,7 +31,6 @@ export default function ContentList(props: any) {
 
   const { data, isLoading, isSuccess, isFetched, refetch, isError } =
     useGetContent(limit, offset, pathname);
-
   const [btnClicked, setBtnClicked] = useState(false);
 
   const nextData = () => {
@@ -166,7 +165,8 @@ export default function ContentList(props: any) {
           </div>
           {isError === true && (
             <div className="flex justify-center items-center">
-              <Error />
+              {data.detail === "Too Many Requests" && <TimeoutError />}
+              {data.detail != "Too Many Requests" && <Error />}
             </div>
           )}
           {isLoading === true && isFetched === false && (

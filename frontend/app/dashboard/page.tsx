@@ -4,7 +4,7 @@ import SideDrawer from "../components/SideDrawer";
 import DashboardContent from "./dashboard";
 import { useDashboard } from "../api/index";
 import { Loader } from "@mantine/core";
-import Error from "../components/ErrorTab";
+import { Error } from "../components/ErrorTab";
 import VerifyBanner from "../components/VerifyBanner";
 
 export default function Dashboard() {

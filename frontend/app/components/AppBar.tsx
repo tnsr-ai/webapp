@@ -99,7 +99,7 @@ const AppBar = () => {
   }, []);
 
   return (
-    <div>
+    <div className="">
       <nav>
         <div className="w-full h-full flex justify-center items-center">
           <div
@@ -139,7 +139,10 @@ const AppBar = () => {
                   className="w-[44px] md:w-[52px] ml-5"
                   alt="logo image"
                 />
-                <a className="text-black text-3xl font-bold ml-2" href="#">
+                <a
+                  className="text-black text-xl md:text-2xl lg:text-3xl font-bold ml-2"
+                  href="#"
+                >
                   tnsr.ai
                 </a>
               </div>

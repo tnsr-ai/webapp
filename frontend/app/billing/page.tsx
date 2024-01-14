@@ -4,7 +4,7 @@ import SideDrawer from "../components/SideDrawer";
 import BillingContent from "./BillingContent";
 import PricingTab from "./PricingTab";
 import InvoiceTable from "./InvoiceTable";
-import Error from "../components/ErrorTab";
+import { Error } from "../components/ErrorTab";
 import { useGetBalance, useGetIP } from "../api/index";
 import { Loader } from "@mantine/core";
 import { useEffect, useState } from "react";

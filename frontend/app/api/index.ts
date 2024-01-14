@@ -130,6 +130,7 @@ export const useGetIP = () => {
 
 export const useVerifyUser = () => {
   const jwt = getCookie("access_token");
+  const shouldFetch = Boolean(jwt);
   return useQuery({
     queryKey: [authEndpoints["verify"]],
     queryFn: async () => {
@@ -144,6 +145,10 @@ export const useVerifyUser = () => {
       const data = await response.json();
       return data;
     },
+    enabled: shouldFetch,
+    staleTime: Infinity,
+    cacheTime: 1000 * 60 * 60 * 24,
+    retry: false,
   });
 };
 

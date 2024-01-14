@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getCookie, setCookie } from "cookies-next";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import Error from "../../components/ErrorTab";
+import { Error } from "../../components/ErrorTab";
 
 export default function ContentListRow(props: any) {
   const content_id = Number(props.content_id);
