@@ -4,7 +4,7 @@ import AppBar from "../components/AppBar";
 import SideDrawer from "../components/SideDrawer";
 import SettingsTab from "./SettingsTab";
 import { useGetSettings } from "../api/index";
-import { Error } from "../components/ErrorTab";
+import Error from "../components/ErrorTab";
 
 export default function Settings() {
   const { data, isLoading, isSuccess, isError } = useGetSettings();

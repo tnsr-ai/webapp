@@ -45,9 +45,7 @@ describe("Register E2E", () => {
         cy.get('[data-testid="signUpButton"]').should("not.be.disabled");
         cy.get('[data-testid="signUpButton"]').click();
         cy.url().should("include", "/dashboard");
-        cy.contains(
-          "Please verify your email address to continue using the app."
-        ).should("be.visible");
+        cy.get('[data-cy="verifyBanner"]').should("be.visible");
       });
 
       it("check for user form validation (correct)", () => {

@@ -2,7 +2,7 @@ import Link from "next/link";
 
 const VerifyBanner = () => {
   return (
-    <div>
+    <div data-cy="verifyBanner">
       <div className="relative isolate items-center gap-x-6 overflow-hidden bg-gradient-to-r from-purple-100 to-pink-200 px-6 py-2.5 sm:px-3.5 sm:before:flex-1 hidden sm:flex">
         <div
           className="absolute left-[max(45rem,calc(50%+8rem))] top-1/2 -z-10 -translate-y-1/2 transform-gpu blur-2xl"
