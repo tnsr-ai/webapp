@@ -67,8 +67,8 @@ export default function JobsTable() {
             </div>
             <div className="">
               <div className="flex flex-col mt-2">
-                {people.map((person) => (
-                  <JobsCard data={person} />
+                {people.map((person: any, index: any) => (
+                  <JobsCard data={person} key={index} />
                 ))}
               </div>
             </div>
