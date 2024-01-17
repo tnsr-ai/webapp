@@ -1,18 +1,30 @@
-import Image from "next/image";
+"use client";
+import { useState, useEffect } from "react";
+import JobsCard from "./jobsCard";
 
 const people = [
   {
-    name: "Lindsay Walton",
-    title: "Front-end Developer",
-    department: "Optimization",
-    email: "lindsay.walton@example.com",
-    role: "Member",
-    image: "/assets/profile.png",
+    title: "sample.mp4",
+    image:
+      "https://aec18cb39d6670d41651478c21c17654.r2.cloudflarestorage.com/dev-metadata/thumbnail/3/video_41799a57-02bf-4be5-88f2-41f73d2f36e6.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=620745a96c4774788d66b91651975f2d%2F20240117%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20240117T060312Z&X-Amz-Expires=86400&X-Amz-SignedHeaders=host&X-Amz-Signature=3a70ac573136ab0b3e0d8ff197286c3f3b89dd86de62e29f9e7109d14284cbe6",
+    tags: "original, Image Deblurring, Stem Separation,original, Image Deblurring, Stem Separation,original, Image Deblurring, Stem Separation,original, Image Deblurring, Stem Separation,original, Image Deblurring, Stem Separation",
+    status: "Processing",
   },
-  // More people...
+  {
+    title: "sample.mp4",
+    image:
+      "https://aec18cb39d6670d41651478c21c17654.r2.cloudflarestorage.com/dev-metadata/thumbnail/3/video_41799a57-02bf-4be5-88f2-41f73d2f36e6.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=620745a96c4774788d66b91651975f2d%2F20240117%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20240117T060312Z&X-Amz-Expires=86400&X-Amz-SignedHeaders=host&X-Amz-Signature=3a70ac573136ab0b3e0d8ff197286c3f3b89dd86de62e29f9e7109d14284cbe6",
+    tags: "original, Image Deblurring, Stem Separation,original, Image Deblurring, Stem Separation,original, Image Deblurring, Stem Separation,original, Image Deblurring, Stem Separation,original, Image Deblurring, Stem Separation",
+    status: "Processing",
+  },
 ];
 
 export default function JobsTable() {
+  const [activeBtn, setActiveBtn] = useState(true);
+  const [allBtn, setAllBtn] = useState(false);
+
+  useEffect(() => {});
+
   return (
     <div className="px-4 sm:px-6 lg:px-8">
       <div className="sm:flex sm:items-center">
@@ -23,88 +35,42 @@ export default function JobsTable() {
       <div className="mt-1 flex flex-col">
         <div className="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
           <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
-            <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
-              <table className="min-w-full divide-y divide-gray-300">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th
-                      scope="col"
-                      className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6"
-                    >
-                      Name
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
-                    >
-                      Title
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
-                    >
-                      Status
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
-                    >
-                      Role
-                    </th>
-                    <th
-                      scope="col"
-                      className="relative py-3.5 pl-3 pr-4 sm:pr-6"
-                    >
-                      <span className="sr-only">Edit</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 bg-white">
-                  {people.map((person) => (
-                    <tr key={person.email}>
-                      <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6">
-                        <div className="flex items-center">
-                          <div className="h-10 w-10 flex-shrink-0">
-                            <Image
-                              className="h-10 w-10 rounded-full"
-                              src={person.image}
-                              alt="job_image"
-                              width={40}
-                              height={40}
-                            />
-                          </div>
-                          <div className="ml-4">
-                            <div className="font-medium text-gray-900">
-                              {person.name}
-                            </div>
-                            <div className="text-gray-500">{person.email}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        <div className="text-gray-900">{person.title}</div>
-                        <div className="text-gray-500">{person.department}</div>
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        <span className="inline-flex rounded-full bg-green-100 px-2 text-xs font-semibold leading-5 text-green-800">
-                          Active
-                        </span>
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        {person.role}
-                      </td>
-                      <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                        <a
-                          href="#"
-                          className="text-indigo-600 hover:text-indigo-900"
-                        >
-                          Edit<span className="sr-only">, {person.name}</span>
-                        </a>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="space-x-2 flex justify-end">
+              <button
+                type="button"
+                className={`rounded-full px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-100 ${
+                  activeBtn
+                    ? "bg-purple-100 text-purple-600"
+                    : "bg-white text-black"
+                }`}
+                onClick={() => {
+                  setActiveBtn(true);
+                  setAllBtn(false);
+                }}
+              >
+                Active
+              </button>
+              <button
+                type="button"
+                className={`rounded-full px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-100 ${
+                  allBtn
+                    ? "bg-purple-100 text-purple-600"
+                    : "bg-white text-black"
+                }`}
+                onClick={() => {
+                  setAllBtn(true);
+                  setActiveBtn(false);
+                }}
+              >
+                All
+              </button>
+            </div>
+            <div className="">
+              <div className="flex flex-col mt-2">
+                {people.map((person) => (
+                  <JobsCard data={person} />
+                ))}
+              </div>
             </div>
           </div>
         </div>
