@@ -5,11 +5,17 @@ import { Button } from "@mantine/core";
 import { toast } from "sonner";
 import { useMutation } from "@tanstack/react-query";
 import { registerJob } from "../../../api/index";
+import { useRouter } from "next/navigation";
 
 export function AudioFilter(props: any) {
+  const { push } = useRouter();
   const [musicsep, setMusicsep] = useState(false);
   const [se, setSe] = useState(false);
   const [transcription, setTranscription] = useState(false);
+
+  function sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
 
   const createJSON = () => {
     const filters_data = {
@@ -48,15 +54,17 @@ export function AudioFilter(props: any) {
     }
   );
 
-  const sendJob = () => {
+  const sendJob = async () => {
     const data = createJSON();
     const jobData = {
       job_type: "audio",
       job_data: data,
-    }
+    };
     mutate(jobData as any);
     props.setFilterShow(false);
-  }
+    await sleep(2000);
+    push("/jobs");
+  };
 
   return (
     <div>
@@ -92,7 +100,14 @@ export function AudioFilter(props: any) {
         className="w-full flex justify-center items-center mb-2"
       >
         <div className="">
-          <Button variant="outline" color="grape" radius="md" onClick={sendJob}>
+          <Button
+            variant="outline"
+            color="grape"
+            radius="md"
+            onClick={async () => {
+              await sendJob();
+            }}
+          >
             Process
           </Button>
         </div>

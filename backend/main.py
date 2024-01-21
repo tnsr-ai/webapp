@@ -37,7 +37,7 @@ def get_db():
 
 app = FastAPI()
 
-if APP_ENV != "github":
+if APP_ENV != "github" and APP_ENV != "development":
     app.add_middleware(PrometheusMiddleware, app_name=APP_NAME)
     setting_otlp(app, APP_NAME, OTLP_GRPC_ENDPOINT)
 
@@ -81,7 +81,7 @@ async def startup():
     await FastAPILimiter.init(redis_connection)
 
 
-@app.get("/", dependencies=[Depends(RateLimiter(times=10, seconds=60))])
+@app.get("/", dependencies=[Depends(RateLimiter(times=60, seconds=60))])
 async def root(req: Request):
     logger.info(f"Request from {req.client.host}")
     return {"status": "Server is running"}

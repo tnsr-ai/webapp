@@ -1,6 +1,26 @@
-from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, Enum, Float, BigInteger
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Integer,
+    String,
+    ForeignKey,
+    Enum,
+    Float,
+    BigInteger,
+)
 from sqlalchemy.orm import relationship
 from database import Base
+import enum
+
+
+class ContentStatus(enum.Enum):
+    def __str__(self):
+        return str(self.value)
+
+    pending = "pending"
+    completed = "completed"
+    failed = "failed"
+    cancelled = "cancelled"
 
 
 class Users(Base):
@@ -11,7 +31,9 @@ class Users(Base):
     last_name = Column(String)
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
-    user_tier = Column(Enum('free', 'standard', 'deluxe', name='user_tier', default='free'))
+    user_tier = Column(
+        Enum("free", "standard", "deluxe", name="user_tier", default="free")
+    )
     verified = Column(Boolean, default=False)
     google_login = Column(Boolean, default=False)
     refreshVersion = Column(Integer, default=1)
@@ -31,6 +53,7 @@ class Users(Base):
     dashboard = relationship("Dashboard", back_populates="user")
     machine = relationship("Machines", back_populates="user")
 
+
 class Dashboard(Base):
     __tablename__ = "dashboard"
 
@@ -49,6 +72,7 @@ class Dashboard(Base):
 
     user = relationship("Users", back_populates="dashboard")
 
+
 class Videos(Base):
     __tablename__ = "videos"
 
@@ -66,9 +90,10 @@ class Videos(Base):
     id_related = Column(Integer, nullable=True)
     created_at = Column(Integer, nullable=True)
     updated_at = Column(Integer, nullable=True)
-    status = Column(Enum('pending', 'completed', 'failed', name='status'))
-    
+    status = Column(Enum(ContentStatus, name="content_status"))
+
     user = relationship("Users", back_populates="videos")
+
 
 class Audios(Base):
     __tablename__ = "audios"
@@ -86,9 +111,10 @@ class Audios(Base):
     id_related = Column(Integer, nullable=True)
     created_at = Column(Integer, nullable=True)
     updated_at = Column(Integer, nullable=True)
-    status = Column(Enum('pending', 'completed', 'failed', name='status'))
-    
+    status = Column(Enum(ContentStatus, name="content_status"))
+
     user = relationship("Users", back_populates="audios")
+
 
 class Images(Base):
     __tablename__ = "images"
@@ -105,9 +131,10 @@ class Images(Base):
     id_related = Column(Integer, nullable=True)
     created_at = Column(Integer, nullable=True)
     updated_at = Column(Integer, nullable=True)
-    status = Column(Enum('pending', 'completed', 'failed', name='status'))
+    status = Column(Enum(ContentStatus, name="content_status"))
 
     user = relationship("Users", back_populates="images")
+
 
 class Balance(Base):
     __tablename__ = "balance"
@@ -120,6 +147,7 @@ class Balance(Base):
 
     user = relationship("Users", back_populates="balance")
 
+
 class Invoices(Base):
     __tablename__ = "invoices"
 
@@ -131,11 +159,12 @@ class Invoices(Base):
     amount = Column(Float)
     currency = Column(String)
     exchange_rate = Column(Float)
-    status = Column(Enum('pending', 'completed', 'failed', name='invoice_status'))
+    status = Column(Enum("pending", "completed", "failed", name="invoice_status"))
     created_at = Column(Integer, nullable=True)
     updated_at = Column(Integer, nullable=True)
 
     user = relationship("Users", back_populates="invoices")
+
 
 class Machines(Base):
     __tablename__ = "machines"
@@ -144,7 +173,7 @@ class Machines(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     machine_ip = Column(String)
     machine_config = Column(String)
-    machine_status = Column(Enum('available', 'busy', 'offline', name='machine_status'))
+    machine_status = Column(Enum("available", "busy", "offline", name="machine_status"))
     job_id = Column(Integer, ForeignKey("jobs.job_id"))
     provider = Column(String)
     created_at = Column(Integer, nullable=True)
@@ -152,11 +181,14 @@ class Machines(Base):
 
     user = relationship("Users", back_populates="machine")
 
+
 class Jobs(Base):
     __tablename__ = "jobs"
 
     job_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id"))
+    celery_id = Column(String, nullable=True)
+    content_id = Column(Integer, nullable=True)
     job_name = Column(String)
     job_type = Column(String)
     job_status = Column(String)
@@ -170,6 +202,7 @@ class Jobs(Base):
 
     user = relationship("Users", back_populates="jobs")
 
+
 class UserSetting(Base):
     __tablename__ = "user_settings"
 
@@ -181,6 +214,7 @@ class UserSetting(Base):
     updated_at = Column(Integer, nullable=True)
 
     user = relationship("Users", back_populates="user_settings")
+
 
 class Currency(Base):
     __tablename__ = "currency"

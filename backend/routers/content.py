@@ -9,6 +9,7 @@ from fastapi import Depends, HTTPException, APIRouter, status
 import models
 from database import engine, SessionLocal
 from sqlalchemy.orm import Session
+from sqlalchemy import or_, and_
 from pydantic import BaseModel, Field
 import boto3, botocore
 import redis
@@ -28,7 +29,7 @@ from utils import (
     CLOUDFLARE_CONTENT,
     CONTENT_EXPIRE,
 )
-from utils import remove_key, logger
+from utils import remove_key, logger, presigned_get
 
 
 router = APIRouter(
@@ -58,36 +59,6 @@ class ContentDict(BaseModel):
     limit: int
     offset: int
     content_type: str
-
-
-def presigned_get(key, bucket, rd):
-    try:
-        if rd.exists(key):
-            return rd.get(key).decode("utf-8")
-        r2_client = boto3.client(
-            "s3",
-            aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
-            aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
-            endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
-            config=botocore.config.Config(
-                s3={"addressing_style": "path"},
-                signature_version="s3v4",
-                retries=dict(max_attempts=3),
-            ),
-        )
-        response = r2_client.generate_presigned_url(
-            ClientMethod="get_object",
-            Params={
-                "Bucket": bucket,
-                "Key": key,
-            },
-            ExpiresIn=CONTENT_EXPIRE,
-        )
-        rd.set(key, response)
-        rd.expire(key, CONTENT_EXPIRE - 60)
-        return response
-    except Exception as e:
-        return None
 
 
 def add_presigned(data, key, result_key, bucket, rd):
@@ -164,7 +135,8 @@ def filter_data(data):
         for key in delete_keys:
             if key in x:
                 del x[key]
-        x["size"] = niceBytes(x["size"])
+        if x["size"] is not None:
+            x["size"] = niceBytes(x["size"])
     return data
 
 
@@ -258,6 +230,12 @@ def get_content_list_celery(
             db.query(tableName[content_type])
             .filter(tableName[content_type].user_id == user_id)
             .filter(tableName[content_type].id_related == content_id)
+            .filter(
+                or_(
+                    tableName[content_type].status == "pending",
+                    tableName[content_type].status == "completed",
+                )
+            )
             .count()
             + 1
         )
@@ -286,6 +264,12 @@ def get_content_list_celery(
                 db.query(tableName[content_type])
                 .filter(tableName[content_type].user_id == user_id)
                 .filter(tableName[content_type].id_related == content_id)
+                .filter(
+                    or_(
+                        tableName[content_type].status == "pending",
+                        tableName[content_type].status == "completed",
+                    )
+                )
                 .order_by(tableName[content_type].created_at)
                 .limit(limit - 1)
                 .offset(offset)
@@ -306,6 +290,12 @@ def get_content_list_celery(
                 db.query(tableName[content_type])
                 .filter(tableName[content_type].user_id == user_id)
                 .filter(tableName[content_type].id_related == content_id)
+                .filter(
+                    or_(
+                        tableName[content_type].status == "pending",
+                        tableName[content_type].status == "completed",
+                    )
+                )
                 .order_by(tableName[content_type].created_at)
                 .limit(limit)
                 .offset(offset - 1)
@@ -397,7 +387,7 @@ def download_content_task(
 @router.get(
     "/download_content",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(RateLimiter(times=10, seconds=60))],
+    dependencies=[Depends(RateLimiter(times=30, seconds=60))],
 )
 async def download_content(
     content_id: int,
@@ -508,7 +498,7 @@ def rename_content_celery(
 
 @router.put(
     "/rename-content/{id}/{content_type}/{newtitle}",
-    dependencies=[Depends(RateLimiter(times=10, seconds=60))],
+    dependencies=[Depends(RateLimiter(times=30, seconds=60))],
 )
 async def rename_project(
     id: int,

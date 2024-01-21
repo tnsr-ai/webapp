@@ -5,9 +5,10 @@ import { Button } from "@mantine/core";
 import { toast } from "sonner";
 import { useMutation } from "@tanstack/react-query";
 import { registerJob } from "../../../api/index";
+import { useRouter } from "next/navigation";
 
 export function VideoFilter(props: any) {
-  
+  const { push } = useRouter();
   const video_models = [
     { id: 1, name: "SuperRes 2x v1 (Faster)" },
     { id: 2, name: "SuperRes 4x v1 (Faster)" },
@@ -37,6 +38,9 @@ export function VideoFilter(props: any) {
   const [slowmodisabled, setSlowmodisabled] = useState(false);
   const [showProcess, setShowProcess] = useState(false);
 
+  function sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
 
   const createJSON = () => {
     const filters_data = {
@@ -98,17 +102,17 @@ export function VideoFilter(props: any) {
     }
   );
 
-  const sendJob = () => {
+  const sendJob = async () => {
     const data = createJSON();
     const jobData = {
       job_type: "video",
       job_data: data,
-    }
+    };
     mutate(jobData as any);
     props.setFilterShow(false);
-  }
-
-  
+    await sleep(2000);
+    push("/jobs");
+  };
 
   useEffect(() => {
     if (slowmo === true) {
@@ -291,7 +295,9 @@ export function VideoFilter(props: any) {
                 variant="outline"
                 color="grape"
                 radius="md"
-                onClick={sendJob}
+                onClick={async () => {
+                  await sendJob();
+                }}
               >
                 Process
               </Button>

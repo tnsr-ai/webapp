@@ -116,6 +116,14 @@ OPENEXCHANGERATES_API_KEY = os.getenv("OPENEXCHANGERATES_API_KEY")
 HOST = os.getenv("HOST")
 PORT = os.getenv("PORT")
 
+# Replicate
+REPLICATE_API_TOKEN = os.getenv("REPLICATE_API_TOKEN")
+IMAGE_SUPERRES = os.getenv("IMAGE_SUPERRES")
+IMAGE_DEBLURRING = os.getenv("IMAGE_DEBLURRING")
+IMAGE_DENOISING = os.getenv("IMAGE_DENOISING")
+IMAGE_FACERESTORATION = os.getenv("IMAGE_FACERESTORATION")
+IMAGE_REMOVEBG = os.getenv("IMAGE_REMOVEBG")
+IMAGE_COLORIZER = os.getenv("IMAGE_COLORIZER")
 
 STORAGE_LIMITS = {
     "free": 2 * 1024**3,
@@ -434,6 +442,36 @@ def paymentfailed_email(name: str, credits: int, amount: str, receiver_email: st
         return False
 
 
+def presigned_get(key, bucket, rd):
+    try:
+        if rd.exists(key):
+            return rd.get(key).decode("utf-8")
+        r2_client = boto3.client(
+            "s3",
+            aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
+            aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
+            endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
+            config=botocore.config.Config(
+                s3={"addressing_style": "path"},
+                signature_version="s3v4",
+                retries=dict(max_attempts=3),
+            ),
+        )
+        response = r2_client.generate_presigned_url(
+            ClientMethod="get_object",
+            Params={
+                "Bucket": bucket,
+                "Key": key,
+            },
+            ExpiresIn=CONTENT_EXPIRE,
+        )
+        rd.set(key, response)
+        rd.expire(key, CONTENT_EXPIRE - 60)
+        return response
+    except Exception as e:
+        return None
+
+
 def increase_and_round(number_val: int, credits: int) -> dict:
     if number_val == 0:
         return {"original": 0, "discounted": 0, "percentage": 0, "final_amt": 0}
@@ -578,3 +616,37 @@ class EndpointFilter(logger.Filter):
 
 
 logger.getLogger("uvicorn.access").addFilter(EndpointFilter())
+
+
+def getTags(tag: str, content_type: str):
+    if content_type == "video":
+        tagsList = {
+            "super_resolution": "Super Resolution",
+            "deblur": "Video Deblurring",
+            "denoise": "Video Denoising",
+            "face_restoration": "Face Restoration",
+            "colorizer": "B/W to Color",
+            "slow_motion": "Slow Motion",
+            "interpolation": "Video Interpolation",
+            "deinterlace": "Video Deinterlacing",
+            "speech_enhancement": "Speech Enhancement",
+            "transcription": "Transcription",
+        }
+        return tagsList[tag]
+    if content_type == "audio":
+        tagsList = {
+            "music_separation": "Stem Separation",
+            "speech_enhancement": "Speech Enhancement",
+            "transcription": "Transcription",
+        }
+        return tagsList[tag]
+    if content_type == "image":
+        tagsList = {
+            "super_resolution": "Super Resolution",
+            "deblur": "Image Deblurring",
+            "denoise": "Image Denoising",
+            "face_restoration": "Face Restoration",
+            "colorizer": "B/W to Color",
+            "remove_bg": "Remove Background",
+        }
+        return tagsList[tag]

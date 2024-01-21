@@ -5,8 +5,10 @@ import { Button } from "@mantine/core";
 import { toast } from "sonner";
 import { useMutation } from "@tanstack/react-query";
 import { registerJob } from "../../../api/index";
+import { useRouter } from "next/navigation";
 
 export function ImageFilter(props: any) {
+  const { push } = useRouter();
   const video_models = [
     { id: 1, name: "SuperRes 2x v1 (Faster)" },
     { id: 2, name: "SuperRes 4x v1 (Faster)" },
@@ -22,6 +24,10 @@ export function ImageFilter(props: any) {
   const [facerestore, setFacerestore] = useState(false);
   const [colorizer, setColorizer] = useState(false);
   const [removebg, setRemoveBG] = useState(false);
+
+  function sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
 
   const createJSON = () => {
     const filters_data = {
@@ -51,7 +57,7 @@ export function ImageFilter(props: any) {
       filters: filters_data,
     };
     return data;
-  }
+  };
 
   const { mutate, isLoading, isSuccess } = useMutation(
     (formData) => registerJob("image", formData),
@@ -70,15 +76,17 @@ export function ImageFilter(props: any) {
     }
   );
 
-  const sendJob = () => {
+  const sendJob = async () => {
     const data = createJSON();
     const jobData = {
       job_type: "image",
       job_data: data,
-    }
+    };
     mutate(jobData as any);
     props.setFilterShow(false);
-  }
+    await sleep(2000);
+    push("/jobs");
+  };
 
   return (
     <div>
@@ -151,7 +159,14 @@ export function ImageFilter(props: any) {
         className="w-full flex justify-center items-center mb-2"
       >
         <div className="">
-          <Button variant="outline" color="grape" radius="md" onClick={sendJob}>
+          <Button
+            variant="outline"
+            color="grape"
+            radius="md"
+            onClick={async () => {
+              await sendJob();
+            }}
+          >
             Process
           </Button>
         </div>

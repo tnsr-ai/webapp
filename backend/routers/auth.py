@@ -565,7 +565,7 @@ def verify_user_task(
 @router.get(
     "/verify",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(RateLimiter(times=20, seconds=60))],
+    dependencies=[Depends(RateLimiter(times=600, seconds=60))],
 )
 async def check_user(
     db: Session = Depends(get_db),
@@ -629,7 +629,7 @@ def refresh_user_task(user_id: int, db: db_dependency):
 @router.get(
     "/refresh",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(RateLimiter(times=10, seconds=60))],
+    dependencies=[Depends(RateLimiter(times=20, seconds=60))],
 )
 async def check_user_refresh(
     response: Response,
@@ -684,7 +684,7 @@ google_sso = GoogleSSO(
 )
 
 
-@router.get("/google/login", dependencies=[Depends(RateLimiter(times=10, seconds=60))])
+@router.get("/google/login", dependencies=[Depends(RateLimiter(times=20, seconds=60))])
 async def google_login():
     logger.info(f"Google login initiated")
     return await google_sso.get_login_redirect(

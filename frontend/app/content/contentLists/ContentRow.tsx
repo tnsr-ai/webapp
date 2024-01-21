@@ -4,18 +4,20 @@ import {
   PlayIcon,
   InformationCircleIcon,
   Bars3Icon,
+  BeakerIcon,
 } from "@heroicons/react/20/solid";
 import VideoPlayer from "./videoPlayer";
 import FilterModal from "./filterModal";
 import { Menu, Button, Tooltip, Skeleton } from "@mantine/core";
 import { IconBallpen, IconTrash, IconCloudDownload } from "@tabler/icons-react";
 import { tagColor } from "./TagsClass";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Toaster, toast } from "sonner";
 import { getCookie } from "cookies-next";
 import RenamePrompt from "../../content/contentCards/RenameModal";
+import { infinity } from "ldrs";
 
 function capitalizeWords(input: string): string[] {
   if (input.includes(",") === false) {
@@ -39,8 +41,8 @@ function capitalizeWords(input: string): string[] {
 }
 
 export function ContentComponent(props: any) {
+  infinity.register();
   const pathname = usePathname().split("/")[1];
-  const [progress, setProgress] = useState(0);
   const [videoPlayer, setVideoPlayer] = useState(false);
   const [filterShow, setFilterShow] = useState(false);
   const [disableDelete, setDisableDelete] = useState(false);
@@ -164,18 +166,25 @@ export function ContentComponent(props: any) {
           height={0}
           sizes="100vw"
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          className="rounded-xl"
+          className={`rounded-xl ${
+            props.data.status === "pending" ? "opacity-45" : ""
+          }`}
           onLoad={() => setIsLoaded(true)}
           onClick={() => {
             setVideoPlayer(true);
           }}
         />
-        <PlayIcon
-          className="w-10 lg:w-12 fill-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-          onClick={() => {
-            setVideoPlayer(true);
-          }}
-        />
+        {props.data.status === "completed" && (
+          <PlayIcon
+            className="w-10 lg:w-12 fill-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+            onClick={() => {
+              setVideoPlayer(true);
+            }}
+          />
+        )}
+        {props.data.status === "pending" && (
+          <BeakerIcon className="w-10 lg:w-12 fill-slate-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+        )}
         <VideoPlayer
           videoPlayer={videoPlayer}
           setVideoPlayer={setVideoPlayer}
@@ -202,7 +211,11 @@ export function ContentComponent(props: any) {
             {title}
           </h1>
         )}
-        <div className="pt-0.5 flex space-x-2">
+        <div
+          className={`pt-0.5 space-x-2 ${
+            props.data.status === "pending" ? "hidden" : "flex"
+          }`}
+        >
           <p className="text-sm xl:text-lg whitespace-nowrap">
             {props.data.size}
           </p>
@@ -257,18 +270,25 @@ export function ContentComponent(props: any) {
           height={0}
           sizes="100vw"
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          className="rounded-xl"
+          className={`rounded-xl ${
+            props.data.status === "pending" ? "opacity-45" : ""
+          }`}
           onLoad={() => setIsLoaded(true)}
           onClick={() => {
             setVideoPlayer(true);
           }}
         />
-        <PlayIcon
-          className="w-10 lg:w-12 fill-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-          onClick={() => {
-            setVideoPlayer(true);
-          }}
-        />
+        {props.data.status === "completed" && (
+          <PlayIcon
+            className="w-10 lg:w-12 fill-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+            onClick={() => {
+              setVideoPlayer(true);
+            }}
+          />
+        )}
+        {props.data.status === "pending" && (
+          <BeakerIcon className="w-10 lg:w-12 fill-slate-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+        )}
         <VideoPlayer
           videoPlayer={videoPlayer}
           setVideoPlayer={setVideoPlayer}
@@ -295,7 +315,11 @@ export function ContentComponent(props: any) {
             {title}
           </h1>
         )}
-        <div className="pt-0.5 flex space-x-2">
+        <div
+          className={`pt-0.5 space-x-2 ${
+            props.data.status === "pending" ? "hidden" : "flex"
+          }`}
+        >
           <p className="text-sm xl:text-lg whitespace-nowrap">
             {props.data.size}
           </p>
@@ -345,21 +369,47 @@ export function ContentComponent(props: any) {
     >
       <div className="h-[100%] w-[456px] p-1 relative -z-0 col-span-4 cursor-pointer">
         {!isLoaded && <Skeleton style={{ height: "100%" }} />}
-        <Link href={props.data["content_link"]} target="_blank">
-          <Image
-            src={props.data["thumbnail_link"]}
-            alt={title}
-            width={200}
-            height={0}
-            sizes="100vw"
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            className="rounded-xl"
-            onLoad={() => setIsLoaded(true)}
-            onClick={() => {
-              setVideoPlayer(true);
-            }}
-          />
-        </Link>
+        {props.data.status === "completed" && (
+          <Link href={props.data["content_link"]} target="_blank">
+            <Image
+              src={props.data["thumbnail_link"]}
+              alt={title}
+              width={200}
+              height={0}
+              sizes="100vw"
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              className={`rounded-xl ${
+                props.data.status === "pending" ? "opacity-45" : ""
+              }`}
+              onLoad={() => setIsLoaded(true)}
+              onClick={() => {
+                setVideoPlayer(true);
+              }}
+            />
+          </Link>
+        )}
+        {props.data.status === "pending" && (
+          <React.Fragment>
+            <Image
+              src={props.data["thumbnail_link"]}
+              alt={title}
+              width={200}
+              height={0}
+              sizes="100vw"
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              className={`rounded-xl ${
+                props.data.status === "pending" ? "opacity-45" : ""
+              }`}
+              onLoad={() => setIsLoaded(true)}
+              onClick={() => {
+                setVideoPlayer(true);
+              }}
+            />
+            {props.data.status === "pending" && (
+              <BeakerIcon className="w-10 lg:w-12 fill-slate-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+            )}
+          </React.Fragment>
+        )}
       </div>
       <div className="py-1 pl-2 w-[100%] col-span-4" id="contentInfo">
         {title_len > 15 && (
@@ -380,7 +430,11 @@ export function ContentComponent(props: any) {
             {title}
           </h1>
         )}
-        <div className="pt-0.5 flex space-x-2">
+        <div
+          className={`pt-0.5 space-x-2 ${
+            props.data.status === "pending" ? "hidden" : "flex"
+          }`}
+        >
           <p className="text-sm xl:text-lg whitespace-nowrap">
             {props.data.size}
           </p>
@@ -449,54 +503,76 @@ export function ContentComponent(props: any) {
             id="process"
             className="col-span-6 md:col-span-2 row-span-1 flex space-x-3 justify-center items-center"
           >
+            {props.data.status === "completed" && (
+              <div className="flex justify-center items-center">
+                <Button
+                  variant="outline"
+                  color="violet"
+                  onClick={() => {
+                    setFilterShow(true);
+                  }}
+                >
+                  Process
+                </Button>
+                <FilterModal
+                  filterShow={filterShow}
+                  setFilterShow={setFilterShow}
+                  id={props.data.id}
+                  content_data={props.data}
+                />
+              </div>
+            )}
             <div className="flex justify-center items-center">
-              <Button
-                variant="outline"
-                color="violet"
-                onClick={() => {
-                  setFilterShow(true);
-                }}
-              >
-                Process
-              </Button>
-              <FilterModal
-                filterShow={filterShow}
-                setFilterShow={setFilterShow}
-                id={props.data.id}
-                content_data={props.data}
-              />
-            </div>
-            <div className="flex justify-center items-center">
-              <Menu shadow="md" width={200} withArrow>
-                <Menu.Target>
-                  <Bars3Icon className="w-[28px] cursor-pointer" />
-                </Menu.Target>
+              {props.data.status === "completed" && (
+                <Menu shadow="md" width={200} withArrow>
+                  <Menu.Target>
+                    <Bars3Icon className="w-[28px] cursor-pointer" />
+                  </Menu.Target>
 
-                <Menu.Dropdown>
-                  <Menu.Item
-                    icon={<IconCloudDownload size={14} />}
-                    onClick={downloadContent}
-                  >
-                    Download
-                  </Menu.Item>
-                  <Menu.Item
-                    icon={<IconBallpen size={14} />}
-                    onClick={() => {
-                      setRenamePrompt(true);
-                    }}
-                  >
-                    Rename
-                  </Menu.Item>
+                  <Menu.Dropdown>
+                    <Menu.Item
+                      icon={<IconCloudDownload size={14} />}
+                      onClick={downloadContent}
+                    >
+                      Download
+                    </Menu.Item>
+                    <Menu.Item
+                      icon={<IconBallpen size={14} />}
+                      onClick={() => {
+                        setRenamePrompt(true);
+                      }}
+                    >
+                      Rename
+                    </Menu.Item>
 
-                  <Menu.Item
-                    color="red"
-                    icon={<IconTrash size={14} />}
-                    disabled={disableDelete}
+                    <Menu.Item
+                      color="red"
+                      icon={<IconTrash size={14} />}
+                      disabled={disableDelete}
+                    >
+                      Delete
+                    </Menu.Item>
+                  </Menu.Dropdown>
+                </Menu>
+              )}
+              {props.data.status === "pending" && (
+                <div className=" cursor-pointer">
+                  <Link
+                    href={"/jobs"}
+                    className="flex flex-col justify-center items-center"
                   >
-                    Delete
-                  </Menu.Item>
-                </Menu.Dropdown>
-              </Menu>
+                    <l-infinity
+                      size="35"
+                      stroke="3.5"
+                      speed="0.9"
+                      color="purple"
+                    />
+                    <p className="text-center font-medium text-black mt-2">
+                      Processing...
+                    </p>
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -362,7 +362,6 @@ def index_media_task(indexdata: dict, user_id: int, db: Session):
             shutil.rmtree(f"thumbnail/{user_id}")
             return {"detail": "Success", "data": "Audio indexed"}
     except Exception as e:
-        print(str(e))
         return {"detail": "Failed", "data": "Invalid processtype"}
 
 

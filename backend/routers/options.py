@@ -154,7 +154,7 @@ def delete_project_celery(id: int, content_type: str, user_id: int, db: Session)
 
 @router.delete(
     "/delete-project/{id}/{content_type}",
-    dependencies=[Depends(RateLimiter(times=10, seconds=60))],
+    dependencies=[Depends(RateLimiter(times=30, seconds=60))],
 )
 async def delete_project(
     id: int,
@@ -207,7 +207,7 @@ def rename_project_celery(
 
 @router.put(
     "/rename-project/{id}/{content_type}/{newtitle}",
-    dependencies=[Depends(RateLimiter(times=10, seconds=60))],
+    dependencies=[Depends(RateLimiter(times=30, seconds=60))],
 )
 async def rename_project(
     id: int,
@@ -258,7 +258,7 @@ def resend_email_task(user_id: int):
 @router.post(
     "/resend-email",
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+    dependencies=[Depends(RateLimiter(times=10, seconds=60))],
 )
 async def resend_email(
     response: Response,
