@@ -7,7 +7,8 @@ from fastapi import Depends, HTTPException, APIRouter, status
 import models
 from database import engine, SessionLocal
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, and_
+import sqlalchemy as sa
+from sqlalchemy.orm import aliased
 from pydantic import BaseModel, Field
 from script_utils.util import *
 from dotenv import load_dotenv
@@ -22,8 +23,7 @@ from cryptography.fernet import Fernet
 from routers.auth import authenticate_user, get_current_user, TokenData
 from fastapi_limiter.depends import RateLimiter
 from utils import CLOUDFLARE_METADATA
-from utils import getTags
-from routers.content import add_presigned_single
+from routers.content import add_presigned_single, allTags
 
 load_dotenv()
 
@@ -61,44 +61,56 @@ class RegisterJobModel(BaseModel):
 
 def create_content_entry(config: dict, db: Session, user_id: int):
     try:
-        table_type = {
-            "video": models.Videos,
-            "audio": models.Audios,
-            "image": models.Images,
-        }
-        table = table_type[config["job_type"]]
         content_detail = (
-            db.query(table)
-            .filter(table.id == config["config_json"]["job_data"]["content_id"])
+            db.query(models.Content)
+            .filter(
+                models.Content.id == config["config_json"]["job_data"]["content_id"]
+            )
+            .filter(models.Content.user_id == user_id)
+            .filter(models.Content.status == "completed")
+            .filter(models.Content.content_type == config["job_type"])
             .first()
         )
         if content_detail is None:
             raise HTTPException(status_code=400, detail="Content not found")
         if content_detail.user_id != user_id:
             raise HTTPException(status_code=400, detail="Content not found")
+        all_tags = allTags()
         tags = [
-            getTags(x, config["job_type"])
+            all_tags[x]["id"]
             for x in config["config_json"]["job_data"]["filters"].keys()
             if config["config_json"]["job_data"]["filters"][x]["active"] == True
         ]
-        create_content_model = table(
+        print(tags)
+        create_content_model = models.Content(
             user_id=user_id,
             title=content_detail.title,
             thumbnail=content_detail.thumbnail,
-            tags=",".join(tags),
             id_related=content_detail.id,
             created_at=int(time.time()),
-            status="pending",
+            status="processing",
+            content_type=content_detail.content_type,
         )
         db.add(create_content_model)
         db.commit()
         db.refresh(create_content_model)
+        for tag in tags:
+            db.add(
+                models.ContentTags(
+                    content_id=create_content_model.id,
+                    tag_id=tag,
+                    created_at=int(time.time()),
+                )
+            )
+            db.commit()
         return create_content_model.id
     except Exception as e:
         raise HTTPException(status_code=400, detail="Unable to create content entry")
 
 
-@router.post("/register_job", dependencies=[Depends(RateLimiter(times=5, seconds=60))])
+@router.post(
+    "/register_job", dependencies=[Depends(RateLimiter(times=120, seconds=60))]
+)
 async def register_job(
     job_dict: RegisterJobModel,
     db: Session = Depends(get_db),
@@ -130,19 +142,16 @@ async def register_job(
         db.commit()
         return {"detail": "Success", "data": "Job registered successfully"}
     except Exception as e:
+        print(e)
         raise HTTPException(status_code=400, detail="Unable to register job")
 
 
 def fetch_content_data(content_id: int, table: str, db: Session):
     try:
-        table_type = {
-            "video": models.Videos,
-            "audio": models.Audios,
-            "image": models.Images,
-        }
         content_detail = (
-            db.query(table_type[table])
-            .filter(table_type[table].id == content_id)
+            db.query(models.Content)
+            .filter(models.Content.id == content_id)
+            .filter(models.Content.content_type == table)
             .first()
         )
         if content_detail is None:
@@ -159,64 +168,10 @@ async def active_jobs(
     rd: redis.Redis = Depends(get_redis),
 ):
     try:
+        all_tags = allTags(id=True)
         job_details = (
             db.query(models.Jobs)
             .filter(models.Jobs.user_id == current_user.user_id)
-            .all()
-        )
-        job_details = [x.__dict__ for x in job_details]
-        remove_keys = [
-            "_sa_instance_state",
-            "user_id",
-            "config_json",
-            "key",
-            "job_key",
-            "job_tier",
-            "updated_at",
-        ]
-        for x in job_details:
-            for y in remove_keys:
-                x.pop(y)
-        for job in job_details:
-            content_detail = fetch_content_data(
-                job["content_id"], job["job_type"], db
-            ).__dict__
-            content_detail.pop("_sa_instance_state")
-            content_detail = {k: v for k, v in content_detail.items() if v is not None}
-            content_detail["thumbnail"] = add_presigned_single(
-                content_detail["thumbnail"], CLOUDFLARE_METADATA, rd
-            )
-            if content_detail["status"].value != "pending":
-                job_details.remove(job)
-                continue
-            job["content_detail"] = content_detail
-        return {"detail": "Success", "data": job_details}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail="Unable to fetch jobs")
-
-
-@router.get(
-    "/past_jobs",
-    dependencies=[Depends(RateLimiter(times=120, seconds=60))],
-    status_code=status.HTTP_200_OK,
-)
-async def past_jobs(
-    limit: int,
-    offset: int,
-    db: Session = Depends(get_db),
-    current_user: TokenData = Depends(get_current_user),
-    rd: redis.Redis = Depends(get_redis),
-):
-    try:
-        if limit > 5:
-            raise HTTPException(
-                status_code=400, detail="Limit cannot be greater than 5"
-            )
-        job_details = (
-            db.query(models.Jobs)
-            .filter(models.Jobs.user_id == current_user.user_id)
-            .limit(limit)
-            .offset(offset)
             .all()
         )
         job_details = [x.__dict__ for x in job_details]
@@ -242,9 +197,99 @@ async def past_jobs(
             content_detail["thumbnail"] = add_presigned_single(
                 content_detail["thumbnail"], CLOUDFLARE_METADATA, rd
             )
+            if content_detail["status"].value != "processing":
+                continue
             job["content_detail"] = content_detail
-            if content_detail["status"].value != "pending":
-                final_data.append(job)
+            tags_query = (
+                db.query(models.ContentTags)
+                .filter(models.ContentTags.content_id == int(job["content_id"]))
+                .all()
+            )
+            all_content_tags = []
+            for y in tags_query:
+                all_content_tags.append(y.tag_id)
+            job["content_detail"]["tags"] = []
+            for tag in all_content_tags:
+                job["content_detail"]["tags"].append((all_tags[str(tag)]["readable"]))
+            job["content_detail"]["tags"] = ",".join(job["content_detail"]["tags"])
+            final_data.append(job)
         return {"detail": "Success", "data": final_data}
     except Exception as e:
         raise HTTPException(status_code=400, detail="Unable to fetch jobs")
+
+
+@router.get(
+    "/past_jobs",
+    dependencies=[Depends(RateLimiter(times=120, seconds=60))],
+    status_code=status.HTTP_200_OK,
+)
+async def past_jobs(
+    limit: int,
+    offset: int,
+    db: Session = Depends(get_db),
+    current_user: TokenData = Depends(get_current_user),
+    rd: redis.Redis = Depends(get_redis),
+):
+    try:
+        all_tags = allTags(id=True)
+        if limit > 5:
+            raise HTTPException(
+                status_code=400, detail="Limit cannot be greater than 5"
+            )
+        query = (
+            db.query(models.Jobs)
+            .join(models.Content, models.Jobs.content_id == models.Content.id)
+            .filter(models.Content.status != "processing")
+            .filter(models.Jobs.user_id == current_user.user_id)
+            .order_by(models.Jobs.created_at.asc())
+            .limit(limit)
+            .offset(offset)
+            .all()
+        )
+        total_count = (
+            db.query(models.Jobs)
+            .join(models.Content, models.Jobs.content_id == models.Content.id)
+            .filter(models.Content.status != "processing")
+            .filter(models.Jobs.user_id == current_user.user_id)
+            .count()
+        )
+        job_details = [x.__dict__ for x in query]
+        remove_keys = [
+            "_sa_instance_state",
+            "user_id",
+            "config_json",
+            "key",
+            "job_key",
+            "job_tier",
+            "updated_at",
+        ]
+        for x in job_details:
+            for y in remove_keys:
+                x.pop(y)
+        final_data = []
+        for job in job_details:
+            content_detail = fetch_content_data(
+                job["content_id"], job["job_type"], db
+            ).__dict__
+            content_detail.pop("_sa_instance_state")
+            content_detail = {k: v for k, v in content_detail.items() if v is not None}
+            content_detail["thumbnail"] = add_presigned_single(
+                content_detail["thumbnail"], CLOUDFLARE_METADATA, rd
+            )
+            job["content_detail"] = content_detail
+            tags_query = (
+                db.query(models.ContentTags)
+                .filter(models.ContentTags.content_id == int(job["content_id"]))
+                .all()
+            )
+            all_content_tags = []
+            for y in tags_query:
+                all_content_tags.append(y.tag_id)
+            job["content_detail"]["tags"] = []
+            for tag in all_content_tags:
+                job["content_detail"]["tags"].append((all_tags[str(tag)]["readable"]))
+            job["content_detail"]["tags"] = ",".join(job["content_detail"]["tags"])
+            final_data.append(job)
+        return {"detail": "Success", "data": final_data, "total": total_count}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

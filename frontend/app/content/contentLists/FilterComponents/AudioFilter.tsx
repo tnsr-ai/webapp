@@ -19,7 +19,7 @@ export function AudioFilter(props: any) {
 
   const createJSON = () => {
     const filters_data = {
-      music_separation: {
+      stem_seperation: {
         active: musicsep,
       },
       speech_enhancement: {
@@ -68,7 +68,7 @@ export function AudioFilter(props: any) {
 
   return (
     <div>
-      <div id="music-seperation" className="">
+      <div id="stem_seperation" className="">
         <div className="m-3">
           <SwitchComponent
             value={musicsep}
@@ -77,7 +77,7 @@ export function AudioFilter(props: any) {
           />
         </div>
       </div>
-      <div id="se">
+      <div id="speech_enhancement">
         <div className="m-3">
           <SwitchComponent
             value={se}

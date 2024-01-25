@@ -346,6 +346,7 @@ export const useActiveJobs = () => {
       const data = await response.json();
       return data;
     },
+    enabled: false,
   });
 };
 
@@ -368,5 +369,6 @@ export const usePastJobs = (limit: number, offset: number) => {
       const data = await response.json();
       return data;
     },
+    enabled: false,
   });
 };

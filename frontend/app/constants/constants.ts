@@ -53,7 +53,7 @@ export const userPlans = [
     features: [
       "Storage upto 2GB",
       "1 filters per video",
-      "Enhance only one video at a time",
+      "Process one job at a time",
       "Files deleted after 1 week",
       "Max duration on video 3 minutes",
     ],
@@ -64,7 +64,7 @@ export const userPlans = [
     features: [
       "Storage upto 20GB",
       "5 filters per video",
-      "Enhance upto 5 videos at a time",
+      "Process upto 5 jobs at a time",
       "Files deleted after 1 month",
       "No limit on duration of video",
     ],
@@ -75,7 +75,7 @@ export const userPlans = [
     features: [
       "Storage upto 100GB",
       "8 filters per video",
-      "Enhance upto 10 videos at a time",
+      "Process upto 10 videos at a time",
       "Files deleted after 3 month",
       "No limit on duration of video",
     ],

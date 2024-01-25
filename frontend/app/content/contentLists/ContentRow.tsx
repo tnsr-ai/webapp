@@ -167,7 +167,7 @@ export function ContentComponent(props: any) {
           sizes="100vw"
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
           className={`rounded-xl ${
-            props.data.status === "pending" ? "opacity-45" : ""
+            props.data.status === "processing" ? "opacity-45" : ""
           }`}
           onLoad={() => setIsLoaded(true)}
           onClick={() => {
@@ -182,7 +182,7 @@ export function ContentComponent(props: any) {
             }}
           />
         )}
-        {props.data.status === "pending" && (
+        {props.data.status === "processing" && (
           <BeakerIcon className="w-10 lg:w-12 fill-slate-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
         )}
         <VideoPlayer
@@ -213,7 +213,7 @@ export function ContentComponent(props: any) {
         )}
         <div
           className={`pt-0.5 space-x-2 ${
-            props.data.status === "pending" ? "hidden" : "flex"
+            props.data.status === "processing" ? "hidden" : "flex"
           }`}
         >
           <p className="text-sm xl:text-lg whitespace-nowrap">
@@ -271,7 +271,7 @@ export function ContentComponent(props: any) {
           sizes="100vw"
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
           className={`rounded-xl ${
-            props.data.status === "pending" ? "opacity-45" : ""
+            props.data.status === "processing" ? "opacity-45" : ""
           }`}
           onLoad={() => setIsLoaded(true)}
           onClick={() => {
@@ -286,7 +286,7 @@ export function ContentComponent(props: any) {
             }}
           />
         )}
-        {props.data.status === "pending" && (
+        {props.data.status === "processing" && (
           <BeakerIcon className="w-10 lg:w-12 fill-slate-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
         )}
         <VideoPlayer
@@ -317,7 +317,7 @@ export function ContentComponent(props: any) {
         )}
         <div
           className={`pt-0.5 space-x-2 ${
-            props.data.status === "pending" ? "hidden" : "flex"
+            props.data.status === "processing" ? "hidden" : "flex"
           }`}
         >
           <p className="text-sm xl:text-lg whitespace-nowrap">
@@ -379,7 +379,7 @@ export function ContentComponent(props: any) {
               sizes="100vw"
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
               className={`rounded-xl ${
-                props.data.status === "pending" ? "opacity-45" : ""
+                props.data.status === "processing" ? "opacity-45" : ""
               }`}
               onLoad={() => setIsLoaded(true)}
               onClick={() => {
@@ -388,7 +388,7 @@ export function ContentComponent(props: any) {
             />
           </Link>
         )}
-        {props.data.status === "pending" && (
+        {props.data.status === "processing" && (
           <React.Fragment>
             <Image
               src={props.data["thumbnail_link"]}
@@ -398,14 +398,14 @@ export function ContentComponent(props: any) {
               sizes="100vw"
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
               className={`rounded-xl ${
-                props.data.status === "pending" ? "opacity-45" : ""
+                props.data.status === "processing" ? "opacity-45" : ""
               }`}
               onLoad={() => setIsLoaded(true)}
               onClick={() => {
                 setVideoPlayer(true);
               }}
             />
-            {props.data.status === "pending" && (
+            {props.data.status === "processing" && (
               <BeakerIcon className="w-10 lg:w-12 fill-slate-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
             )}
           </React.Fragment>
@@ -432,7 +432,7 @@ export function ContentComponent(props: any) {
         )}
         <div
           className={`pt-0.5 space-x-2 ${
-            props.data.status === "pending" ? "hidden" : "flex"
+            props.data.status === "processing" ? "hidden" : "flex"
           }`}
         >
           <p className="text-sm xl:text-lg whitespace-nowrap">
@@ -555,7 +555,7 @@ export function ContentComponent(props: any) {
                   </Menu.Dropdown>
                 </Menu>
               )}
-              {props.data.status === "pending" && (
+              {props.data.status === "processing" && (
                 <div className=" cursor-pointer">
                   <Link
                     href={"/jobs"}

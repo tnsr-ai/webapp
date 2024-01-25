@@ -36,6 +36,51 @@ function epochToDate(time: number) {
   return date.toLocaleString("en-GB", { hour12: false });
 }
 
+function statusBadge(status: string) {
+  if (status === "processing") {
+    return (
+      <span className="inline-flex items-center gap-x-1.5 rounded-full bg-yellow-100 px-1.5 py-0.5 text-xs font-medium text-yellow-800">
+        <svg
+          className="h-1.5 w-1.5 fill-yellow-500"
+          viewBox="0 0 6 6"
+          aria-hidden="true"
+        >
+          <circle cx={3} cy={3} r={3} />
+        </svg>
+        {capitalizeFirstChar(status)}
+      </span>
+    );
+  }
+  if (status === "completed") {
+    return (
+      <span className="inline-flex items-center gap-x-1.5 rounded-full bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-800">
+        <svg
+          className="h-1.5 w-1.5 fill-green-500"
+          viewBox="0 0 6 6"
+          aria-hidden="true"
+        >
+          <circle cx={3} cy={3} r={3} />
+        </svg>
+        {capitalizeFirstChar(status)}
+      </span>
+    );
+  }
+  if (status === "failed" || status === "cancelled") {
+    return (
+      <span className="inline-flex items-center gap-x-1.5 rounded-full bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-800">
+        <svg
+          className="h-1.5 w-1.5 fill-red-500"
+          viewBox="0 0 6 6"
+          aria-hidden="true"
+        >
+          <circle cx={3} cy={3} r={3} />
+        </svg>
+        {capitalizeFirstChar(status)}
+      </span>
+    );
+  }
+}
+
 export default function JobsCard(props: any) {
   const tags = capitalizeWords(props.data.content_detail["tags"]);
   const colorTag =
@@ -82,24 +127,13 @@ export default function JobsCard(props: any) {
         </div>
         <div className="col-span-1 h-full w-full flex flex-col ">
           <div className="w-full h-full flex justify-center items-center">
-            <span
-              className={`inline-flex items-center gap-x-1.5 rounded-full bg-${colorTag}-100 px-1.5 py-0.5 text-xs font-medium text-${colorTag}-800`}
-            >
-              <svg
-                className={`h-1.5 w-1.5 fill-${colorTag}-500`}
-                viewBox="0 0 6 6"
-                aria-hidden="true"
-              >
-                <circle cx={3} cy={3} r={3} />
-              </svg>
-              {capitalizeFirstChar(props.data.content_detail["status"])}
-            </span>
+            {statusBadge(props.data.content_detail["status"])}
           </div>
         </div>
         <div className="col-span-1 h-full w-full flex flex-col ">
           <div
             className={`w-full h-full justify-center items-center ${
-              props.data.content_detail["status"] === "pending"
+              props.data.content_detail["status"] === "processing"
                 ? "flex"
                 : "hidden"
             }`}

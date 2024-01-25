@@ -616,37 +616,3 @@ class EndpointFilter(logger.Filter):
 
 
 logger.getLogger("uvicorn.access").addFilter(EndpointFilter())
-
-
-def getTags(tag: str, content_type: str):
-    if content_type == "video":
-        tagsList = {
-            "super_resolution": "Super Resolution",
-            "deblur": "Video Deblurring",
-            "denoise": "Video Denoising",
-            "face_restoration": "Face Restoration",
-            "colorizer": "B/W to Color",
-            "slow_motion": "Slow Motion",
-            "interpolation": "Video Interpolation",
-            "deinterlace": "Video Deinterlacing",
-            "speech_enhancement": "Speech Enhancement",
-            "transcription": "Transcription",
-        }
-        return tagsList[tag]
-    if content_type == "audio":
-        tagsList = {
-            "music_separation": "Stem Separation",
-            "speech_enhancement": "Speech Enhancement",
-            "transcription": "Transcription",
-        }
-        return tagsList[tag]
-    if content_type == "image":
-        tagsList = {
-            "super_resolution": "Super Resolution",
-            "deblur": "Image Deblurring",
-            "denoise": "Image Denoising",
-            "face_restoration": "Face Restoration",
-            "colorizer": "B/W to Color",
-            "remove_bg": "Remove Background",
-        }
-        return tagsList[tag]

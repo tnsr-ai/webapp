@@ -48,26 +48,26 @@ export function VideoFilter(props: any) {
         active: SRActive,
         model: modelType.name,
       },
-      deblur: {
+      video_deblurring: {
         active: deblur,
       },
-      denoise: {
+      video_denoising: {
         active: denoise,
       },
       face_restoration: {
         active: facerestore,
       },
-      colorizer: {
+      bw_to_color: {
         active: colorizer,
       },
       slow_motion: {
         active: slowmo,
         factor: slowmofactor,
       },
-      interpolation: {
+      video_interpolation: {
         active: interpolation,
       },
-      deinterlace: {
+      video_deinterlacing: {
         active: deinterlace,
       },
       speech_enhancement: {
@@ -160,7 +160,7 @@ export function VideoFilter(props: any) {
 
   return (
     <div className="overflow-y-auto">
-      <div id="sr" className="">
+      <div id="super_resolution" className="">
         <div className="m-3">
           <SwitchComponent
             value={SRActive}
@@ -179,7 +179,7 @@ export function VideoFilter(props: any) {
           </div>
         </div>
       </div>
-      <div id="deblur">
+      <div id="video_deblurring">
         <div className="m-3">
           <SwitchComponent
             value={deblur}
@@ -188,7 +188,7 @@ export function VideoFilter(props: any) {
           />
         </div>
       </div>
-      <div id="denoise">
+      <div id="video_denoising">
         <div className="m-3">
           <SwitchComponent
             value={denoise}
@@ -206,7 +206,7 @@ export function VideoFilter(props: any) {
           />
         </div>
       </div>
-      <div id="b/w">
+      <div id="bw_to_color">
         <div className="m-3">
           <SwitchComponent
             value={colorizer}
@@ -215,7 +215,7 @@ export function VideoFilter(props: any) {
           />
         </div>
       </div>
-      <div id="slowmo" className="">
+      <div id="slow_motion" className="">
         <div className="m-3">
           <SwitchComponent
             value={slowmo}
@@ -240,7 +240,7 @@ export function VideoFilter(props: any) {
           </div>
         </div>
       </div>
-      <div id="interpolate">
+      <div id="video_interpolation">
         <div className="m-3">
           <SwitchComponent
             value={interpolation}
@@ -249,7 +249,7 @@ export function VideoFilter(props: any) {
           />
         </div>
       </div>
-      <div id="deinterlace">
+      <div id="video_deinterlacing">
         <div className="m-3">
           <SwitchComponent
             value={deinterlace}
@@ -258,7 +258,7 @@ export function VideoFilter(props: any) {
           />
         </div>
       </div>
-      <div id="speechenhancement">
+      <div id="speech_enhancement">
         <div className="m-3">
           <SwitchComponent
             value={speech}

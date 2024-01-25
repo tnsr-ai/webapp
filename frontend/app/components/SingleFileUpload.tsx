@@ -146,6 +146,7 @@ export function SingleFileUpload(props: any = null) {
         config: {
           filename: props.file.name,
           indexfilename: signedResponse.filename,
+          id: signedResponse.id,
         },
         processtype: processType,
         md5: md5,

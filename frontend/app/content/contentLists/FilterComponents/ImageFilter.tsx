@@ -35,19 +35,19 @@ export function ImageFilter(props: any) {
         active: SRActive,
         model: modelType.name,
       },
-      deblur: {
+      image_deblurring: {
         active: deblur,
       },
-      denoise: {
+      image_denoising: {
         active: denoise,
       },
       face_restoration: {
         active: facerestore,
       },
-      colorizer: {
+      bw_to_color: {
         active: colorizer,
       },
-      remove_bg: {
+      remove_background: {
         active: removebg,
       },
     };
@@ -90,7 +90,7 @@ export function ImageFilter(props: any) {
 
   return (
     <div>
-      <div id="sr" className="">
+      <div id="super_resolution" className="">
         <div className="m-3">
           <SwitchComponent
             value={SRActive}
@@ -109,7 +109,7 @@ export function ImageFilter(props: any) {
           </div>
         </div>
       </div>
-      <div id="deblur">
+      <div id="image_deblurring">
         <div className="m-3">
           <SwitchComponent
             value={deblur}
@@ -118,7 +118,7 @@ export function ImageFilter(props: any) {
           />
         </div>
       </div>
-      <div id="denoise">
+      <div id="image_denoising">
         <div className="m-3">
           <SwitchComponent
             value={denoise}
@@ -136,7 +136,7 @@ export function ImageFilter(props: any) {
           />
         </div>
       </div>
-      <div id="b/w">
+      <div id="bw_to_color">
         <div className="m-3">
           <SwitchComponent
             value={colorizer}
@@ -145,7 +145,7 @@ export function ImageFilter(props: any) {
           />
         </div>
       </div>
-      <div id="remove-bg">
+      <div id="remove_background">
         <div className="m-3">
           <SwitchComponent
             value={removebg}

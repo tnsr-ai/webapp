@@ -35,7 +35,7 @@ export const tagColor: Dictionary<string> = {
     "inline-flex items-center rounded-md bg-pink-400 p-1 text-xs font-medium text-black ring-1 ring-inset ring-yellow-500/10",
   "Remove Background":
     "inline-flex items-center rounded-md bg-blue-400 p-1 text-xs font-medium text-black ring-1 ring-inset ring-yellow-500/10",
-  Pending: "yellow",
+  Processing: "yellow",
   Completed: "green",
   Failed: "red",
   Cancelled: "red",
