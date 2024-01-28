@@ -131,6 +131,78 @@ STORAGE_LIMITS = {
     "deluxe": 100 * 1024**3,
 }
 
+USER_TIER = {
+    "free": {
+        "video": {
+            "size": STORAGE_LIMITS["free"],
+            "width": 1920,
+            "height": 1080,
+            "formats": ["mp4", "mov", "mkv", "webm"],
+            "duration": 180,
+            "max_filters": 1,
+        },
+        "audio": {
+            "size": STORAGE_LIMITS["free"],
+            "formats": ["mp3", "wav", "aac"],
+            "duration": 180,
+            "max_filters": 1,
+        },
+        "image": {
+            "size": STORAGE_LIMITS["free"],
+            "formats": ["png", "jpg", "jpeg", "webp"],
+            "width": 1920,
+            "height": 1080,
+            "max_filters": 1,
+        },
+    },
+    "standard": {
+        "video": {
+            "size": STORAGE_LIMITS["standard"],
+            "width": 2560,
+            "height": 1440,
+            "formats": ["mp4", "mov", "mkv", "webm"],
+            "duration": float("inf"),
+            "max_filters": 5,
+        },
+        "audio": {
+            "size": STORAGE_LIMITS["standard"],
+            "formats": ["mp3", "wav", "aac"],
+            "duration": float("inf"),
+            "max_filters": 5,
+        },
+        "image": {
+            "size": STORAGE_LIMITS["standard"],
+            "formats": ["png", "jpg", "jpeg", "webp"],
+            "width": 2560,
+            "height": 1440,
+            "max_filters": 5,
+        },
+    },
+    "deluxe": {
+        "video": {
+            "size": STORAGE_LIMITS["deluxe"],
+            "width": 3840,
+            "height": 2160,
+            "formats": ["mp4", "mov", "mkv", "webm"],
+            "duration": float("inf"),
+            "max_filters": 8,
+        },
+        "audio": {
+            "size": STORAGE_LIMITS["deluxe"],
+            "formats": ["mp3", "wav", "aac"],
+            "duration": float("inf"),
+            "max_filters": 8,
+        },
+        "image": {
+            "size": STORAGE_LIMITS["deluxe"],
+            "formats": ["png", "jpg", "jpeg", "webp"],
+            "width": 3840,
+            "height": 2160,
+            "max_filters": 8,
+        },
+    },
+}
+
 INFO = Gauge("fastapi_app_info", "FastAPI application information.", ["app_name"])
 REQUESTS = Counter(
     "fastapi_requests_total",
@@ -616,3 +688,13 @@ class EndpointFilter(logger.Filter):
 
 
 logger.getLogger("uvicorn.access").addFilter(EndpointFilter())
+
+
+def delete_r2_file(file_key: str, bucket: str):
+    try:
+        main_key = f"{bucket}/" + file_key
+        main_bucket = r2_resource.Bucket(bucket)
+        main_bucket.Object(main_key).delete()
+        return True
+    except Exception as e:
+        return False

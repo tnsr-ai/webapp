@@ -25,6 +25,8 @@ import shutil
 import binascii
 from utils import logger
 from routers.content import allTags
+from utils import r2_resource, r2_client, logger, delete_r2_file
+from utils import USER_TIER, STORAGE_LIMITS
 
 load_dotenv()
 
@@ -179,12 +181,26 @@ async def generate_url(
     return result
 
 
-def video_indexing(response, thumbnail_path, db, indexdata):
+def video_indexing(response, thumbnail_path, db, indexdata, user_tier):
     try:
         video_data = is_video_valid(response)
         if video_data == False:
             return {"detail": "Failed", "data": "Video is not valid"}
         vidData = video_fetch_data(video_data)
+        allowed_config = USER_TIER[user_tier]["video"]
+        if (
+            vidData["width"] > allowed_config["width"]
+            or vidData["height"] > allowed_config["height"]
+        ):
+            return {
+                "detail": "Failed",
+                "data": f"Resolution is too large for {user_tier} tier",
+            }
+        if float(vidData["duration"]) > float(allowed_config["duration"]):
+            return {
+                "detail": "Failed",
+                "data": f"Video duration is too long for {user_tier} tier",
+            }
         create_thumbnail(response, thumbnail_path, vidData["time_offset"])
         lower_resolution(thumbnail_path)
         thumbnail_upload(thumbnail_path)
@@ -209,9 +225,15 @@ def video_indexing(response, thumbnail_path, db, indexdata):
         return {"detail": "Failed", "data": str(e)}
 
 
-def image_indexing(response, thumbnail_path, db, indexdata):
+def image_indexing(response, thumbnail_path, db, indexdata, user_tier):
     try:
         img_size, width, height = lower_resolution_image(response, thumbnail_path)
+        allowed_config = USER_TIER[indexdata["config"]["tier"]]["image"]
+        if width > allowed_config["width"] or height > allowed_config["height"]:
+            return {
+                "detail": "Failed",
+                "data": f"Image resolution is too large for {user_tier} tier",
+            }
         create_thumbnail_image(thumbnail_path)
         thumbnail_upload(thumbnail_path)
         imageData = (
@@ -233,13 +255,19 @@ def image_indexing(response, thumbnail_path, db, indexdata):
         return {"detail": "Failed", "data": str(e)}
 
 
-def audio_indexing(response, thumbnail_path, db, indexdata):
+def audio_indexing(response, thumbnail_path, db, indexdata, user_tier):
     try:
         audio_data = audio_image(
             response, indexdata["config"]["filename"].split(".")[-1], thumbnail_path
         )
+        allowed_config = USER_TIER[user_tier]["audio"]
+        if float(audio_data["format"]["duration"]) > float(allowed_config["duration"]):
+            return {
+                "detail": "Failed",
+                "data": f"Audio duration is too long for {user_tier} tier",
+            }
         if audio_data == False:
-            return {"detail": "Failed", "data": "Audio is not valid"}
+            return {"detail": "Failed", "data": f"Audio is not valid"}
         thumbnail_upload(thumbnail_path)
         audioData = (
             db.query(models.Content)
@@ -265,6 +293,7 @@ def audio_indexing(response, thumbnail_path, db, indexdata):
 
 def index_media_task(indexdata: dict, user_id: int, db: Session):
     try:
+        user = db.query(models.Users).filter(models.Users.id == user_id).first()
         user_data = db.query(models.Users).filter(models.Users.id == user_id).first()
         user_dashboard = (
             db.query(models.Dashboard)
@@ -302,7 +331,9 @@ def index_media_task(indexdata: dict, user_id: int, db: Session):
         )
         s3.close()
         if indexdata["processtype"] == "video":
-            result = video_indexing(response, thumbnail_path, db, indexdata)
+            result = video_indexing(
+                response, thumbnail_path, db, indexdata, user.user_tier
+            )
             if result["detail"] == "Failed":
                 return result
             videoData = result["data"]
@@ -325,7 +356,9 @@ def index_media_task(indexdata: dict, user_id: int, db: Session):
             shutil.rmtree(f"thumbnail/{user_id}")
             return {"detail": "Success", "data": "Video indexed"}
         if indexdata["processtype"] == "image":
-            result = image_indexing(response, thumbnail_path, db, indexdata)
+            result = image_indexing(
+                response, thumbnail_path, db, indexdata, user.user_tier
+            )
             if result["detail"] == "Failed":
                 return result
             imageData = result["data"]
@@ -348,7 +381,9 @@ def index_media_task(indexdata: dict, user_id: int, db: Session):
             shutil.rmtree(f"thumbnail/{user_id}")
             return {"detail": "Success", "data": "Image indexed"}
         if indexdata["processtype"] == "audio":
-            result = audio_indexing(response, thumbnail_path, db, indexdata)
+            result = audio_indexing(
+                response, thumbnail_path, db, indexdata, user.user_tier
+            )
             if result["detail"] == "Failed":
                 return result
             audioData = result["data"]
@@ -371,7 +406,6 @@ def index_media_task(indexdata: dict, user_id: int, db: Session):
             shutil.rmtree(f"thumbnail/{user_id}")
             return {"detail": "Success", "data": "Audio indexed"}
     except Exception as e:
-        print(e)
         return {"detail": "Failed", "data": "Invalid processtype"}
 
 
@@ -385,11 +419,27 @@ async def file_index(
     current_user: TokenData = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    content_data = (
+        db.query(models.Content)
+        .filter(models.Content.id == indexdata.config["id"])
+        .first()
+    )
+    if content_data is None:
+        logger.error(
+            f"Invalid content id for {current_user.user_id} - {indexdata.config['id']}"
+        )
+        raise HTTPException(status_code=400, detail="Invalid content id")
     if indexdata.processtype not in ["video", "audio", "image"]:
+        delete_r2_file(content_data.link, CLOUDFLARE_CONTENT)
+        db.delete(content_data)
+        db.commit()
         logger.error(f"Invalid processtype for {current_user.user_id}")
         raise HTTPException(status_code=400, detail="Invalid processtype")
     result = index_media_task(indexdata.dict(), current_user.user_id, db)
     if result["detail"] == "Failed":
+        delete_r2_file(content_data.link, CLOUDFLARE_CONTENT)
+        db.delete(content_data)
+        db.commit()
         logger.error(f"Failed to index file for {current_user.user_id}")
         raise HTTPException(status_code=400, detail=result["data"])
     logger.info(f"File indexed for {current_user.user_id}")

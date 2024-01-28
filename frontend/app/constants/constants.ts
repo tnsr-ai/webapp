@@ -55,7 +55,8 @@ export const userPlans = [
       "1 filters per video",
       "Process one job at a time",
       "Files deleted after 1 week",
-      "Max duration on video 3 minutes",
+      "Max duration on Video / Audio 3 minutes",
+      "Max resolution on Video / Image 1080p",
     ],
   },
   {
@@ -67,6 +68,7 @@ export const userPlans = [
       "Process upto 5 jobs at a time",
       "Files deleted after 1 month",
       "No limit on duration of video",
+      "Max resolution on Video / Image 2K",
     ],
   },
   {
@@ -78,6 +80,7 @@ export const userPlans = [
       "Process upto 10 videos at a time",
       "Files deleted after 3 month",
       "No limit on duration of video",
+      "Max resolution on Video / Image 4K",
     ],
   },
 ];

@@ -156,7 +156,7 @@ export function SingleFileUpload(props: any = null) {
       try {
         const indexResponse = await IndexData(indexData, jwt as string);
         if (indexResponse?.status !== 201) {
-          setDisplayMsg("Error while indexing file");
+          setDisplayMsg(indexResponse?.response?.data?.detail);
           setIsCancelled(true);
           setShowProgress(true);
         } else {
@@ -223,13 +223,13 @@ export function SingleFileUpload(props: any = null) {
               {title}
             </h1>
           )}
-          <h1 className="text-black font-light text-sm flex m-auto text-center">
+          <h1 className="text-black font-light text-xs md:text-base flex m-auto text-center">
             {niceBytes(Number(props.file.size))}
           </h1>
           {displayMsg === "Please wait while we index your file" && (
             <div className="flex">
               <CircleStackIcon className="fill-purple-400 h-8 w-8 inline-flex m-auto md:mr-2" />
-              <h1 className="text-black font-normal text-sm md:text-base inline-flex m-auto text-center">
+              <h1 className="text-black font-normal text-xs md:text-base inline-flex m-auto text-center">
                 {displayMsg}
               </h1>
             </div>
@@ -237,7 +237,7 @@ export function SingleFileUpload(props: any = null) {
           {displayMsg === "Upload Complete" && (
             <div className="flex">
               <CheckIcon className="fill-green-600 h-8 w-8 inline-flex m-auto md:mr-2" />
-              <h1 className="text-black font-normal text-sm md:text-base inline-flex m-auto text-center">
+              <h1 className="text-black font-normal text-xs md:text-base inline-flex m-auto text-center">
                 {displayMsg}
               </h1>
             </div>
@@ -245,7 +245,7 @@ export function SingleFileUpload(props: any = null) {
           {isCancelled && (
             <div className="flex">
               <XCircleIcon className="fill-red-600 h-8 w-8 inline-flex m-auto md:mr-2" />
-              <h1 className="text-black font-normal text-sm md:text-base inline-flex m-auto text-center">
+              <h1 className="text-black font-normal text-xs md:text-base inline-flex m-auto text-center">
                 {displayMsg}
               </h1>
             </div>
@@ -253,7 +253,7 @@ export function SingleFileUpload(props: any = null) {
           {showProgress == false && (
             <div className="flex">
               <CogIcon className="fill-purple-400 h-8 w-8 inline-flex m-auto md:mr-2" />
-              <h1 className="text-black font-normal text-sm md:text-base inline-flex m-auto text-center">
+              <h1 className="text-black font-normal text-xs md:text-base inline-flex m-auto text-center">
                 Processing...
               </h1>
             </div>
@@ -296,7 +296,9 @@ async function IndexData(data: any, cookie: string) {
       },
     });
     return response;
-  } catch (error: any) {}
+  } catch (error: any) {
+    return error;
+  }
 }
 
 function uploadFile(
