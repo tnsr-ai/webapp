@@ -154,6 +154,7 @@ USER_TIER = {
             "height": 1080,
             "max_filters": 1,
         },
+        "max_jobs": 1,
     },
     "standard": {
         "video": {
@@ -177,6 +178,7 @@ USER_TIER = {
             "height": 1440,
             "max_filters": 5,
         },
+        "max_jobs": 5,
     },
     "deluxe": {
         "video": {
@@ -200,7 +202,403 @@ USER_TIER = {
             "height": 2160,
             "max_filters": 8,
         },
+        "max_jobs": 10,
     },
+}
+
+MODELS_CONFIG = {
+    "video": [
+        {
+            "super_resolution": {
+                "model_name": {
+                    "SuperRes 2x v1 (Faster)": {"input": 1, "output": 2},
+                    "SuperRes 4x v1 (Faster)": {"input": 1, "output": 4},
+                    "SuperRes 2x v2 (Slower, better result)": {"input": 1, "output": 2},
+                    "SuperRes 4x v2 (Slower, better result)": {"input": 1, "output": 4},
+                    "SuperRes Anime (For Animated content)": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "width": 1920,
+                        "height": 1080,
+                    },
+                    "standard": {
+                        "width": 2560,
+                        "height": 1440,
+                    },
+                    "deluxe": {
+                        "width": 3840,
+                        "height": 2160,
+                    },
+                },
+                "effect": "resolution",
+            },
+            "video_deblurring": {
+                "model_name": {
+                    "video_deblurring": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "width": 1920,
+                        "height": 1080,
+                    },
+                    "standard": {
+                        "width": 2560,
+                        "height": 1440,
+                    },
+                    "deluxe": {
+                        "width": 3840,
+                        "height": 2160,
+                    },
+                },
+                "effect": "resolution",
+            },
+            "video_denoising": {
+                "model_name": {
+                    "video_denoising": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "width": 1920,
+                        "height": 1080,
+                    },
+                    "standard": {
+                        "width": 2560,
+                        "height": 1440,
+                    },
+                    "deluxe": {
+                        "width": 3840,
+                        "height": 2160,
+                    },
+                },
+                "effect": "resolution",
+            },
+            "face_restoration": {
+                "model_name": {
+                    "face_restoration": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "width": 1920,
+                        "height": 1080,
+                    },
+                    "standard": {
+                        "width": 2560,
+                        "height": 1440,
+                    },
+                    "deluxe": {
+                        "width": 3840,
+                        "height": 2160,
+                    },
+                },
+                "effect": "resolution",
+            },
+            "bw_to_color": {
+                "model_name": {
+                    "bw_to_color": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "width": 1920,
+                        "height": 1080,
+                    },
+                    "standard": {
+                        "width": 2560,
+                        "height": 1440,
+                    },
+                    "deluxe": {
+                        "width": 3840,
+                        "height": 2160,
+                    },
+                },
+                "effect": "resolution",
+            },
+            "slow_motion": {
+                "model_name": {
+                    "2x": {"input": 1, "output": 2},
+                    "4x": {"input": 1, "output": 4},
+                },
+                "tier": {
+                    "free": {
+                        "width": 1920,
+                        "height": 1080,
+                    },
+                    "standard": {
+                        "width": 2560,
+                        "height": 1440,
+                    },
+                    "deluxe": {
+                        "width": 3840,
+                        "height": 2160,
+                    },
+                },
+                "effect": "duration",
+            },
+            "video_interpolation": {
+                "model_name": {
+                    "video_interpolation": {"input": 1, "output": 2},
+                },
+                "tier": {
+                    "free": {
+                        "width": 1920,
+                        "height": 1080,
+                    },
+                    "standard": {
+                        "width": 2560,
+                        "height": 1440,
+                    },
+                    "deluxe": {
+                        "width": 3840,
+                        "height": 2160,
+                    },
+                },
+                "effect": "fps",
+            },
+            "video_deinterlacing": {
+                "model_name": {
+                    "video_deinterlacing": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "width": 1920,
+                        "height": 1080,
+                    },
+                    "standard": {
+                        "width": 2560,
+                        "height": 1440,
+                    },
+                    "deluxe": {
+                        "width": 3840,
+                        "height": 2160,
+                    },
+                },
+                "effect": "resolution",
+            },
+            "speech_enhancement": {
+                "model_name": {
+                    "speech_enhancement": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "width": 1920,
+                        "height": 1080,
+                    },
+                    "standard": {
+                        "width": 2560,
+                        "height": 1440,
+                    },
+                    "deluxe": {
+                        "width": 3840,
+                        "height": 2160,
+                    },
+                },
+                "effect": "audio",
+            },
+            "transcription": {
+                "model_name": {
+                    "transcription": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "width": 1920,
+                        "height": 1080,
+                    },
+                    "standard": {
+                        "width": 2560,
+                        "height": 1440,
+                    },
+                    "deluxe": {
+                        "width": 3840,
+                        "height": 2160,
+                    },
+                },
+                "effect": "srt",
+            },
+        }
+    ],
+    "audio": [
+        {
+            "stem_seperation": {
+                "model_name": {
+                    "stem_seperation": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "duration": 180,
+                    },
+                    "standard": {
+                        "duration": float("inf"),
+                    },
+                    "deluxe": {
+                        "duration": float("inf"),
+                    },
+                },
+                "effect": "audio_files",
+            },
+            "speech_enhancement": {
+                "model_name": {
+                    "speech_enhancement": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "duration": 180,
+                    },
+                    "standard": {
+                        "duration": float("inf"),
+                    },
+                    "deluxe": {
+                        "duration": float("inf"),
+                    },
+                },
+                "effect": "audio_files",
+            },
+            "transcription": {
+                "model_name": {
+                    "transcription": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "duration": 180,
+                    },
+                    "standard": {
+                        "duration": float("inf"),
+                    },
+                    "deluxe": {
+                        "duration": float("inf"),
+                    },
+                },
+                "effect": "srt",
+            },
+        }
+    ],
+    "image": [
+        {
+            "super_resolution": {
+                "model_name": {
+                    "SuperRes 2x v1 (Faster)": {"input": 1, "output": 2},
+                    "SuperRes 4x v1 (Faster)": {"input": 1, "output": 4},
+                    "SuperRes 2x v2 (Slower, better result)": {"input": 1, "output": 2},
+                    "SuperRes 4x v2 (Slower, better result)": {"input": 1, "output": 4},
+                    "SuperRes Anime (For Animated content)": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "width": 1920,
+                        "height": 1080,
+                    },
+                    "standard": {
+                        "width": 2560,
+                        "height": 1440,
+                    },
+                    "deluxe": {
+                        "width": 3840,
+                        "height": 2160,
+                    },
+                },
+                "effect": "resolution",
+            },
+            "image_deblurring": {
+                "model_name": {
+                    "image_deblurring": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "width": 1920,
+                        "height": 1080,
+                    },
+                    "standard": {
+                        "width": 2560,
+                        "height": 1440,
+                    },
+                    "deluxe": {
+                        "width": 3840,
+                        "height": 2160,
+                    },
+                },
+                "effect": "resolution",
+            },
+            "image_denoising": {
+                "model_name": {
+                    "image_denoising": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "width": 1920,
+                        "height": 1080,
+                    },
+                    "standard": {
+                        "width": 2560,
+                        "height": 1440,
+                    },
+                    "deluxe": {
+                        "width": 3840,
+                        "height": 2160,
+                    },
+                },
+                "effect": "resolution",
+            },
+            "face_restoration": {
+                "model_name": {
+                    "face_restoration": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "width": 1920,
+                        "height": 1080,
+                    },
+                    "standard": {
+                        "width": 2560,
+                        "height": 1440,
+                    },
+                    "deluxe": {
+                        "width": 3840,
+                        "height": 2160,
+                    },
+                },
+                "effect": "resolution",
+            },
+            "bw_to_color": {
+                "model_name": {
+                    "bw_to_color": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "width": 1920,
+                        "height": 1080,
+                    },
+                    "standard": {
+                        "width": 2560,
+                        "height": 1440,
+                    },
+                    "deluxe": {
+                        "width": 3840,
+                        "height": 2160,
+                    },
+                },
+                "effect": "resolution",
+            },
+            "remove_background": {
+                "model_name": {
+                    "remove_background": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "width": 1920,
+                        "height": 1080,
+                    },
+                    "standard": {
+                        "width": 2560,
+                        "height": 1440,
+                    },
+                    "deluxe": {
+                        "width": 3840,
+                        "height": 2160,
+                    },
+                },
+                "effect": "resolution",
+            },
+        }
+    ],
 }
 
 INFO = Gauge("fastapi_app_info", "FastAPI application information.", ["app_name"])

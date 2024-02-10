@@ -228,7 +228,7 @@ def video_indexing(response, thumbnail_path, db, indexdata, user_tier):
 def image_indexing(response, thumbnail_path, db, indexdata, user_tier):
     try:
         img_size, width, height = lower_resolution_image(response, thumbnail_path)
-        allowed_config = USER_TIER[indexdata["config"]["tier"]]["image"]
+        allowed_config = USER_TIER[user_tier]["image"]
         if width > allowed_config["width"] or height > allowed_config["height"]:
             return {
                 "detail": "Failed",
@@ -431,6 +431,13 @@ async def file_index(
         raise HTTPException(status_code=400, detail="Invalid content id")
     if indexdata.processtype not in ["video", "audio", "image"]:
         delete_r2_file(content_data.link, CLOUDFLARE_CONTENT)
+        all_tags = (
+            db.query(models.ContentTags)
+            .filter(models.ContentTags.content_id == content_data.id)
+            .all()
+        )
+        for tag in all_tags:
+            db.delete(tag)
         db.delete(content_data)
         db.commit()
         logger.error(f"Invalid processtype for {current_user.user_id}")
@@ -438,6 +445,13 @@ async def file_index(
     result = index_media_task(indexdata.dict(), current_user.user_id, db)
     if result["detail"] == "Failed":
         delete_r2_file(content_data.link, CLOUDFLARE_CONTENT)
+        all_tags = (
+            db.query(models.ContentTags)
+            .filter(models.ContentTags.content_id == content_data.id)
+            .all()
+        )
+        for tag in all_tags:
+            db.delete(tag)
         db.delete(content_data)
         db.commit()
         logger.error(f"Failed to index file for {current_user.user_id}")

@@ -3,7 +3,14 @@ import sys
 sys.path.append("..")
 
 from typing import Optional
-from fastapi import Depends, HTTPException, APIRouter, status
+from fastapi import (
+    Depends,
+    HTTPException,
+    APIRouter,
+    WebSocketDisconnect,
+    status,
+    WebSocket,
+)
 import models
 from database import engine, SessionLocal
 from sqlalchemy.orm import Session
@@ -23,6 +30,7 @@ from cryptography.fernet import Fernet
 from routers.auth import authenticate_user, get_current_user, TokenData
 from fastapi_limiter.depends import RateLimiter
 from utils import CLOUDFLARE_METADATA
+import asyncio
 from routers.content import add_presigned_single, allTags
 
 load_dotenv()
@@ -81,7 +89,6 @@ def create_content_entry(config: dict, db: Session, user_id: int):
             for x in config["config_json"]["job_data"]["filters"].keys()
             if config["config_json"]["job_data"]["filters"][x]["active"] == True
         ]
-        print(tags)
         create_content_model = models.Content(
             user_id=user_id,
             title=content_detail.title,
@@ -108,6 +115,14 @@ def create_content_entry(config: dict, db: Session, user_id: int):
         raise HTTPException(status_code=400, detail="Unable to create content entry")
 
 
+# @celeryapp.task(name="routers.jobs.process_workers_demo")
+# def process_media_celery():
+#     try:
+#         pass
+#     except Exception as e:
+#         return {"detail": "Failed", "data": str(e)}
+
+
 @router.post(
     "/register_job", dependencies=[Depends(RateLimiter(times=120, seconds=60))]
 )
@@ -124,6 +139,18 @@ async def register_job(
             .filter(models.Users.id == current_user.user_id)
             .first()
         )
+        running_jobs = (
+            db.query(models.Content)
+            .filter(models.Content.user_id == current_user.user_id)
+            .filter(models.Content.status == "processing")
+            .count()
+        )
+        if running_jobs >= USER_TIER[user_details.user_tier]["max_jobs"]:
+            print("Max jobs reached")
+            raise HTTPException(
+                status_code=400,
+                detail="You have reached your maximum active jobs. Please wait for them to complete.",
+            )
         content_id = create_content_entry(job_dict.dict(), db, current_user.user_id)
         create_job_model = models.Jobs(
             user_id=current_user.user_id,
@@ -140,9 +167,14 @@ async def register_job(
         )
         db.add(create_job_model)
         db.commit()
+        db.refresh(create_job_model)
+        # celery_process = process_media_celery.delay()
+        # create_job_model.celery_id = celery_process.id
+        # db.commit()
         return {"detail": "Success", "data": "Job registered successfully"}
+    except HTTPException as e:
+        raise e
     except Exception as e:
-        print(e)
         raise HTTPException(status_code=400, detail="Unable to register job")
 
 
@@ -293,3 +325,35 @@ async def past_jobs(
         return {"detail": "Success", "data": final_data, "total": total_count}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)):
+    await websocket.accept()
+    data = await websocket.receive_json()
+    current_user = get_current_user(db, data["token"])
+    if "id" not in data:
+        await websocket.send_json({"detail": "Failed", "data": "Invalid request"})
+        return
+    try:
+        while True:
+            result = {}
+            for id in data["id"]:
+                job_status = (
+                    db.query(models.Jobs)
+                    .filter(models.Jobs.job_id == id)
+                    .filter(models.Jobs.user_id == current_user.user_id)
+                    .first()
+                )
+                if job_status is None:
+                    result[id] = "Not found"
+                    continue
+                result[id] = job_status.job_status
+            await websocket.send_json({"detail": "Success", "data": result})
+            await asyncio.sleep(30)
+    except WebSocketDisconnect:
+        await websocket.close()
+        return
+    except Exception as e:
+        await websocket.close()
+        return

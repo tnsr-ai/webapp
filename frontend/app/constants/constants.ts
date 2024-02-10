@@ -52,11 +52,11 @@ export const userPlans = [
     times: 0,
     features: [
       "Storage upto 2GB",
-      "1 filters per video",
+      "Max 1 filters per job",
       "Process one job at a time",
       "Files deleted after 1 week",
       "Max duration on Video / Audio 3 minutes",
-      "Max resolution on Video / Image 1080p",
+      "Max resolution on Video / Image - 1080p",
     ],
   },
   {
@@ -64,11 +64,11 @@ export const userPlans = [
     times: 30,
     features: [
       "Storage upto 20GB",
-      "5 filters per video",
+      "Max 5 filters per job",
       "Process upto 5 jobs at a time",
       "Files deleted after 1 month",
       "No limit on duration of video",
-      "Max resolution on Video / Image 2K",
+      "Max resolution on Video / Image - 2K",
     ],
   },
   {
@@ -76,11 +76,11 @@ export const userPlans = [
     times: 100,
     features: [
       "Storage upto 100GB",
-      "8 filters per video",
+      "Max 8 filters per job",
       "Process upto 10 videos at a time",
       "Files deleted after 3 month",
       "No limit on duration of video",
-      "Max resolution on Video / Image 4K",
+      "Max resolution on Video / Image - 4K",
     ],
   },
 ];
