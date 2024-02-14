@@ -1,5 +1,6 @@
-import sys 
-sys.path.append('...')
+import sys
+
+sys.path.append("...")
 
 from logging.config import fileConfig
 
@@ -8,10 +9,18 @@ from sqlalchemy import pool
 
 from alembic import context
 import models
+from utils import (
+    POSTGRES_HOST,
+    POSTGRES_USERNAME,
+    POSTGRES_PASSWORD,
+    POSTGRES_DATABASE,
+)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
+connection_string = f"postgresql://{POSTGRES_USERNAME}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}/{POSTGRES_DATABASE}"
+config.set_main_option("sqlalchemy.url", connection_string)
 fileConfig(config.config_file_name)
 target_metadata = models.Base.metadata
 
@@ -50,6 +59,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        compare_type=True,
     )
 
     with context.begin_transaction():
@@ -71,7 +81,7 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection, target_metadata=target_metadata, compare_type=True
         )
 
         with context.begin_transaction():
