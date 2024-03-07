@@ -2,36 +2,33 @@ import sys
 
 sys.path.append("..")
 
-from typing import Optional
+import asyncio
+import hashlib
+import json
+import time
+from typing import Annotated
+
+import hruid
+import redis
+from dotenv import load_dotenv
 from fastapi import (
+    APIRouter,
     Depends,
     HTTPException,
-    APIRouter,
+    WebSocket,
     WebSocketDisconnect,
     status,
-    WebSocket,
 )
-import models
-from database import engine, SessionLocal
-from sqlalchemy.orm import Session
-import sqlalchemy as sa
-from sqlalchemy.orm import aliased
-from pydantic import BaseModel, Field
-from script_utils.util import *
-from dotenv import load_dotenv
-from typing import Optional, Annotated
-import time
-import json
-import hruid
-import hashlib
-import redis
-from celeryworker import celeryapp
-from cryptography.fernet import Fernet
-from routers.auth import authenticate_user, get_current_user, TokenData
 from fastapi_limiter.depends import RateLimiter
-from utils import CLOUDFLARE_METADATA
-import asyncio
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+import models
+from database import SessionLocal, engine
+from routers.auth import TokenData, get_current_user
 from routers.content import add_presigned_single, allTags
+from script_utils.util import *
+from utils import CLOUDFLARE_METADATA
 
 load_dotenv()
 
@@ -111,7 +108,7 @@ def create_content_entry(config: dict, db: Session, user_id: int):
             )
             db.commit()
         return create_content_model.id
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=400, detail="Unable to create content entry")
 
 
@@ -174,7 +171,7 @@ async def register_job(
         return {"detail": "Success", "data": "Job registered successfully"}
     except HTTPException as e:
         raise e
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=400, detail="Unable to register job")
 
 
@@ -189,8 +186,40 @@ def fetch_content_data(content_id: int, table: str, db: Session):
         if content_detail is None:
             raise HTTPException(status_code=400, detail="Content not found")
         return content_detail
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=400, detail="Unable to fetch content data")
+
+
+@router.get("/fetch_jobs")
+async def fetch_jobs(
+    job_id: int,
+    key: str,
+    db: Session = Depends(get_db),
+    rd: redis.Redis = Depends(get_redis),
+):
+    try:
+        job_detail = (
+            db.query(models.Jobs)
+            .filter(models.Jobs.job_id == job_id)
+            .filter(models.Jobs.key == key)
+            .first()
+        )
+        if job_detail is None:
+            raise HTTPException(status_code=400, detail="Job not found")
+        job_config = {}
+        content_detail = fetch_content_data(
+            job_detail.content_id, job_detail.job_type, db
+        )
+        main_content = fetch_content_data(
+            content_detail.id_related, content_detail.content_type, db
+        ).__dict__
+        job_config["content"] = add_presigned_single(
+            main_content["link"], CLOUDFLARE_CONTENT, None
+        )
+        job_config["job"] = json.loads(job_detail.config_json)
+        return {"detail": "Success", "data": job_config}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="Unable to fetch job details")
 
 
 @router.get("/active_jobs", dependencies=[Depends(RateLimiter(times=120, seconds=60))])
@@ -246,7 +275,7 @@ async def active_jobs(
             job["content_detail"]["tags"] = ",".join(job["content_detail"]["tags"])
             final_data.append(job)
         return {"detail": "Success", "data": final_data}
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=400, detail="Unable to fetch jobs")
 
 
@@ -354,6 +383,23 @@ async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)
     except WebSocketDisconnect:
         await websocket.close()
         return
-    except Exception as e:
+    except Exception:
         await websocket.close()
         return
+
+
+@router.get("/filter_config")
+async def filter_config(
+    current_user: TokenData = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    user_details = (
+        db.query(models.Users).filter(models.Users.id == current_user.user_id).first()
+    )
+    if user_details is None:
+        raise HTTPException(status_code=400, detail="User not found")
+    return {
+        "detail": "Success",
+        "data": json.dumps(MODELS_CONFIG),  # noqa: F405
+        "tier_config": json.dumps(USER_TIER),
+        "tier": user_details.user_tier,
+    }

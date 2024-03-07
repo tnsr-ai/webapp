@@ -88,8 +88,8 @@ POSTGRES_DATABASE = os.getenv("POSTGRES_DATABASE")
 # Redis Credentials
 REDIS_BROKER = os.getenv("REDIS_BROKER")
 REDIS_BACKEND = os.getenv("REDIS_BACKEND")
-REDIS_HOST = os.getenv("REDIS_HOST")
-REDIS_PORT = os.getenv("REDIS_PORT")
+REDIS_PORT = int(os.getenv("REDIS_PORT"))
+REDIS_HOST = str(os.getenv("REDIS_HOST"))
 
 # Grafana Credentials
 LOKI_URL = os.getenv("LOKI_URL")
@@ -139,20 +139,20 @@ USER_TIER = {
             "height": 1080,
             "formats": ["mp4", "mov", "mkv", "webm"],
             "duration": 180,
-            "max_filters": 1,
+            "max_filters": 2,
         },
         "audio": {
             "size": STORAGE_LIMITS["free"],
             "formats": ["mp3", "wav", "aac"],
             "duration": 180,
-            "max_filters": 1,
+            "max_filters": 2,
         },
         "image": {
             "size": STORAGE_LIMITS["free"],
             "formats": ["png", "jpg", "jpeg", "webp"],
             "width": 1920,
             "height": 1080,
-            "max_filters": 1,
+            "max_filters": 2,
         },
         "max_jobs": 1,
     },
@@ -162,13 +162,13 @@ USER_TIER = {
             "width": 2560,
             "height": 1440,
             "formats": ["mp4", "mov", "mkv", "webm"],
-            "duration": float("inf"),
+            "duration": -1,
             "max_filters": 5,
         },
         "audio": {
             "size": STORAGE_LIMITS["standard"],
             "formats": ["mp3", "wav", "aac"],
-            "duration": float("inf"),
+            "duration": -1,
             "max_filters": 5,
         },
         "image": {
@@ -186,13 +186,13 @@ USER_TIER = {
             "width": 3840,
             "height": 2160,
             "formats": ["mp4", "mov", "mkv", "webm"],
-            "duration": float("inf"),
+            "duration": -1,
             "max_filters": 8,
         },
         "audio": {
             "size": STORAGE_LIMITS["deluxe"],
             "formats": ["mp3", "wav", "aac"],
-            "duration": float("inf"),
+            "duration": -1,
             "max_filters": 8,
         },
         "image": {
@@ -427,10 +427,10 @@ MODELS_CONFIG = {
                         "duration": 180,
                     },
                     "standard": {
-                        "duration": float("inf"),
+                        "duration": -1,
                     },
                     "deluxe": {
-                        "duration": float("inf"),
+                        "duration": -1,
                     },
                 },
                 "effect": "audio_files",
@@ -443,12 +443,8 @@ MODELS_CONFIG = {
                     "free": {
                         "duration": 180,
                     },
-                    "standard": {
-                        "duration": float("inf"),
-                    },
-                    "deluxe": {
-                        "duration": float("inf"),
-                    },
+                    "standard": {"duration": -1},
+                    "deluxe": {"duration": -1},
                 },
                 "effect": "audio_files",
             },
@@ -460,12 +456,8 @@ MODELS_CONFIG = {
                     "free": {
                         "duration": 180,
                     },
-                    "standard": {
-                        "duration": float("inf"),
-                    },
-                    "deluxe": {
-                        "duration": float("inf"),
-                    },
+                    "standard": {"duration": -1},
+                    "deluxe": {"duration": -1},
                 },
                 "effect": "srt",
             },

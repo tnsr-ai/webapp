@@ -40,6 +40,7 @@ const jobsEndpoints = {
   registerJob: `${baseURL}/jobs/register_job`,
   activeJobs: `${baseURL}/jobs/active_jobs`,
   pastJobs: `${baseURL}/jobs/past_jobs`,
+  filterConfig: `${baseURL}/jobs/filter_config`,
 };
 
 const optionsEndpoints = {

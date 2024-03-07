@@ -99,7 +99,7 @@ def add_presigned(data, key, result_key, bucket, rd):
 
 def add_presigned_single(file_key, bucket, rd):
     try:
-        if rd.exists(file_key):
+        if rd is not None and rd.exists(file_key):
             return rd.get(file_key).decode("utf-8")
         r2_client = boto3.client(
             "s3",
@@ -120,10 +120,12 @@ def add_presigned_single(file_key, bucket, rd):
             },
             ExpiresIn=CONTENT_EXPIRE,
         )
-        rd.set(file_key, response)
-        rd.expire(file_key, CONTENT_EXPIRE - 43200)
+        if rd is not None:
+            rd.set(file_key, response)
+            rd.expire(file_key, CONTENT_EXPIRE - 43200)
         return response
     except Exception as e:
+        print(str(e))
         return None
 
 

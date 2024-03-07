@@ -372,3 +372,22 @@ export const usePastJobs = (limit: number, offset: number) => {
     enabled: false,
   });
 };
+
+export const useJobsConfig = () => {
+  const jwt = getCookie("access_token");
+  return useQuery({
+    queryKey: [jobsEndpoints["filterConfig"]],
+    queryFn: async () => {
+      const url = jobsEndpoints["filterConfig"];
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${jwt}`,
+        },
+      });
+      const data = await response.json();
+      return data;
+    },
+  });
+};

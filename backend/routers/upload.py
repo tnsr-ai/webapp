@@ -196,7 +196,10 @@ def video_indexing(response, thumbnail_path, db, indexdata, user_tier):
                 "detail": "Failed",
                 "data": f"Resolution is too large for {user_tier} tier",
             }
-        if float(vidData["duration"]) > float(allowed_config["duration"]):
+        allowed_duration = allowed_config["duration"]
+        if float(allowed_config["duration"]) == -1:
+            allowed_duration = float("inf")
+        if float(vidData["duration"]) > allowed_duration:
             return {
                 "detail": "Failed",
                 "data": f"Video duration is too long for {user_tier} tier",
@@ -261,7 +264,10 @@ def audio_indexing(response, thumbnail_path, db, indexdata, user_tier):
             response, indexdata["config"]["filename"].split(".")[-1], thumbnail_path
         )
         allowed_config = USER_TIER[user_tier]["audio"]
-        if float(audio_data["format"]["duration"]) > float(allowed_config["duration"]):
+        allowed_duration = allowed_config["duration"]
+        if float(allowed_config["duration"]) == -1:
+            allowed_duration = float("inf")
+        if float(audio_data["format"]["duration"]) > float(allowed_duration):
             return {
                 "detail": "Failed",
                 "data": f"Audio duration is too long for {user_tier} tier",

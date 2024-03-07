@@ -8,7 +8,7 @@ import {
 } from "@heroicons/react/20/solid";
 import VideoPlayer from "./videoPlayer";
 import FilterModal from "./filterModal";
-import { Menu, Button, Tooltip, Skeleton } from "@mantine/core";
+import { Menu, Button, Tooltip, Skeleton, Loader } from "@mantine/core";
 import { IconBallpen, IconTrash, IconCloudDownload } from "@tabler/icons-react";
 import { tagColor } from "./TagsClass";
 import React, { useState, useEffect } from "react";
@@ -18,6 +18,9 @@ import { Toaster, toast } from "sonner";
 import { getCookie } from "cookies-next";
 import RenamePrompt from "../../content/contentCards/RenameModal";
 import { infinity } from "ldrs";
+import { useJobsConfig } from "../../api/index";
+import Error from "../../components/ErrorTab";
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 function capitalizeWords(input: string): string[] {
   if (input.includes(",") === false) {
@@ -41,7 +44,13 @@ function capitalizeWords(input: string): string[] {
 }
 
 export function ContentComponent(props: any) {
+  const queryClient = useQueryClient()
+  const pathName = usePathname().split("/")[1];
+  const jobsConfig = useJobsConfig();
   infinity.register();
+  const [jobsParams, setJobsParams] = useState(undefined);
+  const [userTier, setUserTier] = useState("free");
+  const [tierConfig, setTierConfig] = useState();
   const pathname = usePathname().split("/")[1];
   const [videoPlayer, setVideoPlayer] = useState(false);
   const [filterShow, setFilterShow] = useState(false);
@@ -60,7 +69,7 @@ export function ContentComponent(props: any) {
     if (props.data.tags === "original") {
       setDisableDelete(true);
     }
-  });
+  }, [disableDelete, props.data.tags]);
 
   function getCurrentDimension() {
     return {
@@ -68,7 +77,57 @@ export function ContentComponent(props: any) {
       height: window.innerHeight,
     };
   }
+  function convertToSeconds(timeString: string) {
+    // Split the time string by colon
+    const parts = timeString.split(':');
 
+    // Extract hours, minutes, and seconds from the array
+    const hours = parseInt(parts[0], 10);
+    const minutes = parseInt(parts[1], 10);
+    const seconds = parseInt(parts[2], 10);
+
+    // Calculate total seconds
+    const totalSeconds = (hours * 3600) + (minutes * 60) + seconds;
+
+    return totalSeconds;
+  }
+  function checkContentTier() {
+    if (props.data.content_type === 'video') {
+      const width = Number(props.data.resolution.split("x")[0]);
+      const height = Number(props.data.resolution.split("x")[1]);
+      const tier_width = tierConfig[userTier][pathname]["width"];
+      const tier_height = tierConfig[userTier][pathname]["height"];
+      if (width > tier_width || height > tier_height) {
+        toast.error(`Content resolution exceeds ${capitalizeWords(userTier)} tier limit`);
+        return;
+      }
+      setFilterShow(true);
+    }
+    if (props.data.content_type === 'audio') {
+      const duration = convertToSeconds(props.data.duration);
+      let tier_duration = tierConfig[userTier][pathname]["duration"];
+      if (tier_duration === -1) {
+        tier_duration = Infinity;
+      }
+      if (duration > tier_duration) {
+        toast.error(`Content duration exceeds ${capitalizeWords(userTier)} tier limit`);
+        return;
+      }
+      setFilterShow(true);
+    }
+
+    if (props.data.content_type === 'image') {
+      const width = Number(props.data.resolution.split("x")[0]);
+      const height = Number(props.data.resolution.split("x")[1]);
+      const tier_width = tierConfig[userTier][pathname]["width"];
+      const tier_height = tierConfig[userTier][pathname]["height"];
+      if (width > tier_width || height > tier_height) {
+        toast.error(`Content resolution exceeds ${capitalizeWords(userTier)} tier limit`);
+        return;
+      }
+      setFilterShow(true);
+    }
+  };
   const [screenSize, setScreenSize] = useState(getCurrentDimension());
 
   const downloadContent = async () => {
@@ -91,7 +150,7 @@ export function ContentComponent(props: any) {
     toast.loading("Downloading...", { id: toastID });
     const xhr = new XMLHttpRequest();
     xhr.responseType = "blob";
-    xhr.onprogress = function (event) {
+    xhr.onprogress = function(event) {
       if (event.lengthComputable) {
         const percentComplete = Math.round((event.loaded / event.total) * 100);
         toast.loading(`Downloading... ${percentComplete}%`, {
@@ -141,7 +200,7 @@ export function ContentComponent(props: any) {
       id: toastID,
     });
 
-    xhr.onreadystatechange = function () {
+    xhr.onreadystatechange = function() {
       if (xhr.readyState === 4) {
         if (xhr.status === 200) {
           toast.dismiss(toastID);
@@ -151,6 +210,15 @@ export function ContentComponent(props: any) {
       }
     };
   };
+
+  useEffect(() => {
+    if (jobsConfig.isSuccess && jobsParams === undefined) {
+      queryClient.invalidateQueries()
+      setJobsParams(JSON.parse(jobsConfig.data.data));
+      setUserTier(jobsConfig.data.tier);
+      setTierConfig(JSON.parse(jobsConfig.data.tier_config));
+    }
+  }, [jobsConfig, jobsParams, pathname]);
 
   const videoInfo = (
     <div
@@ -166,9 +234,8 @@ export function ContentComponent(props: any) {
           height={0}
           sizes="100vw"
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          className={`rounded-xl ${
-            props.data.status === "processing" ? "opacity-45" : ""
-          }`}
+          className={`rounded-xl ${props.data.status === "processing" ? "opacity-45" : ""
+            }`}
           onLoad={() => setIsLoaded(true)}
           onClick={() => {
             setVideoPlayer(true);
@@ -212,9 +279,8 @@ export function ContentComponent(props: any) {
           </h1>
         )}
         <div
-          className={`pt-0.5 space-x-2 ${
-            props.data.status === "processing" ? "hidden" : "flex"
-          }`}
+          className={`pt-0.5 space-x-2 ${props.data.status === "processing" ? "hidden" : "flex"
+            }`}
         >
           <p className="text-sm xl:text-lg whitespace-nowrap">
             {props.data.size}
@@ -270,9 +336,8 @@ export function ContentComponent(props: any) {
           height={0}
           sizes="100vw"
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          className={`rounded-xl ${
-            props.data.status === "processing" ? "opacity-45" : ""
-          }`}
+          className={`rounded-xl ${props.data.status === "processing" ? "opacity-45" : ""
+            }`}
           onLoad={() => setIsLoaded(true)}
           onClick={() => {
             setVideoPlayer(true);
@@ -316,9 +381,8 @@ export function ContentComponent(props: any) {
           </h1>
         )}
         <div
-          className={`pt-0.5 space-x-2 ${
-            props.data.status === "processing" ? "hidden" : "flex"
-          }`}
+          className={`pt-0.5 space-x-2 ${props.data.status === "processing" ? "hidden" : "flex"
+            }`}
         >
           <p className="text-sm xl:text-lg whitespace-nowrap">
             {props.data.size}
@@ -378,9 +442,8 @@ export function ContentComponent(props: any) {
               height={0}
               sizes="100vw"
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
-              className={`rounded-xl ${
-                props.data.status === "processing" ? "opacity-45" : ""
-              }`}
+              className={`rounded-xl ${props.data.status === "processing" ? "opacity-45" : ""
+                }`}
               onLoad={() => setIsLoaded(true)}
               onClick={() => {
                 setVideoPlayer(true);
@@ -397,9 +460,8 @@ export function ContentComponent(props: any) {
               height={0}
               sizes="100vw"
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
-              className={`rounded-xl ${
-                props.data.status === "processing" ? "opacity-45" : ""
-              }`}
+              className={`rounded-xl ${props.data.status === "processing" ? "opacity-45" : ""
+                }`}
               onLoad={() => setIsLoaded(true)}
               onClick={() => {
                 setVideoPlayer(true);
@@ -431,9 +493,8 @@ export function ContentComponent(props: any) {
           </h1>
         )}
         <div
-          className={`pt-0.5 space-x-2 ${
-            props.data.status === "processing" ? "hidden" : "flex"
-          }`}
+          className={`pt-0.5 space-x-2 ${props.data.status === "processing" ? "hidden" : "flex"
+            }`}
         >
           <p className="text-sm xl:text-lg whitespace-nowrap">
             {props.data.size}
@@ -474,116 +535,131 @@ export function ContentComponent(props: any) {
     </div>
   );
 
-  useEffect(() => {}), [screenSize];
+  useEffect(() => { }), [screenSize];
   return (
     <div id={props.data.id}>
-      <div className="w-[100%]">
-        {screenSize.width < 1030 && (
-          <Toaster position="bottom-right" richColors />
-        )}
-        {screenSize.width > 1030 && <Toaster position="top-right" richColors />}
-        <div className="grid grid-rows-3 grid-cols-6 md:grid-cols-9 md:grid-rows-1 max-w-[1500px] h-[200px] hover:bg-gray-50 mx-3 rounded-xl border-solid border-2 p-1">
-          {(pathname === "image" && imageInfo) ||
-            (pathname === "audio" && audioInfo) ||
-            (pathname === "video" && videoInfo)}
-
-          <div
-            id="tags"
-            className="col-span-1 row-span-2 md:col-span-3 md:flex justify-center items-center hidden"
-          >
-            <div className="flex justify-center items-center gap-1 flex-wrap h-auto">
-              {tags.map((tags: string, index: any) => (
-                <span className={tagColor[tags]} key={index}>
-                  {tags}
-                </span>
-              ))}
-            </div>
+      <div className="max-w-[1500px] m-auto">
+        {jobsConfig.isLoading === true && (
+          <div className="flex mt-10 md:mt-5 justify-center">
+            <Loader color="grape" variant="bars" />
           </div>
-          <div
-            id="process"
-            className="col-span-6 md:col-span-2 row-span-1 flex space-x-3 justify-center items-center"
-          >
-            {props.data.status === "completed" && (
-              <div className="flex justify-center items-center">
-                <Button
-                  variant="outline"
-                  color="violet"
-                  onClick={() => {
-                    setFilterShow(true);
-                  }}
-                >
-                  Process
-                </Button>
-                <FilterModal
-                  filterShow={filterShow}
-                  setFilterShow={setFilterShow}
-                  id={props.data.id}
-                  content_data={props.data}
-                />
-              </div>
-            )}
-            <div className="flex justify-center items-center">
-              {props.data.status === "completed" && (
-                <Menu shadow="md" width={200} withArrow>
-                  <Menu.Target>
-                    <Bars3Icon className="w-[28px] cursor-pointer" />
-                  </Menu.Target>
+        )}
 
-                  <Menu.Dropdown>
-                    <Menu.Item
-                      icon={<IconCloudDownload size={14} />}
-                      onClick={downloadContent}
-                    >
-                      Download
-                    </Menu.Item>
-                    <Menu.Item
-                      icon={<IconBallpen size={14} />}
+        {jobsConfig.isSuccess === true && (
+          <div className="w-[100%]">
+            {screenSize.width < 1030 && (
+              <Toaster position="bottom-right" richColors />
+            )}
+            {screenSize.width > 1030 && <Toaster position="top-right" richColors />}
+            <div className="grid grid-rows-3 grid-cols-6 md:grid-cols-9 md:grid-rows-1 max-w-[1500px] h-[200px] hover:bg-gray-50 mx-3 rounded-xl border-solid border-2 p-1">
+              {(pathname === "image" && imageInfo) ||
+                (pathname === "audio" && audioInfo) ||
+                (pathname === "video" && videoInfo)}
+
+              <div
+                id="tags"
+                className="col-span-1 row-span-2 md:col-span-3 md:flex justify-center items-center hidden"
+              >
+                <div className="flex justify-center items-center gap-1 flex-wrap h-auto">
+                  {tags.map((tags: string, index: any) => (
+                    <span className={tagColor[tags]} key={index}>
+                      {tags}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div
+                id="process"
+                className="col-span-6 md:col-span-2 row-span-1 flex space-x-3 justify-center items-center"
+              >
+                {props.data.status === "completed" && (
+                  <div className="flex justify-center items-center">
+                    <Button
+                      variant="outline"
+                      color="violet"
                       onClick={() => {
-                        setRenamePrompt(true);
+                        checkContentTier()
                       }}
                     >
-                      Rename
-                    </Menu.Item>
-
-                    <Menu.Item
-                      color="red"
-                      icon={<IconTrash size={14} />}
-                      disabled={disableDelete}
-                    >
-                      Delete
-                    </Menu.Item>
-                  </Menu.Dropdown>
-                </Menu>
-              )}
-              {props.data.status === "processing" && (
-                <div className=" cursor-pointer">
-                  <Link
-                    href={"/jobs"}
-                    className="flex flex-col justify-center items-center"
-                  >
-                    <l-infinity
-                      size="35"
-                      stroke="3.5"
-                      speed="0.9"
-                      color="purple"
+                      Process
+                    </Button>
+                    <FilterModal
+                      filterShow={filterShow}
+                      setFilterShow={setFilterShow}
+                      id={props.data.id}
+                      content_data={props.data}
+                      model_config={jobsParams}
+                      user_tier={userTier}
+                      tier_config={tierConfig}
                     />
-                    <p className="text-center font-medium text-black mt-2">
-                      Processing...
-                    </p>
-                  </Link>
+                  </div>
+                )}
+                <div className="flex justify-center items-center">
+                  {props.data.status === "completed" && (
+                    <Menu shadow="md" width={200} withArrow>
+                      <Menu.Target>
+                        <Bars3Icon className="w-[28px] cursor-pointer" />
+                      </Menu.Target>
+
+                      <Menu.Dropdown>
+                        <Menu.Item
+                          icon={<IconCloudDownload size={14} />}
+                          onClick={downloadContent}
+                        >
+                          Download
+                        </Menu.Item>
+                        <Menu.Item
+                          icon={<IconBallpen size={14} />}
+                          onClick={() => {
+                            setRenamePrompt(true);
+                          }}
+                        >
+                          Rename
+                        </Menu.Item>
+
+                        <Menu.Item
+                          color="red"
+                          icon={<IconTrash size={14} />}
+                          disabled={disableDelete}
+                        >
+                          Delete
+                        </Menu.Item>
+                      </Menu.Dropdown>
+                    </Menu>
+                  )}
+                  {props.data.status === "processing" && (
+                    <div className=" cursor-pointer">
+                      <Link
+                        href={"/jobs"}
+                        className="flex flex-col justify-center items-center"
+                      >
+                        <l-infinity
+                          size="35"
+                          stroke="3.5"
+                          speed="0.9"
+                          color="purple"
+                        />
+                        <p className="text-center font-medium text-black mt-2">
+                          Processing...
+                        </p>
+                      </Link>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
+            <RenamePrompt
+              renamePrompt={renamePrompt}
+              setRenamePrompt={setRenamePrompt}
+              id={props.data.id}
+              type={props.type}
+              title={props.data.title}
+              project={false}
+            />
           </div>
-        </div>
-        <RenamePrompt
-          renamePrompt={renamePrompt}
-          setRenamePrompt={setRenamePrompt}
-          id={props.data.id}
-          type={props.type}
-          title={props.data.title}
-          project={false}
-        />
+        )}
+
+        {jobsConfig.isError === true && <Error />}
       </div>
     </div>
   );
