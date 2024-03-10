@@ -7,6 +7,7 @@ import { ImageFilter } from "./FilterComponents/ImageFilter";
 import { AudioFilter } from "./FilterComponents/AudioFilter";
 import { usePathname } from "next/navigation";
 
+
 export default function FilterModal(props: any) {
   const setStatus = (e: any) => {
     if (e.target.id === "wrapper") {
@@ -16,17 +17,44 @@ export default function FilterModal(props: any) {
   const onclose = () => {
     props.setFilterShow(false);
   };
+  const filterProps = {
+    "content_data": props.content_data,
+    "model_config": props.model_config,
+    "model_tier": props.tier_config,
+    "user_tier": props.user_tier,
+  };
   const pathname = usePathname().replace("/", "").split("/")[0];
   const firstLetter = pathname.charAt(0).toUpperCase();
   const restLetter = pathname.slice(1);
   const contentNameCapitalized = firstLetter + restLetter;
   let AIFilters;
   if (contentNameCapitalized === "Video") {
-    AIFilters = <VideoFilter id={props.id} content_data={props.content_data} setFilterShow={props.setFilterShow}/>;
+    AIFilters = (
+      <VideoFilter
+        id={props.id}
+        content_data={props.content_data}
+        setFilterShow={props.setFilterShow}
+        filterConfig={filterProps}
+      />
+    );
   } else if (contentNameCapitalized === "Image") {
-    AIFilters = <ImageFilter id={props.id} content_data={props.content_data} setFilterShow={props.setFilterShow}/>;
+    AIFilters = (
+      <ImageFilter
+        id={props.id}
+        content_data={props.content_data}
+        setFilterShow={props.setFilterShow}
+        filterConfig={filterProps}
+      />
+    );
   } else {
-    AIFilters = <AudioFilter id={props.id} content_data={props.content_data} setFilterShow={props.setFilterShow}/>;
+    AIFilters = (
+      <AudioFilter
+        id={props.id}
+        content_data={props.content_data}
+        setFilterShow={props.setFilterShow}
+        filterConfig={filterProps}
+      />
+    );
   }
 
   return (

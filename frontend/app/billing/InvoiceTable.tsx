@@ -9,6 +9,11 @@ import { MinusSmallIcon } from "@heroicons/react/20/solid";
 import { getCookie } from "cookies-next";
 import { toast } from "sonner";
 
+function epochToDate(time: number) {
+  const date = new Date(time * 1000);
+  return date.toLocaleString("en-GB", { hour12: false });
+}
+
 export default function InvoiceTable() {
   const queryClient = useQueryClient();
   const limit = 5;
@@ -123,7 +128,7 @@ export default function InvoiceTable() {
                         {`#${invoice.orderID + 1000}`}
                       </td>
                       <td className="hidden whitespace-nowrap px-3 py-4 text-sm text-gray-500 sm:table-cell">
-                        {invoice.date}
+                        {epochToDate(invoice.date)}
                       </td>
                       <td className="hidden whitespace-nowrap px-3 py-4 text-sm  lg:table-cell">
                         <div className="flex space-x-1 justify-start">

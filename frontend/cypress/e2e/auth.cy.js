@@ -105,9 +105,7 @@ describe("Auth Login E2E", () => {
         cy.get('[data-cy="signin-button"]').should("not.be.disabled");
         cy.get('[data-cy="signin-button"]').click();
         cy.url().should("include", "/dashboard");
-        cy.contains(
-          "Please verify your email address to continue using the app."
-        ).should("be.visible");
+        cy.get('[data-cy="verifyBanner"]').should("be.visible");
       });
     });
   });

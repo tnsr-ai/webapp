@@ -1,6 +1,26 @@
-from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, Enum, Float, BigInteger
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Integer,
+    String,
+    ForeignKey,
+    Enum,
+    Float,
+    BigInteger,
+)
 from sqlalchemy.orm import relationship
 from database import Base
+import enum
+
+
+class ContentStatus(enum.Enum):
+    def __str__(self):
+        return str(self.value)
+
+    processing = "processing"
+    completed = "completed"
+    failed = "failed"
+    cancelled = "cancelled"
 
 
 class Users(Base):
@@ -11,7 +31,16 @@ class Users(Base):
     last_name = Column(String)
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
-    user_tier = Column(Enum('free', 'standard', 'deluxe', name='user_tier', default='free'))
+    user_tier = Column(
+        Enum(
+            "free",
+            "standard",
+            "deluxe",
+            name="user_tier_enum",
+            default="free",
+            create_type=False,
+        )
+    )
     verified = Column(Boolean, default=False)
     google_login = Column(Boolean, default=False)
     refreshVersion = Column(Integer, default=1)
@@ -21,15 +50,14 @@ class Users(Base):
     created_at = Column(Integer, nullable=True)
     updated_at = Column(Integer, nullable=True)
 
-    videos = relationship("Videos", back_populates="user")
-    audios = relationship("Audios", back_populates="user")
-    images = relationship("Images", back_populates="user")
+    content = relationship("Content", back_populates="user")
     user_settings = relationship("UserSetting", back_populates="user")
     jobs = relationship("Jobs", back_populates="user")
     balance = relationship("Balance", back_populates="user")
     invoices = relationship("Invoices", back_populates="user")
     dashboard = relationship("Dashboard", back_populates="user")
     machine = relationship("Machines", back_populates="user")
+
 
 class Dashboard(Base):
     __tablename__ = "dashboard"
@@ -49,49 +77,9 @@ class Dashboard(Base):
 
     user = relationship("Users", back_populates="dashboard")
 
-class Videos(Base):
-    __tablename__ = "videos"
 
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    title = Column(String)
-    link = Column(String)
-    duration = Column(String)
-    size = Column(String)
-    fps = Column(String)
-    resolution = Column(String)
-    thumbnail = Column(String)
-    tags = Column(String)
-    md5 = Column(String)
-    id_related = Column(Integer, nullable=True)
-    created_at = Column(Integer, nullable=True)
-    updated_at = Column(Integer, nullable=True)
-    status = Column(Enum('pending', 'completed', 'failed', name='status'))
-    
-    user = relationship("Users", back_populates="videos")
-
-class Audios(Base):
-    __tablename__ = "audios"
-
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    title = Column(String)
-    link = Column(String)
-    duration = Column(String)
-    size = Column(String)
-    hz = Column(String)
-    thumbnail = Column(String)
-    tags = Column(String)
-    md5 = Column(String)
-    id_related = Column(Integer, nullable=True)
-    created_at = Column(Integer, nullable=True)
-    updated_at = Column(Integer, nullable=True)
-    status = Column(Enum('pending', 'completed', 'failed', name='status'))
-    
-    user = relationship("Users", back_populates="audios")
-
-class Images(Base):
-    __tablename__ = "images"
+class Content(Base):
+    __tablename__ = "content"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id"))
@@ -99,15 +87,21 @@ class Images(Base):
     link = Column(String)
     size = Column(String)
     thumbnail = Column(String)
-    resolution = Column(String)
-    tags = Column(String)
     md5 = Column(String)
-    id_related = Column(Integer, nullable=True)
     created_at = Column(Integer, nullable=True)
     updated_at = Column(Integer, nullable=True)
-    status = Column(Enum('pending', 'completed', 'failed', name='status'))
+    id_related = Column(Integer, nullable=True)
+    status = Column(Enum(ContentStatus, name="content_status", create_type=False))
+    content_type = Column(
+        Enum("video", "audio", "image", name="content_type", create_type=False)
+    )
+    duration = Column(String, nullable=True)
+    resolution = Column(String, nullable=True)
+    fps = Column(String, nullable=True)
+    hz = Column(String, nullable=True)
 
-    user = relationship("Users", back_populates="images")
+    user = relationship("Users", back_populates="content")
+
 
 class Balance(Base):
     __tablename__ = "balance"
@@ -120,6 +114,7 @@ class Balance(Base):
 
     user = relationship("Users", back_populates="balance")
 
+
 class Invoices(Base):
     __tablename__ = "invoices"
 
@@ -131,11 +126,14 @@ class Invoices(Base):
     amount = Column(Float)
     currency = Column(String)
     exchange_rate = Column(Float)
-    status = Column(Enum('pending', 'completed', 'failed', name='invoice_status'))
+    status = Column(
+        Enum("pending", "completed", "failed", name="invoice_status", create_type=False)
+    )
     created_at = Column(Integer, nullable=True)
     updated_at = Column(Integer, nullable=True)
 
     user = relationship("Users", back_populates="invoices")
+
 
 class Machines(Base):
     __tablename__ = "machines"
@@ -144,7 +142,9 @@ class Machines(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     machine_ip = Column(String)
     machine_config = Column(String)
-    machine_status = Column(Enum('available', 'busy', 'offline', name='machine_status'))
+    machine_status = Column(
+        Enum("available", "busy", "offline", name="machine_status", create_type=False)
+    )
     job_id = Column(Integer, ForeignKey("jobs.job_id"))
     provider = Column(String)
     created_at = Column(Integer, nullable=True)
@@ -152,11 +152,14 @@ class Machines(Base):
 
     user = relationship("Users", back_populates="machine")
 
+
 class Jobs(Base):
     __tablename__ = "jobs"
 
     job_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id"))
+    celery_id = Column(String, nullable=True)
+    content_id = Column(Integer, ForeignKey("content.id"))
     job_name = Column(String)
     job_type = Column(String)
     job_status = Column(String)
@@ -169,6 +172,8 @@ class Jobs(Base):
     key = Column(String)
 
     user = relationship("Users", back_populates="jobs")
+    content = relationship("Content")
+
 
 class UserSetting(Base):
     __tablename__ = "user_settings"
@@ -182,6 +187,7 @@ class UserSetting(Base):
 
     user = relationship("Users", back_populates="user_settings")
 
+
 class Currency(Base):
     __tablename__ = "currency"
 
@@ -190,3 +196,26 @@ class Currency(Base):
     rate = Column(Integer)
     created_at = Column(Integer, nullable=True)
     updated_at = Column(Integer, nullable=True)
+
+
+class Tags(Base):
+    __tablename__ = "tags"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    tag = Column(String)
+    readable = Column(String)
+    created_at = Column(Integer, nullable=True)
+    updated_at = Column(Integer, nullable=True)
+
+
+class ContentTags(Base):
+    __tablename__ = "content_tags"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    content_id = Column(Integer, ForeignKey("content.id"))
+    tag_id = Column(Integer, ForeignKey("tags.id"))
+    created_at = Column(Integer, nullable=True)
+    updated_at = Column(Integer, nullable=True)
+
+    content = relationship("Content")
+    tags = relationship("Tags")

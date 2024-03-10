@@ -6,6 +6,7 @@ import { Loader } from "@mantine/core";
 import useAuth from "@/hooks/useAuth";
 import { AuthenticationContext } from "./context/AuthContext";
 import { isValidEmail } from "./utils/utils";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function Home() {
   const [inputs, setInputs] = useState({
@@ -17,6 +18,7 @@ export default function Home() {
 
   const { signin, googleAuth } = useAuth();
   const { loading, error, setAuthState } = useContext(AuthenticationContext);
+  const queryClient = useQueryClient();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputs({
@@ -26,6 +28,7 @@ export default function Home() {
   };
 
   useEffect(() => {
+    queryClient.invalidateQueries(["verifyUser"]);
     setAuthState({
       loading: false,
       error: null,

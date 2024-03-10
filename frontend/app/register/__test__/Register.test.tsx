@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import Register from "../page";
 import "@testing-library/jest-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 jest.mock("next/navigation", () => ({
   useRouter() {
@@ -14,14 +15,24 @@ jest.mock("next/navigation", () => ({
 describe("RegisterComponent", () => {
   describe("Render", () => {
     it("should have register form", () => {
-      render(<Register />);
+      const queryClient = new QueryClient();
+      render(
+        <QueryClientProvider client={queryClient}>
+          <Register />
+        </QueryClientProvider>
+      );
       const myElement = screen.getByTestId("registerForm");
       expect(myElement).toBeInTheDocument();
     });
   });
   describe("Behaviour", () => {
     it("enables the sign-up button when all fields are valid", async () => {
-      render(<Register />);
+      const queryClient = new QueryClient();
+      render(
+        <QueryClientProvider client={queryClient}>
+          <Register />
+        </QueryClientProvider>
+      );
       const firstNameInput = screen.getByTestId("firstNameInput");
       await userEvent.type(firstNameInput, "John");
       const lastNameInput = screen.getByTestId("lastNameInput");
@@ -38,7 +49,12 @@ describe("RegisterComponent", () => {
     });
 
     it("disables the sign-up button when the first name is space", async () => {
-      render(<Register />);
+      const queryClient = new QueryClient();
+      render(
+        <QueryClientProvider client={queryClient}>
+          <Register />
+        </QueryClientProvider>
+      );
       const firstNameInput = screen.getByTestId("firstNameInput");
       await userEvent.type(firstNameInput, " ");
       const lastNameInput = screen.getByTestId("lastNameInput");
@@ -55,7 +71,12 @@ describe("RegisterComponent", () => {
     });
 
     it("disables the sign-up button when the email format is incorrect", async () => {
-      render(<Register />);
+      const queryClient = new QueryClient();
+      render(
+        <QueryClientProvider client={queryClient}>
+          <Register />
+        </QueryClientProvider>
+      );
       const firstNameInput = screen.getByTestId("firstNameInput");
       await userEvent.type(firstNameInput, "Joe");
       const lastNameInput = screen.getByTestId("lastNameInput");
@@ -74,7 +95,12 @@ describe("RegisterComponent", () => {
 
   describe("Action", () => {
     it("should submit the form", async () => {
-      render(<Register />);
+      const queryClient = new QueryClient();
+      render(
+        <QueryClientProvider client={queryClient}>
+          <Register />
+        </QueryClientProvider>
+      );
       const firstNameInput = screen.getByTestId("firstNameInput");
       await userEvent.type(firstNameInput, "Joe");
       const lastNameInput = screen.getByTestId("lastNameInput");
@@ -92,7 +118,12 @@ describe("RegisterComponent", () => {
     });
 
     it("should check for google sign in sso", async () => {
-      render(<Register />);
+      const queryClient = new QueryClient();
+      render(
+        <QueryClientProvider client={queryClient}>
+          <Register />
+        </QueryClientProvider>
+      );
       const googleBtn = screen.getByTestId("googleLogin");
       expect(googleBtn).toBeInTheDocument();
     });

@@ -2,48 +2,51 @@ import sys
 
 sys.path.append("..")
 
-from typing import Optional, Annotated
-from fastapi import Depends, HTTPException, APIRouter, Response, Header, Request
-from fastapi.responses import HTMLResponse
-import models
-from database import engine, SessionLocal
-from sqlalchemy.orm import Session
-from pydantic import BaseModel
-from starlette import status
-from datetime import timedelta
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from starlette.requests import Request
-from fastapi_sso.sso.google import GoogleSSO
-from jose import jwt
-import json
-import time
 import ast
+import copy
+import json
 import os
 import secrets
+import time
+from datetime import timedelta
+from typing import Annotated, Optional
+
 import redis
-import copy
-from celeryworker import celeryapp
+from dotenv import load_dotenv
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
+from fastapi.responses import HTMLResponse
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi_limiter.depends import RateLimiter
+from fastapi_sso.sso.google import GoogleSSO
+from jose import jwt
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+from starlette import status
+from starlette.requests import Request
+
+import models
+from celeryworker import celeryapp
+from database import SessionLocal, engine
 from utils import (
-    get_hashed_password,
-    verify_password,
-    create_access_token,
-    create_refresh_token,
-)
-from utils import (
-    JWT_ALGORITHM,
-    JWT_SECRET,
-    JWT_REFRESH_SECRET,
+    GOOGLE_REDIRECT_URI,
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES,
+    JWT_ALGORITHM,
+    JWT_REFRESH_SECRET,
     JWT_REFRESH_TOKEN_EXPIRE_MINUTES,
+    JWT_SECRET,
     REDIS_HOST,
     REDIS_PORT,
     TNSR_DOMAIN,
-    GOOGLE_REDIRECT_URI,
+    create_access_token,
+    create_refresh_token,
+    forgotpassword_email,
+    get_hashed_password,
+    hide_email,
+    isValidEmail,
+    logger,
+    registration_email,
+    verify_password,
 )
-from utils import isValidEmail, hide_email, logger
-from utils import registration_email, forgotpassword_email
-from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -132,7 +135,7 @@ def minutes_to_delta(minutes: int):
     return int(timedelta(minutes=minutes).total_seconds())
 
 
-oauth2_bearer = OAuth2PasswordBearer(tokenUrl="auth/login")
+oauth2_bearer = OAuth2PasswordBearer(tokenUrl="auth/login", auto_error=False)
 
 
 def get_current_user(db: db_dependency, token: str = Depends(oauth2_bearer)):
@@ -565,7 +568,7 @@ def verify_user_task(
 @router.get(
     "/verify",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(RateLimiter(times=20, seconds=60))],
+    dependencies=[Depends(RateLimiter(times=600, seconds=60))],
 )
 async def check_user(
     db: Session = Depends(get_db),
@@ -629,7 +632,7 @@ def refresh_user_task(user_id: int, db: db_dependency):
 @router.get(
     "/refresh",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(RateLimiter(times=10, seconds=60))],
+    dependencies=[Depends(RateLimiter(times=20, seconds=60))],
 )
 async def check_user_refresh(
     response: Response,
@@ -684,7 +687,7 @@ google_sso = GoogleSSO(
 )
 
 
-@router.get("/google/login", dependencies=[Depends(RateLimiter(times=10, seconds=60))])
+@router.get("/google/login", dependencies=[Depends(RateLimiter(times=20, seconds=60))])
 async def google_login():
     logger.info(f"Google login initiated")
     return await google_sso.get_login_redirect(

@@ -88,8 +88,8 @@ POSTGRES_DATABASE = os.getenv("POSTGRES_DATABASE")
 # Redis Credentials
 REDIS_BROKER = os.getenv("REDIS_BROKER")
 REDIS_BACKEND = os.getenv("REDIS_BACKEND")
-REDIS_HOST = os.getenv("REDIS_HOST")
-REDIS_PORT = os.getenv("REDIS_PORT")
+REDIS_PORT = int(os.getenv("REDIS_PORT"))
+REDIS_HOST = str(os.getenv("REDIS_HOST"))
 
 # Grafana Credentials
 LOKI_URL = os.getenv("LOKI_URL")
@@ -116,11 +116,481 @@ OPENEXCHANGERATES_API_KEY = os.getenv("OPENEXCHANGERATES_API_KEY")
 HOST = os.getenv("HOST")
 PORT = os.getenv("PORT")
 
+# Replicate
+REPLICATE_API_TOKEN = os.getenv("REPLICATE_API_TOKEN")
+IMAGE_SUPERRES = os.getenv("IMAGE_SUPERRES")
+IMAGE_DEBLURRING = os.getenv("IMAGE_DEBLURRING")
+IMAGE_DENOISING = os.getenv("IMAGE_DENOISING")
+IMAGE_FACERESTORATION = os.getenv("IMAGE_FACERESTORATION")
+IMAGE_REMOVEBG = os.getenv("IMAGE_REMOVEBG")
+IMAGE_COLORIZER = os.getenv("IMAGE_COLORIZER")
 
 STORAGE_LIMITS = {
     "free": 2 * 1024**3,
     "standard": 20 * 1024**3,
     "deluxe": 100 * 1024**3,
+}
+
+USER_TIER = {
+    "free": {
+        "video": {
+            "size": STORAGE_LIMITS["free"],
+            "width": 1920,
+            "height": 1080,
+            "formats": ["mp4", "mov", "mkv", "webm"],
+            "duration": 180,
+            "max_filters": 2,
+        },
+        "audio": {
+            "size": STORAGE_LIMITS["free"],
+            "formats": ["mp3", "wav", "aac"],
+            "duration": 180,
+            "max_filters": 2,
+        },
+        "image": {
+            "size": STORAGE_LIMITS["free"],
+            "formats": ["png", "jpg", "jpeg", "webp"],
+            "width": 1920,
+            "height": 1080,
+            "max_filters": 2,
+        },
+        "max_jobs": 1,
+    },
+    "standard": {
+        "video": {
+            "size": STORAGE_LIMITS["standard"],
+            "width": 2560,
+            "height": 1440,
+            "formats": ["mp4", "mov", "mkv", "webm"],
+            "duration": -1,
+            "max_filters": 5,
+        },
+        "audio": {
+            "size": STORAGE_LIMITS["standard"],
+            "formats": ["mp3", "wav", "aac"],
+            "duration": -1,
+            "max_filters": 5,
+        },
+        "image": {
+            "size": STORAGE_LIMITS["standard"],
+            "formats": ["png", "jpg", "jpeg", "webp"],
+            "width": 2560,
+            "height": 1440,
+            "max_filters": 5,
+        },
+        "max_jobs": 5,
+    },
+    "deluxe": {
+        "video": {
+            "size": STORAGE_LIMITS["deluxe"],
+            "width": 3840,
+            "height": 2160,
+            "formats": ["mp4", "mov", "mkv", "webm"],
+            "duration": -1,
+            "max_filters": 8,
+        },
+        "audio": {
+            "size": STORAGE_LIMITS["deluxe"],
+            "formats": ["mp3", "wav", "aac"],
+            "duration": -1,
+            "max_filters": 8,
+        },
+        "image": {
+            "size": STORAGE_LIMITS["deluxe"],
+            "formats": ["png", "jpg", "jpeg", "webp"],
+            "width": 3840,
+            "height": 2160,
+            "max_filters": 8,
+        },
+        "max_jobs": 10,
+    },
+}
+
+MODELS_CONFIG = {
+    "video": [
+        {
+            "super_resolution": {
+                "model_name": {
+                    "SuperRes 2x v1 (Faster)": {"input": 1, "output": 2},
+                    "SuperRes 4x v1 (Faster)": {"input": 1, "output": 4},
+                    "SuperRes 2x v2 (Slower, better result)": {"input": 1, "output": 2},
+                    "SuperRes 4x v2 (Slower, better result)": {"input": 1, "output": 4},
+                    "SuperRes Anime (For Animated content)": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "width": 1920,
+                        "height": 1080,
+                    },
+                    "standard": {
+                        "width": 2560,
+                        "height": 1440,
+                    },
+                    "deluxe": {
+                        "width": 3840,
+                        "height": 2160,
+                    },
+                },
+                "effect": "resolution",
+            },
+            "video_deblurring": {
+                "model_name": {
+                    "video_deblurring": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "width": 1920,
+                        "height": 1080,
+                    },
+                    "standard": {
+                        "width": 2560,
+                        "height": 1440,
+                    },
+                    "deluxe": {
+                        "width": 3840,
+                        "height": 2160,
+                    },
+                },
+                "effect": "resolution",
+            },
+            "video_denoising": {
+                "model_name": {
+                    "video_denoising": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "width": 1920,
+                        "height": 1080,
+                    },
+                    "standard": {
+                        "width": 2560,
+                        "height": 1440,
+                    },
+                    "deluxe": {
+                        "width": 3840,
+                        "height": 2160,
+                    },
+                },
+                "effect": "resolution",
+            },
+            "face_restoration": {
+                "model_name": {
+                    "face_restoration": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "width": 1920,
+                        "height": 1080,
+                    },
+                    "standard": {
+                        "width": 2560,
+                        "height": 1440,
+                    },
+                    "deluxe": {
+                        "width": 3840,
+                        "height": 2160,
+                    },
+                },
+                "effect": "resolution",
+            },
+            "bw_to_color": {
+                "model_name": {
+                    "bw_to_color": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "width": 1920,
+                        "height": 1080,
+                    },
+                    "standard": {
+                        "width": 2560,
+                        "height": 1440,
+                    },
+                    "deluxe": {
+                        "width": 3840,
+                        "height": 2160,
+                    },
+                },
+                "effect": "resolution",
+            },
+            "slow_motion": {
+                "model_name": {
+                    "2x": {"input": 1, "output": 2},
+                    "4x": {"input": 1, "output": 4},
+                },
+                "tier": {
+                    "free": {
+                        "width": 1920,
+                        "height": 1080,
+                    },
+                    "standard": {
+                        "width": 2560,
+                        "height": 1440,
+                    },
+                    "deluxe": {
+                        "width": 3840,
+                        "height": 2160,
+                    },
+                },
+                "effect": "duration",
+            },
+            "video_interpolation": {
+                "model_name": {
+                    "video_interpolation": {"input": 1, "output": 2},
+                },
+                "tier": {
+                    "free": {
+                        "width": 1920,
+                        "height": 1080,
+                    },
+                    "standard": {
+                        "width": 2560,
+                        "height": 1440,
+                    },
+                    "deluxe": {
+                        "width": 3840,
+                        "height": 2160,
+                    },
+                },
+                "effect": "fps",
+            },
+            "video_deinterlacing": {
+                "model_name": {
+                    "video_deinterlacing": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "width": 1920,
+                        "height": 1080,
+                    },
+                    "standard": {
+                        "width": 2560,
+                        "height": 1440,
+                    },
+                    "deluxe": {
+                        "width": 3840,
+                        "height": 2160,
+                    },
+                },
+                "effect": "resolution",
+            },
+            "speech_enhancement": {
+                "model_name": {
+                    "speech_enhancement": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "width": 1920,
+                        "height": 1080,
+                    },
+                    "standard": {
+                        "width": 2560,
+                        "height": 1440,
+                    },
+                    "deluxe": {
+                        "width": 3840,
+                        "height": 2160,
+                    },
+                },
+                "effect": "audio",
+            },
+            "transcription": {
+                "model_name": {
+                    "transcription": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "width": 1920,
+                        "height": 1080,
+                    },
+                    "standard": {
+                        "width": 2560,
+                        "height": 1440,
+                    },
+                    "deluxe": {
+                        "width": 3840,
+                        "height": 2160,
+                    },
+                },
+                "effect": "srt",
+            },
+        }
+    ],
+    "audio": [
+        {
+            "stem_seperation": {
+                "model_name": {
+                    "stem_seperation": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "duration": 180,
+                    },
+                    "standard": {
+                        "duration": -1,
+                    },
+                    "deluxe": {
+                        "duration": -1,
+                    },
+                },
+                "effect": "audio_files",
+            },
+            "speech_enhancement": {
+                "model_name": {
+                    "speech_enhancement": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "duration": 180,
+                    },
+                    "standard": {"duration": -1},
+                    "deluxe": {"duration": -1},
+                },
+                "effect": "audio_files",
+            },
+            "transcription": {
+                "model_name": {
+                    "transcription": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "duration": 180,
+                    },
+                    "standard": {"duration": -1},
+                    "deluxe": {"duration": -1},
+                },
+                "effect": "srt",
+            },
+        }
+    ],
+    "image": [
+        {
+            "super_resolution": {
+                "model_name": {
+                    "SuperRes 2x v1 (Faster)": {"input": 1, "output": 2},
+                    "SuperRes 4x v1 (Faster)": {"input": 1, "output": 4},
+                    "SuperRes 2x v2 (Slower, better result)": {"input": 1, "output": 2},
+                    "SuperRes 4x v2 (Slower, better result)": {"input": 1, "output": 4},
+                    "SuperRes Anime (For Animated content)": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "width": 1920,
+                        "height": 1080,
+                    },
+                    "standard": {
+                        "width": 2560,
+                        "height": 1440,
+                    },
+                    "deluxe": {
+                        "width": 3840,
+                        "height": 2160,
+                    },
+                },
+                "effect": "resolution",
+            },
+            "image_deblurring": {
+                "model_name": {
+                    "image_deblurring": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "width": 1920,
+                        "height": 1080,
+                    },
+                    "standard": {
+                        "width": 2560,
+                        "height": 1440,
+                    },
+                    "deluxe": {
+                        "width": 3840,
+                        "height": 2160,
+                    },
+                },
+                "effect": "resolution",
+            },
+            "image_denoising": {
+                "model_name": {
+                    "image_denoising": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "width": 1920,
+                        "height": 1080,
+                    },
+                    "standard": {
+                        "width": 2560,
+                        "height": 1440,
+                    },
+                    "deluxe": {
+                        "width": 3840,
+                        "height": 2160,
+                    },
+                },
+                "effect": "resolution",
+            },
+            "face_restoration": {
+                "model_name": {
+                    "face_restoration": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "width": 1920,
+                        "height": 1080,
+                    },
+                    "standard": {
+                        "width": 2560,
+                        "height": 1440,
+                    },
+                    "deluxe": {
+                        "width": 3840,
+                        "height": 2160,
+                    },
+                },
+                "effect": "resolution",
+            },
+            "bw_to_color": {
+                "model_name": {
+                    "bw_to_color": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "width": 1920,
+                        "height": 1080,
+                    },
+                    "standard": {
+                        "width": 2560,
+                        "height": 1440,
+                    },
+                    "deluxe": {
+                        "width": 3840,
+                        "height": 2160,
+                    },
+                },
+                "effect": "resolution",
+            },
+            "remove_background": {
+                "model_name": {
+                    "remove_background": {"input": 1, "output": 1},
+                },
+                "tier": {
+                    "free": {
+                        "width": 1920,
+                        "height": 1080,
+                    },
+                    "standard": {
+                        "width": 2560,
+                        "height": 1440,
+                    },
+                    "deluxe": {
+                        "width": 3840,
+                        "height": 2160,
+                    },
+                },
+                "effect": "resolution",
+            },
+        }
+    ],
 }
 
 INFO = Gauge("fastapi_app_info", "FastAPI application information.", ["app_name"])
@@ -434,6 +904,36 @@ def paymentfailed_email(name: str, credits: int, amount: str, receiver_email: st
         return False
 
 
+def presigned_get(key, bucket, rd):
+    try:
+        if rd.exists(key):
+            return rd.get(key).decode("utf-8")
+        r2_client = boto3.client(
+            "s3",
+            aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
+            aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
+            endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
+            config=botocore.config.Config(
+                s3={"addressing_style": "path"},
+                signature_version="s3v4",
+                retries=dict(max_attempts=3),
+            ),
+        )
+        response = r2_client.generate_presigned_url(
+            ClientMethod="get_object",
+            Params={
+                "Bucket": bucket,
+                "Key": key,
+            },
+            ExpiresIn=CONTENT_EXPIRE,
+        )
+        rd.set(key, response)
+        rd.expire(key, CONTENT_EXPIRE - 60)
+        return response
+    except Exception as e:
+        return None
+
+
 def increase_and_round(number_val: int, credits: int) -> dict:
     if number_val == 0:
         return {"original": 0, "discounted": 0, "percentage": 0, "final_amt": 0}
@@ -578,3 +1078,13 @@ class EndpointFilter(logger.Filter):
 
 
 logger.getLogger("uvicorn.access").addFilter(EndpointFilter())
+
+
+def delete_r2_file(file_key: str, bucket: str):
+    try:
+        main_key = f"{bucket}/" + file_key
+        main_bucket = r2_resource.Bucket(bucket)
+        main_bucket.Object(main_key).delete()
+        return True
+    except Exception as e:
+        return False

@@ -40,9 +40,8 @@ export default function ContentCard(props: any) {
             height={0}
             sizes="100vw"
             style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            className={`rounded-t-2xl transition-all duration-500 ease-in-out ${
-              isLoaded ? "opacity-100" : "opacity-0"
-            }`}
+            className={`rounded-t-2xl transition-all duration-500 ease-in-out ${isLoaded ? "opacity-100" : "opacity-0"
+              }`}
             onLoad={() => setIsLoaded(true)}
             priority={true}
           />

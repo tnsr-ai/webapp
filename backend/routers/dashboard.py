@@ -97,7 +97,7 @@ def dashboard_task(id: int, db: Session):
 @router.get(
     "/get_stats",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(RateLimiter(times=30, seconds=60))],
+    dependencies=[Depends(RateLimiter(times=60, seconds=60))],
 )
 async def get_stats(
     current_user: TokenData = Depends(get_current_user), db: Session = Depends(get_db)

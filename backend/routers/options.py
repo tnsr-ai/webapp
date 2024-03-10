@@ -47,13 +47,7 @@ db_dependency = Annotated[Session, Depends(get_db)]
 
 def delete_project_celery(id: int, content_type: str, user_id: int, db: Session):
     try:
-        if content_type == "video":
-            model_type = models.Videos
-        elif content_type == "audio":
-            model_type = models.Audios
-        elif content_type == "image":
-            model_type = models.Images
-        else:
+        if content_type not in ["video", "audio", "image"]:
             return {"detail": "Failed", "data": "Invalid type"}
         dashboard_user = (
             db.query(models.Dashboard)
@@ -61,11 +55,21 @@ def delete_project_celery(id: int, content_type: str, user_id: int, db: Session)
             .first()
         )
         main_file = (
-            db.query(model_type)
-            .filter(model_type.id == id)
-            .filter(model_type.user_id == user_id)
+            db.query(models.Content)
+            .filter(models.Content.id == id)
+            .filter(models.Content.user_id == user_id)
+            .filter(models.Content.content_type == content_type)
             .first()
         )
+        all_tags = (
+            db.query(models.ContentTags)
+            .filter(models.ContentTags.content_id == id)
+            .all()
+        )
+        if all_tags:
+            for tag in all_tags:
+                db.delete(tag)
+                db.commit()
         if main_file:
             main_key = f"{CLOUDFLARE_CONTENT}/" + main_file.link
             main_bucket = r2_resource.Bucket(CLOUDFLARE_CONTENT)
@@ -101,9 +105,10 @@ def delete_project_celery(id: int, content_type: str, user_id: int, db: Session)
             )
             db.commit()
         related_file = (
-            db.query(model_type)
-            .filter(model_type.id_related == id)
-            .filter(model_type.user_id == user_id)
+            db.query(models.Content)
+            .filter(models.Content.id_related == id)
+            .filter(models.Content.user_id == user_id)
+            .filter(models.Content.content_type == content_type)
             .all()
         )
         if related_file:
@@ -154,7 +159,7 @@ def delete_project_celery(id: int, content_type: str, user_id: int, db: Session)
 
 @router.delete(
     "/delete-project/{id}/{content_type}",
-    dependencies=[Depends(RateLimiter(times=10, seconds=60))],
+    dependencies=[Depends(RateLimiter(times=30, seconds=60))],
 )
 async def delete_project(
     id: int,
@@ -168,6 +173,7 @@ async def delete_project(
             logger.info(f"Project deleted {id}")
             return {"detail": "Success", "data": "Project deleted"}
         else:
+            print(result["data"])
             logger.error(f"Failed to delete project {id}")
             raise HTTPException(status_code=400, detail=result["data"])
     except:
@@ -179,18 +185,13 @@ def rename_project_celery(
     id: int, content_type: str, newtitle: str, user_id: int, db: Session
 ):
     try:
-        if content_type == "video":
-            model_type = models.Videos
-        elif content_type == "audio":
-            model_type = models.Audios
-        elif content_type == "image":
-            model_type = models.Images
-        else:
+        if content_type not in ["video", "audio", "image"]:
             return {"detail": "Failed", "data": "Invalid type"}
         main_file = (
-            db.query(model_type)
-            .filter(model_type.id == id)
-            .filter(model_type.user_id == user_id)
+            db.query(models.Content)
+            .filter(models.Content.id == id)
+            .filter(models.Content.user_id == user_id)
+            .filter(models.Content.content_type == content_type)
             .first()
         )
         if isAlpnanumeric(newtitle) == False:
@@ -207,7 +208,7 @@ def rename_project_celery(
 
 @router.put(
     "/rename-project/{id}/{content_type}/{newtitle}",
-    dependencies=[Depends(RateLimiter(times=10, seconds=60))],
+    dependencies=[Depends(RateLimiter(times=30, seconds=60))],
 )
 async def rename_project(
     id: int,
@@ -258,7 +259,7 @@ def resend_email_task(user_id: int):
 @router.post(
     "/resend-email",
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+    dependencies=[Depends(RateLimiter(times=10, seconds=60))],
 )
 async def resend_email(
     response: Response,

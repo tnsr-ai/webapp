@@ -49,7 +49,7 @@ def create_thumbnail(video_file, output_file, time_offset):
             bg_blur.paste(blurred, (0, 0))
             main_img = img.resize((int(540 * aspect_ratio), 540))
             bg_blur.paste(main_img, (int((960 - (540 * aspect_ratio)) / 2), 0))
-            bg_blur.save(output_file)
+            bg_blur.save(output_file, quality=50)
     except ffmpeg.Error as e:
         raise e
 
@@ -65,7 +65,7 @@ def create_thumbnail_image(output_file):
         bg_blur.paste(blurred, (0, 0))
         main_img = img.resize((int(540 * aspect_ratio), 540))
         bg_blur.paste(main_img, (int((960 - (540 * aspect_ratio)) / 2), 0))
-        bg_blur.save(output_file)
+        bg_blur.save(output_file, quality=50)
 
 
 def lower_resolution(image_file):

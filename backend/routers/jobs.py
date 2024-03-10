@@ -2,24 +2,33 @@ import sys
 
 sys.path.append("..")
 
-from typing import Optional
-from fastapi import Depends, HTTPException, APIRouter
-import models
-from database import engine, SessionLocal
-from sqlalchemy.orm import Session
-from pydantic import BaseModel, Field
-from script_utils.util import *
-from dotenv import load_dotenv
-from typing import Optional, Annotated
-import time
-import json
-import hruid
+import asyncio
 import hashlib
-from celeryworker import celeryapp
-from cryptography.fernet import Fernet
-from routers.auth import authenticate_user, get_current_user, TokenData
+import json
+import time
+from typing import Annotated
+
+import hruid
+import redis
+from dotenv import load_dotenv
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
+)
 from fastapi_limiter.depends import RateLimiter
-from utils import LOKI_URL, LOKI_USERNAME, LOKI_PASSWORD, CRYPTO_TOKEN
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+import models
+from database import SessionLocal, engine
+from routers.auth import TokenData, get_current_user
+from routers.content import add_presigned_single, allTags
+from script_utils.util import *
+from utils import CLOUDFLARE_METADATA
 
 load_dotenv()
 
@@ -39,6 +48,14 @@ def get_db():
         db.close()
 
 
+def get_redis():
+    try:
+        rd = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
+        yield rd
+    finally:
+        rd.close()
+
+
 db_dependency = Annotated[Session, Depends(get_db)]
 
 
@@ -47,160 +64,342 @@ class RegisterJobModel(BaseModel):
     config_json: dict
 
 
-@celeryapp.task
-def register_job_celery(job_details: dict, user_id: int) -> None:
+def create_content_entry(config: dict, db: Session, user_id: int):
     try:
-        db = SessionLocal()
+        content_detail = (
+            db.query(models.Content)
+            .filter(
+                models.Content.id == config["config_json"]["job_data"]["content_id"]
+            )
+            .filter(models.Content.user_id == user_id)
+            .filter(models.Content.status == "completed")
+            .filter(models.Content.content_type == config["job_type"])
+            .first()
+        )
+        if content_detail is None:
+            raise HTTPException(status_code=400, detail="Content not found")
+        if content_detail.user_id != user_id:
+            raise HTTPException(status_code=400, detail="Content not found")
+        all_tags = allTags()
+        tags = [
+            all_tags[x]["id"]
+            for x in config["config_json"]["job_data"]["filters"].keys()
+            if config["config_json"]["job_data"]["filters"][x]["active"] == True
+        ]
+        create_content_model = models.Content(
+            user_id=user_id,
+            title=content_detail.title,
+            thumbnail=content_detail.thumbnail,
+            id_related=content_detail.id,
+            created_at=int(time.time()),
+            status="processing",
+            content_type=content_detail.content_type,
+        )
+        db.add(create_content_model)
+        db.commit()
+        db.refresh(create_content_model)
+        for tag in tags:
+            db.add(
+                models.ContentTags(
+                    content_id=create_content_model.id,
+                    tag_id=tag,
+                    created_at=int(time.time()),
+                )
+            )
+            db.commit()
+        return create_content_model.id
+    except Exception:
+        raise HTTPException(status_code=400, detail="Unable to create content entry")
+
+
+# @celeryapp.task(name="routers.jobs.process_workers_demo")
+# def process_media_celery():
+#     try:
+#         pass
+#     except Exception as e:
+#         return {"detail": "Failed", "data": str(e)}
+
+
+@router.post(
+    "/register_job", dependencies=[Depends(RateLimiter(times=120, seconds=60))]
+)
+async def register_job(
+    job_dict: RegisterJobModel,
+    db: Session = Depends(get_db),
+    current_user: TokenData = Depends(get_current_user),
+):
+    try:
         generator = hruid.Generator()
         phrase = generator.random()
-        user_details = db.query(models.Users).filter(models.Users.id == user_id).first()
+        user_details = (
+            db.query(models.Users)
+            .filter(models.Users.id == current_user.user_id)
+            .first()
+        )
+        running_jobs = (
+            db.query(models.Content)
+            .filter(models.Content.user_id == current_user.user_id)
+            .filter(models.Content.status == "processing")
+            .count()
+        )
+        if running_jobs >= USER_TIER[user_details.user_tier]["max_jobs"]:
+            print("Max jobs reached")
+            raise HTTPException(
+                status_code=400,
+                detail="You have reached your maximum active jobs. Please wait for them to complete.",
+            )
+        content_id = create_content_entry(job_dict.dict(), db, current_user.user_id)
         create_job_model = models.Jobs(
-            user_id=user_id,
+            user_id=current_user.user_id,
+            content_id=content_id,
             job_name=phrase,
-            job_type=job_details["job_type"],
-            job_status="Booting Up",
+            job_type=job_dict.job_type,
+            job_status="Processing",
             job_tier=user_details.user_tier,
             created_at=int(time.time()),
             job_key=True,
-            config_json=json.dumps(job_details["config_json"]),
+            config_json=json.dumps(job_dict.config_json),
             job_process="started",
             key=hashlib.md5(generator.random().encode()).hexdigest(),
         )
         db.add(create_job_model)
         db.commit()
         db.refresh(create_job_model)
-        return {
-            "detail": "Success",
-            "data": "Job registered successfully",
-            "job_id": create_job_model.job_id,
-        }
-    except Exception as e:
-        return {"detail": "Failed", "data": "Unable to update settings"}
-
-
-@router.post("/register_job", dependencies=[Depends(RateLimiter(times=5, seconds=60))])
-async def register_job(
-    job_dict: RegisterJobModel,
-    db: db_dependency,
-    current_user: TokenData = Depends(get_current_user),
-):
-    try:
-        result = register_job_celery.delay(job_dict.dict(), current_user.user_id)
-        result = result.get()
-        if result["detail"] == "Failed":
-            raise HTTPException(status_code=400, detail="Unable to register job")
-        # To do: Add celery task to run the job
-        return {
-            "detail": "Success",
-            "data": "Job registered successfully",
-            "job_id": result["job_id"],
-        }
-    except Exception as e:
+        # celery_process = process_media_celery.delay()
+        # create_job_model.celery_id = celery_process.id
+        # db.commit()
+        return {"detail": "Success", "data": "Job registered successfully"}
+    except HTTPException as e:
+        raise e
+    except Exception:
         raise HTTPException(status_code=400, detail="Unable to register job")
 
 
-@celeryapp.task
-def fetch_jobs_celery(job_id: int, key: str):
+def fetch_content_data(content_id: int, table: str, db: Session):
     try:
-        db = SessionLocal()
-        jobs = db.query(models.Jobs).filter(models.Jobs.job_id == job_id).first()
-        if jobs is None:
-            raise HTTPException(status_code=400, detail="Unable to fetch jobs")
-        if jobs.key != key or jobs.job_key == False:
-            raise HTTPException(status_code=400, detail="Unable to fetch jobs")
-        result = {}
-        for column in jobs.__table__.columns:
-            result[column.name] = str(getattr(jobs, column.name))
-        creds_json = {
-            "LOKI_URL": LOKI_URL,
-            "LOKI_USERNAME": LOKI_USERNAME,
-            "LOKI_PASSWORD": LOKI_PASSWORD,
-        }
-        creds_text = json.dumps(creds_json)
-        fernet = Fernet(CRYPTO_TOKEN.encode())
-        creds_encrypted = fernet.encrypt(creds_text.encode())
-        result["creds"] = creds_encrypted.decode()
-        return {"detail": "Success", "data": result}
-    except Exception as e:
-        return {"detail": "Failed", "data": str(e)}
+        content_detail = (
+            db.query(models.Content)
+            .filter(models.Content.id == content_id)
+            .filter(models.Content.content_type == table)
+            .first()
+        )
+        if content_detail is None:
+            raise HTTPException(status_code=400, detail="Content not found")
+        return content_detail
+    except Exception:
+        raise HTTPException(status_code=400, detail="Unable to fetch content data")
 
 
 @router.get("/fetch_jobs")
-async def fetch_jobs(job_id: int, key: str, db: db_dependency):
+async def fetch_jobs(
+    job_id: int,
+    key: str,
+    db: Session = Depends(get_db),
+    rd: redis.Redis = Depends(get_redis),
+):
     try:
-        result = fetch_jobs_celery.delay(job_id, key)
-        result = result.get()
-        if result["detail"] == "Failed":
-            raise HTTPException(status_code=400, detail="Unable to fetch jobs")
-        return {"detail": "Success", "data": result["data"]}
+        job_detail = (
+            db.query(models.Jobs)
+            .filter(models.Jobs.job_id == job_id)
+            .filter(models.Jobs.key == key)
+            .first()
+        )
+        if job_detail is None:
+            raise HTTPException(status_code=400, detail="Job not found")
+        job_config = {}
+        content_detail = fetch_content_data(
+            job_detail.content_id, job_detail.job_type, db
+        )
+        main_content = fetch_content_data(
+            content_detail.id_related, content_detail.content_type, db
+        ).__dict__
+        job_config["content"] = add_presigned_single(
+            main_content["link"], CLOUDFLARE_CONTENT, None
+        )
+        job_config["job"] = json.loads(job_detail.config_json)
+        return {"detail": "Success", "data": job_config}
     except Exception as e:
+        raise HTTPException(status_code=400, detail="Unable to fetch job details")
+
+
+@router.get("/active_jobs", dependencies=[Depends(RateLimiter(times=120, seconds=60))])
+async def active_jobs(
+    db: Session = Depends(get_db),
+    current_user: TokenData = Depends(get_current_user),
+    rd: redis.Redis = Depends(get_redis),
+):
+    try:
+        all_tags = allTags(id=True)
+        job_details = (
+            db.query(models.Jobs)
+            .filter(models.Jobs.user_id == current_user.user_id)
+            .all()
+        )
+        job_details = [x.__dict__ for x in job_details]
+        remove_keys = [
+            "_sa_instance_state",
+            "user_id",
+            "config_json",
+            "key",
+            "job_key",
+            "job_tier",
+            "updated_at",
+        ]
+        for x in job_details:
+            for y in remove_keys:
+                x.pop(y)
+        final_data = []
+        for job in job_details:
+            content_detail = fetch_content_data(
+                job["content_id"], job["job_type"], db
+            ).__dict__
+            content_detail.pop("_sa_instance_state")
+            content_detail = {k: v for k, v in content_detail.items() if v is not None}
+            content_detail["thumbnail"] = add_presigned_single(
+                content_detail["thumbnail"], CLOUDFLARE_METADATA, rd
+            )
+            if content_detail["status"].value != "processing":
+                continue
+            job["content_detail"] = content_detail
+            tags_query = (
+                db.query(models.ContentTags)
+                .filter(models.ContentTags.content_id == int(job["content_id"]))
+                .all()
+            )
+            all_content_tags = []
+            for y in tags_query:
+                all_content_tags.append(y.tag_id)
+            job["content_detail"]["tags"] = []
+            for tag in all_content_tags:
+                job["content_detail"]["tags"].append((all_tags[str(tag)]["readable"]))
+            job["content_detail"]["tags"] = ",".join(job["content_detail"]["tags"])
+            final_data.append(job)
+        return {"detail": "Success", "data": final_data}
+    except Exception:
         raise HTTPException(status_code=400, detail="Unable to fetch jobs")
 
 
-@router.get("/fetch_routes", dependencies=[Depends(RateLimiter(times=60, seconds=60))])
-async def fetch_routes():
-    try:
-        ROUTES = {
-            "getjob": "/jobs/fetch_jobs",
-            "registerjob": "/jobs/register_job",
-            "presignedurl": "/upload/generate_presigned_post",
-            "indexfile": "/upload/indexfile",
-            "updatejob": "/jobs/update_job_status",
-        }
-        return {"detail": "Success", "data": ROUTES}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail="Unable to fetch routes")
-
-
-@celeryapp.task
-def update_job_status_celery(job_id: int, job_status: str, job_process: str, key: str):
-    try:
-        db = SessionLocal()
-        jobs = db.query(models.Jobs).filter(models.Jobs.job_id == job_id).first()
-        if jobs.key != key or jobs.job_key == False:
-            raise HTTPException(status_code=400, detail="Unable to update job status")
-        jobs.job_status = job_status
-        jobs.job_process = job_process
-        db.commit()
-        return {"detail": "Success", "data": "Job status updated successfully"}
-    except Exception as e:
-        return {"detail": "Failed", "data": str(e)}
-
-
-@router.post(
-    "/update_job_status", dependencies=[Depends(RateLimiter(times=60, seconds=60))]
+@router.get(
+    "/past_jobs",
+    dependencies=[Depends(RateLimiter(times=120, seconds=60))],
+    status_code=status.HTTP_200_OK,
 )
-async def update_job_status(
-    job_id: int, job_status: str, job_process: str, key: str, db: db_dependency
+async def past_jobs(
+    limit: int,
+    offset: int,
+    db: Session = Depends(get_db),
+    current_user: TokenData = Depends(get_current_user),
+    rd: redis.Redis = Depends(get_redis),
 ):
     try:
-        result = update_job_status_celery.delay(job_id, job_status, job_process, key)
-        result = result.get()
-        if result["detail"] == "Failed":
-            raise HTTPException(status_code=400, detail="Unable to update job status")
-        return {"detail": "Success", "data": "Job status updated successfully"}
+        all_tags = allTags(id=True)
+        if limit > 5:
+            raise HTTPException(
+                status_code=400, detail="Limit cannot be greater than 5"
+            )
+        query = (
+            db.query(models.Jobs)
+            .join(models.Content, models.Jobs.content_id == models.Content.id)
+            .filter(models.Content.status != "processing")
+            .filter(models.Jobs.user_id == current_user.user_id)
+            .order_by(models.Jobs.created_at.asc())
+            .limit(limit)
+            .offset(offset)
+            .all()
+        )
+        total_count = (
+            db.query(models.Jobs)
+            .join(models.Content, models.Jobs.content_id == models.Content.id)
+            .filter(models.Content.status != "processing")
+            .filter(models.Jobs.user_id == current_user.user_id)
+            .count()
+        )
+        job_details = [x.__dict__ for x in query]
+        remove_keys = [
+            "_sa_instance_state",
+            "user_id",
+            "config_json",
+            "key",
+            "job_key",
+            "job_tier",
+            "updated_at",
+        ]
+        for x in job_details:
+            for y in remove_keys:
+                x.pop(y)
+        final_data = []
+        for job in job_details:
+            content_detail = fetch_content_data(
+                job["content_id"], job["job_type"], db
+            ).__dict__
+            content_detail.pop("_sa_instance_state")
+            content_detail = {k: v for k, v in content_detail.items() if v is not None}
+            content_detail["thumbnail"] = add_presigned_single(
+                content_detail["thumbnail"], CLOUDFLARE_METADATA, rd
+            )
+            job["content_detail"] = content_detail
+            tags_query = (
+                db.query(models.ContentTags)
+                .filter(models.ContentTags.content_id == int(job["content_id"]))
+                .all()
+            )
+            all_content_tags = []
+            for y in tags_query:
+                all_content_tags.append(y.tag_id)
+            job["content_detail"]["tags"] = []
+            for tag in all_content_tags:
+                job["content_detail"]["tags"].append((all_tags[str(tag)]["readable"]))
+            job["content_detail"]["tags"] = ",".join(job["content_detail"]["tags"])
+            final_data.append(job)
+        return {"detail": "Success", "data": final_data, "total": total_count}
     except Exception as e:
-        raise HTTPException(status_code=400, detail="Unable to update job status")
+        raise HTTPException(status_code=400, detail=str(e))
 
 
-@celeryapp.task
-async def send_notification_celery(user_id: int, job_id: int):
+@router.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)):
+    await websocket.accept()
+    data = await websocket.receive_json()
+    current_user = get_current_user(db, data["token"])
+    if "id" not in data:
+        await websocket.send_json({"detail": "Failed", "data": "Invalid request"})
+        return
     try:
-        pass
-        # To do: Add celery task to send notification
-    except Exception as e:
-        return {"detail": "Failed", "data": str(e)}
+        while True:
+            result = {}
+            for id in data["id"]:
+                job_status = (
+                    db.query(models.Jobs)
+                    .filter(models.Jobs.job_id == id)
+                    .filter(models.Jobs.user_id == current_user.user_id)
+                    .first()
+                )
+                if job_status is None:
+                    result[id] = "Not found"
+                    continue
+                result[id] = job_status.job_status
+            await websocket.send_json({"detail": "Success", "data": result})
+            await asyncio.sleep(30)
+    except WebSocketDisconnect:
+        await websocket.close()
+        return
+    except Exception:
+        await websocket.close()
+        return
 
 
-@router.post(
-    "/send_notification", dependencies=[Depends(RateLimiter(times=30, seconds=60))]
-)
-async def send_notification(user_id: int, job_id: int, db: db_dependency):
-    try:
-        result = send_notification_celery.delay(user_id, job_id)
-        result = result.get()
-        if result["detail"] == "Failed":
-            raise HTTPException(status_code=400, detail="Unable to send notification")
-        return {"detail": "Success", "data": "Notification sent successfully"}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail="Unable to send notification")
+@router.get("/filter_config")
+async def filter_config(
+    current_user: TokenData = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    user_details = (
+        db.query(models.Users).filter(models.Users.id == current_user.user_id).first()
+    )
+    if user_details is None:
+        raise HTTPException(status_code=400, detail="User not found")
+    return {
+        "detail": "Success",
+        "data": json.dumps(MODELS_CONFIG),  # noqa: F405
+        "tier_config": json.dumps(USER_TIER),
+        "tier": user_details.user_tier,
+    }
