@@ -20,7 +20,7 @@ import RenamePrompt from "../../content/contentCards/RenameModal";
 import { infinity } from "ldrs";
 import { useJobsConfig } from "../../api/index";
 import Error from "../../components/ErrorTab";
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 function capitalizeWords(input: string): string[] {
   if (input.includes(",") === false) {
@@ -44,7 +44,7 @@ function capitalizeWords(input: string): string[] {
 }
 
 export function ContentComponent(props: any) {
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
   const pathName = usePathname().split("/")[1];
   const jobsConfig = useJobsConfig();
   infinity.register();
@@ -79,7 +79,7 @@ export function ContentComponent(props: any) {
   }
   function convertToSeconds(timeString: string) {
     // Split the time string by colon
-    const parts = timeString.split(':');
+    const parts = timeString.split(":");
 
     // Extract hours, minutes, and seconds from the array
     const hours = parseInt(parts[0], 10);
@@ -87,47 +87,53 @@ export function ContentComponent(props: any) {
     const seconds = parseInt(parts[2], 10);
 
     // Calculate total seconds
-    const totalSeconds = (hours * 3600) + (minutes * 60) + seconds;
+    const totalSeconds = hours * 3600 + minutes * 60 + seconds;
 
     return totalSeconds;
   }
   function checkContentTier() {
-    if (props.data.content_type === 'video') {
+    if (props.data.content_type === "video") {
       const width = Number(props.data.resolution.split("x")[0]);
       const height = Number(props.data.resolution.split("x")[1]);
-      const tier_width = tierConfig[userTier][pathname]["width"];
-      const tier_height = tierConfig[userTier][pathname]["height"];
+      const tier_width = tierConfig?.[userTier][pathname]["width"] || 1920;
+      const tier_height = tierConfig?.[userTier][pathname]["height"] || 1080;
       if (width > tier_width || height > tier_height) {
-        toast.error(`Content resolution exceeds ${capitalizeWords(userTier)} tier limit`);
+        toast.error(
+          `Content resolution exceeds ${capitalizeWords(userTier)} tier limit`
+        );
         return;
       }
       setFilterShow(true);
     }
-    if (props.data.content_type === 'audio') {
+    if (props.data.content_type === "audio") {
       const duration = convertToSeconds(props.data.duration);
-      let tier_duration = tierConfig[userTier][pathname]["duration"];
+      let tier_duration = tierConfig?.[userTier][pathname]["duration"] || 300;
       if (tier_duration === -1) {
         tier_duration = Infinity;
       }
       if (duration > tier_duration) {
-        toast.error(`Content duration exceeds ${capitalizeWords(userTier)} tier limit`);
+        toast.error(
+          `Content duration exceeds ${capitalizeWords(userTier)} tier limit`
+        );
         return;
       }
       setFilterShow(true);
     }
 
-    if (props.data.content_type === 'image') {
+    if (props.data.content_type === "image") {
       const width = Number(props.data.resolution.split("x")[0]);
       const height = Number(props.data.resolution.split("x")[1]);
-      const tier_width = tierConfig[userTier][pathname]["width"];
-      const tier_height = tierConfig[userTier][pathname]["height"];
+      const tier_width = tierConfig?.[userTier][pathname]["width"] || 1920;
+      const tier_height = tierConfig?.[userTier][pathname]["height"] || 1080;
       if (width > tier_width || height > tier_height) {
-        toast.error(`Content resolution exceeds ${capitalizeWords(userTier)} tier limit`);
+        toast.error(
+          `Content resolution exceeds ${capitalizeWords(userTier)} tier limit`
+        );
         return;
       }
       setFilterShow(true);
     }
-  };
+  }
   const [screenSize, setScreenSize] = useState(getCurrentDimension());
 
   const downloadContent = async () => {
@@ -150,7 +156,7 @@ export function ContentComponent(props: any) {
     toast.loading("Downloading...", { id: toastID });
     const xhr = new XMLHttpRequest();
     xhr.responseType = "blob";
-    xhr.onprogress = function(event) {
+    xhr.onprogress = function (event) {
       if (event.lengthComputable) {
         const percentComplete = Math.round((event.loaded / event.total) * 100);
         toast.loading(`Downloading... ${percentComplete}%`, {
@@ -200,7 +206,7 @@ export function ContentComponent(props: any) {
       id: toastID,
     });
 
-    xhr.onreadystatechange = function() {
+    xhr.onreadystatechange = function () {
       if (xhr.readyState === 4) {
         if (xhr.status === 200) {
           toast.dismiss(toastID);
@@ -213,7 +219,7 @@ export function ContentComponent(props: any) {
 
   useEffect(() => {
     if (jobsConfig.isSuccess && jobsParams === undefined) {
-      queryClient.invalidateQueries()
+      queryClient.invalidateQueries();
       setJobsParams(JSON.parse(jobsConfig.data.data));
       setUserTier(jobsConfig.data.tier);
       setTierConfig(JSON.parse(jobsConfig.data.tier_config));
@@ -234,8 +240,9 @@ export function ContentComponent(props: any) {
           height={0}
           sizes="100vw"
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          className={`rounded-xl ${props.data.status === "processing" ? "opacity-45" : ""
-            }`}
+          className={`rounded-xl ${
+            props.data.status === "processing" ? "opacity-45" : ""
+          }`}
           onLoad={() => setIsLoaded(true)}
           onClick={() => {
             setVideoPlayer(true);
@@ -279,8 +286,9 @@ export function ContentComponent(props: any) {
           </h1>
         )}
         <div
-          className={`pt-0.5 space-x-2 ${props.data.status === "processing" ? "hidden" : "flex"
-            }`}
+          className={`pt-0.5 space-x-2 ${
+            props.data.status === "processing" ? "hidden" : "flex"
+          }`}
         >
           <p className="text-sm xl:text-lg whitespace-nowrap">
             {props.data.size}
@@ -336,8 +344,9 @@ export function ContentComponent(props: any) {
           height={0}
           sizes="100vw"
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          className={`rounded-xl ${props.data.status === "processing" ? "opacity-45" : ""
-            }`}
+          className={`rounded-xl ${
+            props.data.status === "processing" ? "opacity-45" : ""
+          }`}
           onLoad={() => setIsLoaded(true)}
           onClick={() => {
             setVideoPlayer(true);
@@ -381,8 +390,9 @@ export function ContentComponent(props: any) {
           </h1>
         )}
         <div
-          className={`pt-0.5 space-x-2 ${props.data.status === "processing" ? "hidden" : "flex"
-            }`}
+          className={`pt-0.5 space-x-2 ${
+            props.data.status === "processing" ? "hidden" : "flex"
+          }`}
         >
           <p className="text-sm xl:text-lg whitespace-nowrap">
             {props.data.size}
@@ -442,8 +452,9 @@ export function ContentComponent(props: any) {
               height={0}
               sizes="100vw"
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
-              className={`rounded-xl ${props.data.status === "processing" ? "opacity-45" : ""
-                }`}
+              className={`rounded-xl ${
+                props.data.status === "processing" ? "opacity-45" : ""
+              }`}
               onLoad={() => setIsLoaded(true)}
               onClick={() => {
                 setVideoPlayer(true);
@@ -460,8 +471,9 @@ export function ContentComponent(props: any) {
               height={0}
               sizes="100vw"
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
-              className={`rounded-xl ${props.data.status === "processing" ? "opacity-45" : ""
-                }`}
+              className={`rounded-xl ${
+                props.data.status === "processing" ? "opacity-45" : ""
+              }`}
               onLoad={() => setIsLoaded(true)}
               onClick={() => {
                 setVideoPlayer(true);
@@ -493,8 +505,9 @@ export function ContentComponent(props: any) {
           </h1>
         )}
         <div
-          className={`pt-0.5 space-x-2 ${props.data.status === "processing" ? "hidden" : "flex"
-            }`}
+          className={`pt-0.5 space-x-2 ${
+            props.data.status === "processing" ? "hidden" : "flex"
+          }`}
         >
           <p className="text-sm xl:text-lg whitespace-nowrap">
             {props.data.size}
@@ -535,7 +548,7 @@ export function ContentComponent(props: any) {
     </div>
   );
 
-  useEffect(() => { }), [screenSize];
+  useEffect(() => {}), [screenSize];
   return (
     <div id={props.data.id}>
       <div className="max-w-[1500px] m-auto">
@@ -550,7 +563,9 @@ export function ContentComponent(props: any) {
             {screenSize.width < 1030 && (
               <Toaster position="bottom-right" richColors />
             )}
-            {screenSize.width > 1030 && <Toaster position="top-right" richColors />}
+            {screenSize.width > 1030 && (
+              <Toaster position="top-right" richColors />
+            )}
             <div className="grid grid-rows-3 grid-cols-6 md:grid-cols-9 md:grid-rows-1 max-w-[1500px] h-[200px] hover:bg-gray-50 mx-3 rounded-xl border-solid border-2 p-1">
               {(pathname === "image" && imageInfo) ||
                 (pathname === "audio" && audioInfo) ||
@@ -578,7 +593,7 @@ export function ContentComponent(props: any) {
                       variant="outline"
                       color="violet"
                       onClick={() => {
-                        checkContentTier()
+                        checkContentTier();
                       }}
                     >
                       Process
