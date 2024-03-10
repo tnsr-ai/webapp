@@ -88,7 +88,7 @@ def billing_task(id: int, db: Session):
 @router.get(
     "/get_balance",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(RateLimiter(times=10, seconds=60))],
+    dependencies=[Depends(RateLimiter(times=60, seconds=60))],
 )
 async def get_stats(
     current_user: TokenData = Depends(get_current_user), db: Session = Depends(get_db)
@@ -169,7 +169,7 @@ def pricing_task(country_code: str, db: Session):
 @router.get(
     "/price_conversion",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(RateLimiter(times=10, seconds=60))],
+    dependencies=[Depends(RateLimiter(times=60, seconds=60))],
 )
 async def price_conversion(
     countryCode: str,
@@ -313,7 +313,7 @@ def send_paymentFailed_email_task(user_id: int, credits: int, amount: str):
     return {"detail": "Success", "data": "Email sent successfully"}
 
 
-@router.post("/checkout", dependencies=[Depends(RateLimiter(times=5, seconds=60))])
+@router.post("/checkout", dependencies=[Depends(RateLimiter(times=10, seconds=60))])
 async def create_checkout_session(
     checkout: CheckoutModel,
     current_user: TokenData = Depends(get_current_user),
@@ -476,9 +476,6 @@ def get_invoices_task(user_id: int, limit: int, offset: int, db: Session):
             invoice_data["date"] = time.strftime(
                 f"{month} %d,%Y,%H:%M", time.localtime(invoice_data["created_at"])
             )
-            remove_keys = ["created_at", "updated_at"]
-            for key in remove_keys:
-                invoice_data.pop(key, None)
             payment_details = {}
             if invoice_data["status"] == "completed":
                 payment_details["card"] = invoice_data["data"]["payment_card"]
@@ -488,7 +485,7 @@ def get_invoices_task(user_id: int, limit: int, offset: int, db: Session):
                 payment_details["last4"] = None
             result = {
                 "orderID": invoice_data["id"],
-                "date": invoice_data["date"],
+                "date": invoice_data["created_at"],
                 "amount": invoice_data["amount"],
                 "currency": symbols[invoice_data["currency"]],
                 "status": invoice_data["status"].capitalize(),
@@ -503,7 +500,7 @@ def get_invoices_task(user_id: int, limit: int, offset: int, db: Session):
 @router.get(
     "/get_invoices",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+    dependencies=[Depends(RateLimiter(times=60, seconds=60))],
 )
 async def get_invoices(
     limit: int = 5,
@@ -594,7 +591,7 @@ def remove_file(path: str):
 @router.get(
     "/download_invoice",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+    dependencies=[Depends(RateLimiter(times=10, seconds=60))],
 )
 async def download_invoice(
     invoice_id: int,

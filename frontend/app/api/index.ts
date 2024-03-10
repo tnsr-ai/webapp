@@ -326,3 +326,68 @@ export const registerJob = async (job_type: string, config_json: any) => {
   const data = await response.json();
   return data;
 };
+
+export const useActiveJobs = () => {
+  const jwt = getCookie("access_token");
+  return useQuery({
+    queryKey: [jobsEndpoints["activeJobs"]],
+    queryFn: async () => {
+      const url = `${jobsEndpoints["activeJobs"]}`;
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${jwt}`,
+        },
+      });
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      const data = await response.json();
+      return data;
+    },
+    enabled: false,
+  });
+};
+
+export const usePastJobs = (limit: number, offset: number) => {
+  const jwt = getCookie("access_token");
+  return useQuery({
+    queryKey: [jobsEndpoints["pastJobs"], { limit: limit, offset: offset }],
+    queryFn: async () => {
+      const url = `${jobsEndpoints["pastJobs"]}/?limit=${limit}&offset=${offset}`;
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${jwt}`,
+        },
+      });
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      const data = await response.json();
+      return data;
+    },
+    enabled: false,
+  });
+};
+
+export const useJobsConfig = () => {
+  const jwt = getCookie("access_token");
+  return useQuery({
+    queryKey: [jobsEndpoints["filterConfig"]],
+    queryFn: async () => {
+      const url = jobsEndpoints["filterConfig"];
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${jwt}`,
+        },
+      });
+      const data = await response.json();
+      return data;
+    },
+  });
+};

@@ -9,6 +9,7 @@ from fastapi import Depends, HTTPException, APIRouter, status
 import models
 from database import engine, SessionLocal
 from sqlalchemy.orm import Session
+from sqlalchemy import or_, and_
 from pydantic import BaseModel, Field
 import boto3, botocore
 import redis
@@ -28,7 +29,7 @@ from utils import (
     CLOUDFLARE_CONTENT,
     CONTENT_EXPIRE,
 )
-from utils import remove_key, logger
+from utils import remove_key, logger, presigned_get
 
 
 router = APIRouter(
@@ -60,10 +61,46 @@ class ContentDict(BaseModel):
     content_type: str
 
 
-def presigned_get(key, bucket, rd):
+def allTags(id: bool = False):
+    rd = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
+    if id == False:
+        rd_key = "all_tags"
+    else:
+        rd_key = "all_tags_id"
+    if rd.exists(rd_key):
+        return json.loads(rd.get(rd_key).decode("utf-8"))
+    db = SessionLocal()
+    tags = db.query(models.Tags).all()
+    db.close()
+    all_tags = {}
+    if id == False:
+        for tag in tags:
+            all_tags[tag.tag] = {
+                "id": int(tag.id),
+                "readable": tag.readable,
+            }
+        rd.set(rd_key, json.dumps(all_tags))
+        return all_tags
+    else:
+        for tag in tags:
+            all_tags[int(tag.id)] = {
+                "tag": tag.tag,
+                "readable": tag.readable,
+            }
+        rd.set(rd_key, json.dumps(all_tags))
+        return all_tags
+
+
+def add_presigned(data, key, result_key, bucket, rd):
+    for x in data:
+        x[result_key] = presigned_get(x[key], bucket, rd)
+    return data
+
+
+def add_presigned_single(file_key, bucket, rd):
     try:
-        if rd.exists(key):
-            return rd.get(key).decode("utf-8")
+        if rd is not None and rd.exists(file_key):
+            return rd.get(file_key).decode("utf-8")
         r2_client = boto3.client(
             "s3",
             aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
@@ -79,50 +116,16 @@ def presigned_get(key, bucket, rd):
             ClientMethod="get_object",
             Params={
                 "Bucket": bucket,
-                "Key": key,
-            },
-            ExpiresIn=CONTENT_EXPIRE,
-        )
-        rd.set(key, response)
-        rd.expire(key, CONTENT_EXPIRE - 60)
-        return response
-    except Exception as e:
-        return None
-
-
-def add_presigned(data, key, result_key, bucket, rd):
-    for x in data:
-        x[result_key] = presigned_get(x[key], bucket, rd)
-    return data
-
-
-def add_presigned_single(file_key, bucket, rd):
-    try:
-        if rd.exists(file_key):
-            return rd.get(file_key).decode("utf-8")
-        r2_client = boto3.client(
-            "s3",
-            aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
-            aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
-            endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT + "/" + bucket,
-            config=botocore.config.Config(
-                s3={"addressing_style": "path"},
-                signature_version="s3v4",
-                retries=dict(max_attempts=3),
-            ),
-        )
-        response = r2_client.generate_presigned_url(
-            ClientMethod="get_object",
-            Params={
-                "Bucket": bucket,
                 "Key": file_key,
             },
             ExpiresIn=CONTENT_EXPIRE,
         )
-        rd.set(file_key, response)
-        rd.expire(file_key, CONTENT_EXPIRE - 60)
+        if rd is not None:
+            rd.set(file_key, response)
+            rd.expire(file_key, CONTENT_EXPIRE - 43200)
         return response
     except Exception as e:
+        print(str(e))
         return None
 
 
@@ -164,23 +167,20 @@ def filter_data(data):
         for key in delete_keys:
             if key in x:
                 del x[key]
-        x["size"] = niceBytes(x["size"])
+        if x["size"] is not None:
+            x["size"] = niceBytes(x["size"])
     return data
 
 
 def get_content_table(user_id, table_name, limit, offset, db):
     try:
-        tableName = {
-            "video": models.Videos,
-            "audio": models.Audios,
-            "image": models.Images,
-        }
         get_table = (
-            db.query(tableName[table_name])
-            .filter(tableName[table_name].user_id == user_id)
-            .filter(tableName[table_name].id_related == None)
-            .filter(tableName[table_name].status == "completed")
-            .order_by(tableName[table_name].created_at.desc())
+            db.query(models.Content)
+            .filter(models.Content.user_id == user_id)
+            .filter(models.Content.id_related == None)
+            .filter(models.Content.status == "completed")
+            .filter(models.Content.content_type == table_name)
+            .order_by(models.Content.created_at.desc())
             .limit(limit)
             .offset(offset)
             .all()
@@ -191,10 +191,10 @@ def get_content_table(user_id, table_name, limit, offset, db):
         all_result = [x.__dict__ for x in get_table]
         remove_key(all_result, "_sa_instance_state")
         get_counts = (
-            db.query(tableName[table_name])
-            .filter(tableName[table_name].user_id == user_id)
-            .filter(tableName[table_name].id_related == None)
-            .filter(tableName[table_name].status == "completed")
+            db.query(models.Content)
+            .filter(models.Content.user_id == user_id)
+            .filter(models.Content.id_related == None)
+            .filter(models.Content.status == "completed")
             .count()
         )
         return {"detail": "Success", "data": [all_result, get_counts]}
@@ -207,7 +207,7 @@ def get_content_table(user_id, table_name, limit, offset, db):
     status_code=status.HTTP_200_OK,
     dependencies=[Depends(RateLimiter(times=60, seconds=60))],
 )
-async def generate_url(
+async def get_content(
     limit: int,
     offset: int,
     content_type: str,
@@ -249,22 +249,25 @@ def get_content_list_celery(
     offset: int = 0,
 ):
     try:
-        tableName = {
-            "video": models.Videos,
-            "audio": models.Audios,
-            "image": models.Images,
-        }
         get_counts = (
-            db.query(tableName[content_type])
-            .filter(tableName[content_type].user_id == user_id)
-            .filter(tableName[content_type].id_related == content_id)
+            db.query(models.Content)
+            .filter(models.Content.user_id == user_id)
+            .filter(models.Content.id_related == content_id)
+            .filter(models.Content.content_type == content_type)
+            .filter(
+                or_(
+                    models.Content.status == "processing",
+                    models.Content.status == "completed",
+                )
+            )
             .count()
             + 1
         )
         get_main = (
-            db.query(tableName[content_type])
-            .filter(tableName[content_type].user_id == user_id)
-            .filter(tableName[content_type].id == content_id)
+            db.query(models.Content)
+            .filter(models.Content.user_id == user_id)
+            .filter(models.Content.id == content_id)
+            .filter(models.Content.content_type == content_type)
             .first()
         )
         user_data = db.query(models.Users).filter(models.Users.id == user_id).first()
@@ -275,18 +278,25 @@ def get_content_list_celery(
         main_title = get_main.title
         if offset == 0:
             get_main = (
-                db.query(tableName[content_type])
-                .filter(tableName[content_type].user_id == user_id)
-                .filter(tableName[content_type].id == content_id)
+                db.query(models.Content)
+                .filter(models.Content.user_id == user_id)
+                .filter(models.Content.id == content_id)
+                .filter(models.Content.content_type == content_type)
                 .first()
             )
             if get_main is None:
                 return {"detail": "Failed", "data": "Unable to fetch content"}
             get_related = (
-                db.query(tableName[content_type])
-                .filter(tableName[content_type].user_id == user_id)
-                .filter(tableName[content_type].id_related == content_id)
-                .order_by(tableName[content_type].created_at)
+                db.query(models.Content)
+                .filter(models.Content.user_id == user_id)
+                .filter(models.Content.id_related == content_id)
+                .filter(
+                    or_(
+                        models.Content.status == "processing",
+                        models.Content.status == "completed",
+                    )
+                )
+                .order_by(models.Content.created_at)
                 .limit(limit - 1)
                 .offset(offset)
                 .all()
@@ -295,6 +305,20 @@ def get_content_list_celery(
             for x in get_related:
                 result.append(x.__dict__)
             remove_key(result, "_sa_instance_state")
+            all_tags = allTags(id=True)
+            for x in result:
+                tags_query = (
+                    db.query(models.ContentTags)
+                    .filter(models.ContentTags.content_id == int(x["id"]))
+                    .all()
+                )
+                all_content_tags = []
+                for y in tags_query:
+                    all_content_tags.append(y.tag_id)
+                x["tags"] = []
+                for tag in all_content_tags:
+                    x["tags"].append((all_tags[str(tag)]["readable"]))
+                x["tags"] = ",".join(x["tags"])
             return {
                 "detail": "Success",
                 "data": result,
@@ -303,10 +327,17 @@ def get_content_list_celery(
             }
         else:
             get_related = (
-                db.query(tableName[content_type])
-                .filter(tableName[content_type].user_id == user_id)
-                .filter(tableName[content_type].id_related == content_id)
-                .order_by(tableName[content_type].created_at)
+                db.query(models.Content)
+                .filter(models.Content.user_id == user_id)
+                .filter(models.Content.id_related == content_id)
+                .filter(models.Content.content_type == content_type)
+                .filter(
+                    or_(
+                        models.Content.status == "processing",
+                        models.Content.status == "completed",
+                    )
+                )
+                .order_by(models.Content.created_at)
                 .limit(limit)
                 .offset(offset - 1)
                 .all()
@@ -315,6 +346,20 @@ def get_content_list_celery(
             for x in get_related:
                 result.append(x.__dict__)
             remove_key(result, "_sa_instance_state")
+            all_tags = allTags(id=True)
+            for x in result:
+                tags_query = (
+                    db.query(models.ContentTags)
+                    .filter(models.ContentTags.content_id == int(x["id"]))
+                    .all()
+                )
+                all_content_tags = []
+                for y in tags_query:
+                    all_content_tags.append(y.tag_id)
+                x["tags"] = []
+                for tag in all_content_tags:
+                    x["tags"].append((all_tags[str(tag)]["readable"]))
+                x["tags"] = ",".join(x["tags"])
             return {
                 "detail": "Success",
                 "data": result,
@@ -322,6 +367,7 @@ def get_content_list_celery(
                 "title": main_title,
             }
     except Exception as e:
+        print(str(e))
         return {"detail": "Failed", "data": "Unable to fetch content"}
 
 
@@ -372,15 +418,11 @@ def download_content_task(
     user_id: int, content_id: int, content_type: str, db: Session, rd: redis.Redis
 ):
     try:
-        tableName = {
-            "video": models.Videos,
-            "audio": models.Audios,
-            "image": models.Images,
-        }
         get_main = (
-            db.query(tableName[content_type])
-            .filter(tableName[content_type].user_id == user_id)
-            .filter(tableName[content_type].id == content_id)
+            db.query(models.Content)
+            .filter(models.Content.user_id == user_id)
+            .filter(models.Content.id == content_id)
+            .filter(models.Content.content_type == content_type)
             .first()
         )
         user_data = db.query(models.Users).filter(models.Users.id == user_id).first()
@@ -397,7 +439,7 @@ def download_content_task(
 @router.get(
     "/download_content",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(RateLimiter(times=10, seconds=60))],
+    dependencies=[Depends(RateLimiter(times=30, seconds=60))],
 )
 async def download_content(
     content_id: int,
@@ -420,20 +462,16 @@ def download_complete_task(
     user_id: int, content_id: int, content_type: str, db: Session, rd: redis.Redis
 ):
     try:
-        tableName = {
-            "video": models.Videos,
-            "audio": models.Audios,
-            "image": models.Images,
-        }
         user_dashboard = (
             db.query(models.Dashboard)
             .filter(models.Dashboard.user_id == user_id)
             .first()
         )
         get_main = (
-            db.query(tableName[content_type])
-            .filter(tableName[content_type].user_id == user_id)
-            .filter(tableName[content_type].id == content_id)
+            db.query(models.Content)
+            .filter(models.Content.user_id == user_id)
+            .filter(models.Content.id == content_id)
+            .filter(models.Content.content_type == content_type)
             .first()
         )
         if user_dashboard is None:
@@ -480,18 +518,13 @@ def rename_content_celery(
     content_id: int, content_type: str, newtitle: str, user_id: int, db: Session
 ):
     try:
-        if content_type == "video":
-            model_type = models.Videos
-        elif content_type == "audio":
-            model_type = models.Audios
-        elif content_type == "image":
-            model_type = models.Images
-        else:
+        if content_type not in ["video", "audio", "image"]:
             return {"detail": "Failed", "data": "Invalid type"}
         main_file = (
-            db.query(model_type)
-            .filter(model_type.id == content_id)
-            .filter(model_type.user_id == user_id)
+            db.query(models.Content)
+            .filter(models.Content.id == content_id)
+            .filter(models.Content.user_id == user_id)
+            .filter(models.Content.content_type == content_type)
             .first()
         )
         if isAlpnanumeric(newtitle) == False:
@@ -508,7 +541,7 @@ def rename_content_celery(
 
 @router.put(
     "/rename-content/{id}/{content_type}/{newtitle}",
-    dependencies=[Depends(RateLimiter(times=10, seconds=60))],
+    dependencies=[Depends(RateLimiter(times=30, seconds=60))],
 )
 async def rename_project(
     id: int,

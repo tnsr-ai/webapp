@@ -1,8 +1,8 @@
-"""init
+"""Initial migrate
 
-Revision ID: 668246f0a619
+Revision ID: 2e54604d576a
 Revises: 
-Create Date: 2023-11-04 12:12:11.067994
+Create Date: 2024-03-08 21:26:41.206182
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '668246f0a619'
+revision = '2e54604d576a'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -27,13 +27,22 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('name')
     )
     op.create_index(op.f('ix_currency_name'), 'currency', ['name'], unique=False)
+    op.create_table('tags',
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('tag', sa.String(), nullable=True),
+    sa.Column('readable', sa.String(), nullable=True),
+    sa.Column('created_at', sa.Integer(), nullable=True),
+    sa.Column('updated_at', sa.Integer(), nullable=True),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_tags_id'), 'tags', ['id'], unique=False)
     op.create_table('users',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('first_name', sa.String(), nullable=True),
     sa.Column('last_name', sa.String(), nullable=True),
     sa.Column('email', sa.String(), nullable=True),
     sa.Column('hashed_password', sa.String(), nullable=True),
-    sa.Column('user_tier', sa.Enum('free', 'standard', 'deluxe', name='user_tier'), nullable=True),
+    sa.Column('user_tier', sa.Enum('free', 'standard', 'deluxe', name='user_tier_enum'), nullable=True),
     sa.Column('verified', sa.Boolean(), nullable=True),
     sa.Column('google_login', sa.Boolean(), nullable=True),
     sa.Column('refreshVersion', sa.Integer(), nullable=True),
@@ -46,25 +55,6 @@ def upgrade() -> None:
     )
     op.create_index(op.f('ix_users_email'), 'users', ['email'], unique=True)
     op.create_index(op.f('ix_users_id'), 'users', ['id'], unique=False)
-    op.create_table('audios',
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('user_id', sa.Integer(), nullable=True),
-    sa.Column('title', sa.String(), nullable=True),
-    sa.Column('link', sa.String(), nullable=True),
-    sa.Column('duration', sa.String(), nullable=True),
-    sa.Column('size', sa.String(), nullable=True),
-    sa.Column('hz', sa.String(), nullable=True),
-    sa.Column('thumbnail', sa.String(), nullable=True),
-    sa.Column('tags', sa.String(), nullable=True),
-    sa.Column('md5', sa.String(), nullable=True),
-    sa.Column('id_related', sa.Integer(), nullable=True),
-    sa.Column('created_at', sa.Integer(), nullable=True),
-    sa.Column('updated_at', sa.Integer(), nullable=True),
-    sa.Column('status', sa.Enum('pending', 'completed', 'failed', name='status'), nullable=True),
-    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index(op.f('ix_audios_id'), 'audios', ['id'], unique=False)
     op.create_table('balance',
     sa.Column('user_id', sa.Integer(), nullable=False),
     sa.Column('balance', sa.Float(), nullable=True),
@@ -75,6 +65,27 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('user_id')
     )
     op.create_index(op.f('ix_balance_user_id'), 'balance', ['user_id'], unique=False)
+    op.create_table('content',
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=True),
+    sa.Column('title', sa.String(), nullable=True),
+    sa.Column('link', sa.String(), nullable=True),
+    sa.Column('size', sa.String(), nullable=True),
+    sa.Column('thumbnail', sa.String(), nullable=True),
+    sa.Column('md5', sa.String(), nullable=True),
+    sa.Column('created_at', sa.Integer(), nullable=True),
+    sa.Column('updated_at', sa.Integer(), nullable=True),
+    sa.Column('id_related', sa.Integer(), nullable=True),
+    sa.Column('status', sa.Enum('processing', 'completed', 'failed', 'cancelled', name='content_status'), nullable=True),
+    sa.Column('content_type', sa.Enum('video', 'audio', 'image', name='content_type'), nullable=True),
+    sa.Column('duration', sa.String(), nullable=True),
+    sa.Column('resolution', sa.String(), nullable=True),
+    sa.Column('fps', sa.String(), nullable=True),
+    sa.Column('hz', sa.String(), nullable=True),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_content_id'), 'content', ['id'], unique=False)
     op.create_table('dashboard',
     sa.Column('user_id', sa.Integer(), nullable=False),
     sa.Column('video_processed', sa.Integer(), nullable=True),
@@ -92,24 +103,6 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('user_id')
     )
     op.create_index(op.f('ix_dashboard_user_id'), 'dashboard', ['user_id'], unique=False)
-    op.create_table('images',
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('user_id', sa.Integer(), nullable=True),
-    sa.Column('title', sa.String(), nullable=True),
-    sa.Column('link', sa.String(), nullable=True),
-    sa.Column('size', sa.String(), nullable=True),
-    sa.Column('thumbnail', sa.String(), nullable=True),
-    sa.Column('resolution', sa.String(), nullable=True),
-    sa.Column('tags', sa.String(), nullable=True),
-    sa.Column('md5', sa.String(), nullable=True),
-    sa.Column('id_related', sa.Integer(), nullable=True),
-    sa.Column('created_at', sa.Integer(), nullable=True),
-    sa.Column('updated_at', sa.Integer(), nullable=True),
-    sa.Column('status', sa.Enum('pending', 'completed', 'failed', name='status'), nullable=True),
-    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index(op.f('ix_images_id'), 'images', ['id'], unique=False)
     op.create_table('invoices',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=True),
@@ -126,23 +119,6 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_invoices_id'), 'invoices', ['id'], unique=False)
-    op.create_table('jobs',
-    sa.Column('job_id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('user_id', sa.Integer(), nullable=True),
-    sa.Column('job_name', sa.String(), nullable=True),
-    sa.Column('job_type', sa.String(), nullable=True),
-    sa.Column('job_status', sa.String(), nullable=True),
-    sa.Column('job_tier', sa.String(), nullable=True),
-    sa.Column('created_at', sa.Integer(), nullable=True),
-    sa.Column('updated_at', sa.Integer(), nullable=True),
-    sa.Column('job_key', sa.Boolean(), nullable=True),
-    sa.Column('config_json', sa.String(), nullable=True),
-    sa.Column('job_process', sa.String(), nullable=True),
-    sa.Column('key', sa.String(), nullable=True),
-    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
-    sa.PrimaryKeyConstraint('job_id')
-    )
-    op.create_index(op.f('ix_jobs_job_id'), 'jobs', ['job_id'], unique=False)
     op.create_table('user_settings',
     sa.Column('user_id', sa.Integer(), nullable=False),
     sa.Column('newsletter', sa.Boolean(), nullable=True),
@@ -154,26 +130,37 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('user_id')
     )
     op.create_index(op.f('ix_user_settings_user_id'), 'user_settings', ['user_id'], unique=False)
-    op.create_table('videos',
+    op.create_table('content_tags',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('user_id', sa.Integer(), nullable=True),
-    sa.Column('title', sa.String(), nullable=True),
-    sa.Column('link', sa.String(), nullable=True),
-    sa.Column('duration', sa.String(), nullable=True),
-    sa.Column('size', sa.String(), nullable=True),
-    sa.Column('fps', sa.String(), nullable=True),
-    sa.Column('resolution', sa.String(), nullable=True),
-    sa.Column('thumbnail', sa.String(), nullable=True),
-    sa.Column('tags', sa.String(), nullable=True),
-    sa.Column('md5', sa.String(), nullable=True),
-    sa.Column('id_related', sa.Integer(), nullable=True),
+    sa.Column('content_id', sa.Integer(), nullable=True),
+    sa.Column('tag_id', sa.Integer(), nullable=True),
     sa.Column('created_at', sa.Integer(), nullable=True),
     sa.Column('updated_at', sa.Integer(), nullable=True),
-    sa.Column('status', sa.Enum('pending', 'completed', 'failed', name='status'), nullable=True),
-    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+    sa.ForeignKeyConstraint(['content_id'], ['content.id'], ),
+    sa.ForeignKeyConstraint(['tag_id'], ['tags.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_index(op.f('ix_videos_id'), 'videos', ['id'], unique=False)
+    op.create_index(op.f('ix_content_tags_id'), 'content_tags', ['id'], unique=False)
+    op.create_table('jobs',
+    sa.Column('job_id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=True),
+    sa.Column('celery_id', sa.String(), nullable=True),
+    sa.Column('content_id', sa.Integer(), nullable=True),
+    sa.Column('job_name', sa.String(), nullable=True),
+    sa.Column('job_type', sa.String(), nullable=True),
+    sa.Column('job_status', sa.String(), nullable=True),
+    sa.Column('job_tier', sa.String(), nullable=True),
+    sa.Column('created_at', sa.Integer(), nullable=True),
+    sa.Column('updated_at', sa.Integer(), nullable=True),
+    sa.Column('job_key', sa.Boolean(), nullable=True),
+    sa.Column('config_json', sa.String(), nullable=True),
+    sa.Column('job_process', sa.String(), nullable=True),
+    sa.Column('key', sa.String(), nullable=True),
+    sa.ForeignKeyConstraint(['content_id'], ['content.id'], ),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+    sa.PrimaryKeyConstraint('job_id')
+    )
+    op.create_index(op.f('ix_jobs_job_id'), 'jobs', ['job_id'], unique=False)
     op.create_table('machines',
     sa.Column('machine_id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=True),
@@ -196,25 +183,25 @@ def downgrade() -> None:
     # ### commands auto generated by Alembic - please adjust! ###
     op.drop_index(op.f('ix_machines_machine_id'), table_name='machines')
     op.drop_table('machines')
-    op.drop_index(op.f('ix_videos_id'), table_name='videos')
-    op.drop_table('videos')
-    op.drop_index(op.f('ix_user_settings_user_id'), table_name='user_settings')
-    op.drop_table('user_settings')
     op.drop_index(op.f('ix_jobs_job_id'), table_name='jobs')
     op.drop_table('jobs')
+    op.drop_index(op.f('ix_content_tags_id'), table_name='content_tags')
+    op.drop_table('content_tags')
+    op.drop_index(op.f('ix_user_settings_user_id'), table_name='user_settings')
+    op.drop_table('user_settings')
     op.drop_index(op.f('ix_invoices_id'), table_name='invoices')
     op.drop_table('invoices')
-    op.drop_index(op.f('ix_images_id'), table_name='images')
-    op.drop_table('images')
     op.drop_index(op.f('ix_dashboard_user_id'), table_name='dashboard')
     op.drop_table('dashboard')
+    op.drop_index(op.f('ix_content_id'), table_name='content')
+    op.drop_table('content')
     op.drop_index(op.f('ix_balance_user_id'), table_name='balance')
     op.drop_table('balance')
-    op.drop_index(op.f('ix_audios_id'), table_name='audios')
-    op.drop_table('audios')
     op.drop_index(op.f('ix_users_id'), table_name='users')
     op.drop_index(op.f('ix_users_email'), table_name='users')
     op.drop_table('users')
+    op.drop_index(op.f('ix_tags_id'), table_name='tags')
+    op.drop_table('tags')
     op.drop_index(op.f('ix_currency_name'), table_name='currency')
     op.drop_table('currency')
     # ### end Alembic commands ###

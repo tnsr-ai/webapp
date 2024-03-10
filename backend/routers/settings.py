@@ -163,7 +163,7 @@ def update_settings_task(new_settings: dict, user_id: int, db: Session) -> None:
 
 
 @router.post(
-    "/update_settings", dependencies=[Depends(RateLimiter(times=10, seconds=60))]
+    "/update_settings", dependencies=[Depends(RateLimiter(times=30, seconds=60))]
 )
 async def update_settings(
     new_settings: NotificationDict,

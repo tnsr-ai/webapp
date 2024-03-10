@@ -44,7 +44,9 @@ export default function SettingsTab(props: any) {
       } else {
         setSuccessSetting("Settings changed successfully");
         setErrorSetting("");
-        setChanged(false);
+        setChanged(false); // Reset the changed state after successful save
+        // Also update default_notification to reflect the new saved state
+        setDefaultNotification(notificationSettings);
       }
     },
     onError: (error: any) => {
@@ -54,11 +56,11 @@ export default function SettingsTab(props: any) {
 
   const [changed, setChanged] = useState(false);
 
-  const default_notification = {
+  const [default_notification, setDefaultNotification] = useState({
     newsletter: props.data.data["newsletter"],
     email_notification: props.data.data["email_notification"],
     discord_webhook: props.data.data["discord_webhook"],
-  };
+  });
 
   const [notificationSettings, setNotificationSettings] = useState({
     newsletter: props.data.data["newsletter"],
@@ -92,6 +94,16 @@ export default function SettingsTab(props: any) {
       [e.target.name]: e.target.value,
     });
   };
+
+  // Add a useEffect to monitor changes in the notificationSettings state
+  useEffect(() => {
+    const isChanged = (
+      Object.keys(notificationSettings) as Array<
+        keyof typeof notificationSettings
+      >
+    ).some((key) => notificationSettings[key] !== default_notification[key]);
+    setChanged(isChanged);
+  }, [notificationSettings, default_notification]);
 
   const changePassword = () => {
     if (inputs.newPassword !== inputs.confirmPassword) {
