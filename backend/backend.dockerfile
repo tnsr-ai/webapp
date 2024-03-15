@@ -1,4 +1,6 @@
-FROM python:3.9.9-slim 
+FROM python:3.9-slim
+
+LABEL maintainer="Amit Bera <amitalokbera@gmail.com>"
 
 RUN apt update && apt install -y \
     build-essential \
@@ -10,15 +12,38 @@ RUN apt update && apt install -y \
     python3-setuptools \
     python3-wheel \
     ffmpeg \
+    libsm6 \ 
+    libxext6 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip3 install --upgrade pip
+
 RUN pip3 install poetry
+
+COPY ./start.sh /start.sh
+
+RUN chmod +x /start.sh
+
+COPY ./start-reload.sh /start-reload.sh
+
+RUN chmod +x /start-reload.sh
+
 RUN mkdir -p /app
+
 COPY . /app
+
 WORKDIR /app
+
 RUN poetry config virtualenvs.create false
+
 RUN poetry install --no-dev --no-interaction --no-ansi
-RUN chmod +x /app/entrypoint.sh
-ENTRYPOINT ["/app/entrypoint.sh"]
-EXPOSE 8000
+
+ENV PYTHONPATH=/app
+
+EXPOSE 80
+
+ENV OTEL_PYTHON_LOG_LEVEL="info"
+
+ENV OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED="true"
+
+CMD ["/start.sh"]

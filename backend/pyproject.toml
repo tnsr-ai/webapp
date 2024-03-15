@@ -51,7 +51,7 @@ pytest-celery = "^0.0.0"
 pytest-watch = "^4.2.0"
 flake8 = "^6.1.0"
 gunicorn = "^21.2.0"
-prometheus-client = "^0.19.0"
+prometheus-client = {git = "https://github.com/prometheus/client_python.git"}
 opentelemetry-api = "^1.22.0"
 opentelemetry-sdk = "^1.22.0"
 opentelemetry-instrumentation-fastapi = "^0.43b0"
@@ -61,6 +61,7 @@ opentelemetry-distro = "^0.43b0"
 fastapi-limiter = "^0.1.6"
 locust = "^2.20.1"
 websockets = "^12.0"
+python-json-logger = "^2.0.7"
 
 [tool.poetry.dev-dependencies]
 

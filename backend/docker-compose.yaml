@@ -31,16 +31,32 @@ services:
       - "6379:6379"
 
   fastapi-backend:
-    build: ./
+    build:
+      dockerfile: backend.dockerfile
     ports:
       - "8000:8000"
     depends_on:
+      - tempo
       - postgres
       - redis
       - loki
     environment:
-      APP_ENV: "docker"
+      APP_ENV: "production"
+    env_file:
+      - .env
     logging: *default-logging
+
+  celeryworker:
+    restart: always
+    depends_on:
+      - fastapi-backend
+      - postgres
+      - redis
+      - loki
+    env_file:
+      - .env
+    build:
+      dockerfile: celery.dockerfile
 
   loki:
     image: grafana/loki:main-10c88aa
