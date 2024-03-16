@@ -142,14 +142,14 @@ async def root(req: Request):
     return {"status": "Server is running"}
 
 
-# app.add_route("/metrics", metrics)
-def make_metrics_app():
-    registry = CollectorRegistry()
-    multiprocess.MultiProcessCollector(registry)
-    return make_asgi_app(registry=registry)
+if APP_ENV == "production":
+    def make_metrics_app():
+        registry = CollectorRegistry()
+        multiprocess.MultiProcessCollector(registry)
+        return make_asgi_app(registry=registry)
 
-metrics_app = make_metrics_app()
-app.mount("/metrics", metrics_app)
+    metrics_app = make_metrics_app()
+    app.mount("/metrics", metrics_app)
 
 if __name__ == "__main__":
     if APP_ENV == "development":
