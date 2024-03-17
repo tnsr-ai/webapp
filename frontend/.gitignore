@@ -44,3 +44,4 @@ certs
 .vscode
 
 .env
+venv
