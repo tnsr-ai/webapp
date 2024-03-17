@@ -33,8 +33,6 @@ services:
   fastapi-backend:
     build:
       dockerfile: backend.dockerfile
-    ports:
-      - "8000:8000"
     depends_on:
       - tempo
       - postgres
@@ -63,6 +61,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      - "2019:2019"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
