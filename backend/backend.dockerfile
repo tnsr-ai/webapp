@@ -40,8 +40,6 @@ RUN poetry install --no-dev --no-interaction --no-ansi
 
 ENV PYTHONPATH=/app
 
-EXPOSE 80
-
 ENV OTEL_PYTHON_LOG_LEVEL="info"
 
 ENV OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED="true"
