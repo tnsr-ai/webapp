@@ -20,17 +20,20 @@ rule_files:
 scrape_configs:
   # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
   - job_name: "prometheus"
-
-    # metrics_path defaults to '/metrics'
-    # scheme defaults to 'http'.
-
     static_configs:
       - targets: ["localhost:9090"]
 
   - job_name: "fastapi-backend"
-
-    # Override the global default and scrape targets from this job every 5 seconds.
     scrape_interval: 5s
-
     static_configs:
       - targets: ["fastapi-backend:8000"]
+
+  - job_name: flower
+    scrape_interval: 5s
+    static_configs:
+      - targets: ["flower:5555"]
+
+  - job_name: caddy
+    scrape_interval: 5s
+    static_configs:
+      - targets: ["caddy-service:2019"]

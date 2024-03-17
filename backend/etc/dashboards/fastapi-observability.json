@@ -61,13 +61,15 @@
         "justifyMode": "auto",
         "orientation": "auto",
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": "",
           "values": false
         },
         "textMode": "auto"
       },
-      "pluginVersion": "10.1.0",
+      "pluginVersion": "9.5.15",
       "targets": [
         {
           "datasource": {
@@ -139,13 +141,15 @@
         "justifyMode": "auto",
         "orientation": "auto",
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": "",
           "values": false
         },
         "textMode": "value_and_name"
       },
-      "pluginVersion": "10.1.0",
+      "pluginVersion": "9.5.15",
       "targets": [
         {
           "datasource": {
@@ -183,7 +187,9 @@
         {
           "id": "partitionByValues",
           "options": {
-            "fields": ["Metric"]
+            "fields": [
+              "Metric"
+            ]
           }
         }
       ],
@@ -230,14 +236,16 @@
         "minVizWidth": 0,
         "orientation": "horizontal",
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": "",
           "values": false
         },
         "showUnfilled": true,
         "valueMode": "color"
       },
-      "pluginVersion": "10.1.0",
+      "pluginVersion": "9.5.15",
       "targets": [
         {
           "datasource": {
@@ -294,13 +302,15 @@
         "justifyMode": "auto",
         "orientation": "auto",
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": "",
           "values": false
         },
         "textMode": "auto"
       },
-      "pluginVersion": "10.1.0",
+      "pluginVersion": "9.5.15",
       "targets": [
         {
           "datasource": {
@@ -343,7 +353,6 @@
               "tooltip": false,
               "viz": false
             },
-            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -438,7 +447,6 @@
               "tooltip": false,
               "viz": false
             },
-            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -532,7 +540,6 @@
               "tooltip": false,
               "viz": false
             },
-            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -626,7 +633,6 @@
               "tooltip": false,
               "viz": false
             },
-            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -719,7 +725,6 @@
               "tooltip": false,
               "viz": false
             },
-            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -813,7 +818,6 @@
               "tooltip": false,
               "viz": false
             },
-            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -956,8 +960,10 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{compose_service=~\"fastapi-backend.*\"} | pattern `<date> <time> <type> <logger> <code> [<_>=<trace_id> <_>=<span_id> <_>=<service_name>] - <msg>` | line_format \"{{.compose_service}}\\t{{.type}}\\t trace_id={{.trace_id}}\\t {{.msg}}\" |= \"$log_keyword\"",
+          "editorMode": "code",
+          "expr": "{compose_service=~\"fastapi-backend.*\"} \n| pattern `<date> <time> <type> <logger> <code> [<_>=<trace_id> <_>=<span_id> <_>=<service_name>] - <msg>` \n| trace_id != \"\" \n| line_format \"{{.compose_service}}\\t{{.type}}\\t trace_id={{.trace_id}}\\t {{.msg}}\"",
           "hide": false,
+          "queryType": "range",
           "refId": "A"
         }
       ],
