@@ -31,16 +31,55 @@ services:
       - "6379:6379"
 
   fastapi-backend:
-    build: ./
-    ports:
-      - "8000:8000"
+    build:
+      dockerfile: backend.dockerfile
     depends_on:
+      - tempo
       - postgres
       - redis
       - loki
     environment:
-      APP_ENV: "docker"
+      APP_ENV: "production"
+    env_file:
+      - .env
     logging: *default-logging
+
+  celeryworker:
+    restart: always
+    depends_on:
+      - fastapi-backend
+      - postgres
+      - redis
+      - loki
+    env_file:
+      - .env
+    build:
+      dockerfile: celery.dockerfile
+
+  caddy-service:
+    image: caddy:2.7.6-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+      - "2019:2019"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - fastapi-backend
+
+  flower:
+    image: mher/flower:2.0
+    container_name: flower
+    command: celery flower
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - FLOWER_PORT=5555
+    ports:
+    - 5555:5555 
+    depends_on:
+      - redis
 
   loki:
     image: grafana/loki:main-10c88aa
@@ -86,4 +125,6 @@ services:
 
 volumes:
   postgres:
+  caddy_data:
+  caddy_config:
 

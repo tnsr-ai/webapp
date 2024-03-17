@@ -21,8 +21,22 @@ from utils import GOOGLE_SECRET, HOST, PORT, REDIS_HOST, APP_ENV
 from fastapi_limiter import FastAPILimiter
 from fastapi_limiter.depends import RateLimiter
 import time
-from utils import PrometheusMiddleware, metrics, setting_otlp, logger
+from utils import PrometheusMiddleware, metrics, logger
+from dotenv import load_dotenv
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.instrumentation.logging import LoggingInstrumentor
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from prometheus_client import multiprocess
+from prometheus_client import generate_latest, CollectorRegistry, CONTENT_TYPE_LATEST, Gauge, Counter, make_asgi_app
+import logging
 
+load_dotenv()
+
+APP_ENV = os.getenv("APP_ENV")
 APP_NAME = os.environ.get("APP_NAME", "fastapi-backend")
 EXPOSE_PORT = os.environ.get("EXPOSE_PORT", 8000)
 OTLP_GRPC_ENDPOINT = os.environ.get("OTLP_GRPC_ENDPOINT", "http://tempo:4317")
@@ -38,9 +52,16 @@ def get_db():
 
 app = FastAPI()
 
-if APP_ENV != "github" and APP_ENV != "development":
+if APP_ENV == "production":
+    resource = Resource.create(
+        attributes={"service.name": APP_NAME, "compose_service": APP_NAME}
+    )
+    tracer = TracerProvider(resource=resource)
+    trace.set_tracer_provider(tracer)
+    tracer.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=OTLP_GRPC_ENDPOINT)))
+    LoggingInstrumentor().instrument(set_logging_format=True)
+    FastAPIInstrumentor.instrument_app(app, tracer_provider=tracer)
     app.add_middleware(PrometheusMiddleware, app_name=APP_NAME)
-    setting_otlp(app, APP_NAME, OTLP_GRPC_ENDPOINT)
 
 
 origins = [
@@ -115,18 +136,28 @@ async def startup():
 
 @app.get("/", dependencies=[Depends(RateLimiter(times=60, seconds=60))])
 async def root(req: Request):
-    logger.info(f"Request from {req.client.host}")
+    tracer = trace.get_tracer(__name__)
+    with tracer.start_as_current_span("get_root_endpoint"):
+        logger.info(f"Request from {req.client.host}")
     return {"status": "Server is running"}
 
 
-app.add_route("/metrics", metrics)
+if APP_ENV == "production":
+    def make_metrics_app():
+        registry = CollectorRegistry()
+        multiprocess.MultiProcessCollector(registry)
+        return make_asgi_app(registry=registry)
 
+    metrics_app = make_metrics_app()
+    app.mount("/metrics", metrics_app)
 
 if __name__ == "__main__":
-    import uvicorn
-
-    log_config = uvicorn.config.LOGGING_CONFIG  # set timezone to UTC
-    log_config["formatters"]["access"][
-        "fmt"
-    ] = "%(asctime)s %(levelname)s [%(name)s] [%(filename)s:%(lineno)d] [trace_id=%(otelTraceID)s span_id=%(otelSpanID)s resource.service.name=%(otelServiceName)s] - %(message)s"
-    uvicorn.run("main:app", host=HOST, port=int(PORT), log_config=log_config)
+    if APP_ENV == "development":
+        import uvicorn
+        log_config = uvicorn.config.LOGGING_CONFIG 
+        log_config["formatters"]["access"][
+            "fmt"
+        ] = "%(asctime)s %(levelname)s [%(name)s] [%(filename)s:%(lineno)d] [trace_id=%(otelTraceID)s span_id=%(otelSpanID)s resource.service.name=%(otelServiceName)s] - %(message)s"
+        uvicorn.run("main:app", host=HOST, port=int(PORT), log_config=log_config)
+    else:
+        pass

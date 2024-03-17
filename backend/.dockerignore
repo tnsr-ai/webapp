@@ -1,8 +1,9 @@
 env/
-.env
+# .env
 __pycache__
 .VSCodeCounter
 .vscode
 nohup.out
 test.db
 *.ipynb
+.env.*

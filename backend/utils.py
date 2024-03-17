@@ -44,7 +44,7 @@ elif APP_ENV == "github":
     load_dotenv(dotenv_path=".env.github")
 elif APP_ENV == "docker":
     load_dotenv(dotenv_path=".env.docker")
-else:
+elif APP_ENV == "production":
     load_dotenv(dotenv_path=".env")
 
 ENV = os.getenv("ENV")
