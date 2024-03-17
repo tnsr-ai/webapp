@@ -8,4 +8,4 @@ __pycache__
 nohup.out
 test.db
 *.ipynb
-venv
+Caddyfile
