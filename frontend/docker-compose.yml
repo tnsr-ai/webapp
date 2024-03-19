@@ -8,8 +8,9 @@ services:
     restart: always
     env_file:
       - .env
+    networks:
+      - backend_default 
 
 networks:
-  default:
-    external:
-      name: backend_app-network
+  backend_default:
+    external: true
