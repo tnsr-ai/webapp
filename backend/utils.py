@@ -115,6 +115,8 @@ OPENEXCHANGERATES_API_KEY = os.getenv("OPENEXCHANGERATES_API_KEY")
 # FastAPI Config
 HOST = os.getenv("HOST")
 PORT = os.getenv("PORT")
+API_KEY_NAME = "access_token"
+API_KEY = os.getenv("METRICS_API_KEY")
 
 # Replicate
 REPLICATE_API_TOKEN = os.getenv("REPLICATE_API_TOKEN")
