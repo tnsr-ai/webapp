@@ -153,3 +153,6 @@ volumes:
   caddy_data:
   caddy_config:
 
+networks:
+  app-network:
+    driver: bridge
