@@ -16,13 +16,29 @@ services:
     image: postgres:16-alpine
     restart: always
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: amitbera
-      POSTGRES_DB: development
+      POSTGRES_USER: ${POSTGRES_USERNAME}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DATABASE}
     ports:
       - "5432:5432"
     volumes:
       - postgres:/var/lib/postgresql/data
+
+  postgres-backup:
+    image: eeshugerman/postgres-backup-s3:16
+    restart: always
+    environment:
+      SCHEDULE: '@daily'
+      BACKUP_KEEP_DAYS: 3
+      S3_REGION: ${AWS_REGION}
+      S3_ACCESS_KEY_ID: ${AWS_KEY}
+      S3_SECRET_ACCESS_KEY: ${AWS_SECRET}
+      S3_BUCKET: ${S3_BUCKET}
+      S3_PREFIX: backup
+      POSTGRES_HOST: postgres
+      POSTGRES_DATABASE: ${POSTGRES_DATABASE}
+      POSTGRES_USER: ${POSTGRES_USERNAME}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
 
   redis:
     image: redis
@@ -63,7 +79,6 @@ services:
     ports:
       - "80:80"
       - "443:443"
-      - "2019:2019"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
@@ -128,6 +143,9 @@ services:
     depends_on:
       - loki
       - prometheus
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
     logging: *default-logging
 
 volumes:

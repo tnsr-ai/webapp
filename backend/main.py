@@ -50,9 +50,9 @@ def get_db():
         db.close()
 
 
-app = FastAPI()
 
 if APP_ENV == "production":
+    app = FastAPI(docs_url=None, redoc_url=None)
     resource = Resource.create(
         attributes={"service.name": APP_NAME, "compose_service": APP_NAME}
     )
@@ -62,6 +62,8 @@ if APP_ENV == "production":
     LoggingInstrumentor().instrument(set_logging_format=True)
     FastAPIInstrumentor.instrument_app(app, tracer_provider=tracer)
     app.add_middleware(PrometheusMiddleware, app_name=APP_NAME)
+else:
+    app = FastAPI()
 
 
 origins = [
