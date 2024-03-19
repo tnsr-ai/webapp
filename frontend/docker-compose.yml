@@ -1,0 +1,27 @@
+version: '3.4'
+
+services:
+
+  nextjs-frontend:
+    build:
+      dockerfile: frontend.dockerfile
+    restart: always
+    env_file:
+      - .env
+  
+  caddy-service:
+    image: caddy:2.7.6-alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - nextjs-frontend
+    
+volumes:
+  caddy_data:
+  caddy_config:
