@@ -144,16 +144,8 @@ services:
       - loki
       - prometheus
     environment:
-      - GF_AUTH_GOOGLE_ENABLED=true
-      - GF_AUTH_GOOGLE_CLIENT_ID=${GRAFANA_GOOGLE_ID}
-      - GF_AUTH_GOOGLE_CLIENT_SECRET=${GRAFANA_GOOGLE_CLIENT_SECRET}
-      - GF_AUTH_GOOGLE_AUTH_URL=https://accounts.google.com/o/oauth2/auth
-      - GF_AUTH_GOOGLE_TOKEN_URL=https://accounts.google.com/o/oauth2/token
-      - GF_AUTH_GOOGLE_API_URL=https://www.googleapis.com/oauth2/v1/userinfo
-      - GF_AUTH_GOOGLE_ALLOWED_DOMAINS=gmail.com
-      - GF_AUTH_GOOGLE_ALLOW_SIGN_UP=true
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=beraamit
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
     logging: *default-logging
 
 volumes:
