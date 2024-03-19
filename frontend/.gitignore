@@ -45,3 +45,4 @@ certs
 
 .env
 venv
+Caddyfile
