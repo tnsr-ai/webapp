@@ -1,4 +1,4 @@
-FROM node:21.7-alpine3.19
+FROM node:lts
 
 LABEL maintainer="Amit Bera <amitalokbera@gmail.com>"
 
@@ -18,4 +18,4 @@ RUN npm run build
 
 EXPOSE 3000
 
-CMD [ "npm", "start" ]
+CMD [ "npm", "run", "start"]
