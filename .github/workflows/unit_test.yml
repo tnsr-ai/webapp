@@ -35,8 +35,8 @@ jobs:
 
       - name: Compile node modules
         run: |
-          bun install
-          bun run build
+          npm install
+          npm run build
         working-directory: ./frontend
       - name: Lint code
         run: npm run lint
