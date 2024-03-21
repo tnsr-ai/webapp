@@ -1,16 +1,28 @@
 "use client";
 import GradientBar from "../components/GradientComponent/GradientBar";
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useUrl } from "nextjs-current-url";
 import { useQuery } from "@tanstack/react-query";
 import { Loader } from "@mantine/core";
 import { useQueryClient } from "@tanstack/react-query";
 
 export default function Forgot() {
   const [counter, setCounter] = useState(5);
-  const searchParams = useSearchParams();
-  const user_id = searchParams.get("user_id");
-  const email_token = searchParams.get("email_token");
+  const [uid, setUID] = useState("");
+  const [etoken, setEToken] = useState("");
+  const { href: currentUrl, pathname } = useUrl() ?? {};
+
+  useEffect(() => {
+    if (currentUrl) {
+      let url = new URL(currentUrl);
+      let params = new URLSearchParams(url.search);
+      setUID(params.get("user_id") || "");
+      setEToken(params.get("password_token") || "");
+    }
+  }, [currentUrl]);
+
+  const user_id = uid;
+  const email_token = etoken;
   const [missing, setMissing] = useState(false);
 
   const queryClient = useQueryClient();

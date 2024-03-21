@@ -4,15 +4,26 @@ import { useEffect, useState } from "react";
 import { setResetPassword } from "../api";
 import { Loader } from "@mantine/core";
 import { useMutation } from "@tanstack/react-query";
-import { useSearchParams } from "next/navigation";
+import { useUrl } from "nextjs-current-url";
 
 export default function Reset() {
-  const searchParams = useSearchParams();
+  const [uid, setUID] = useState("");
+  const [ptoken, setPToken] = useState("");
+  const { href: currentUrl, pathname } = useUrl() ?? {};
+
+  useEffect(() => {
+    if (currentUrl) {
+      let url = new URL(currentUrl);
+      let params = new URLSearchParams(url.search);
+      setUID(params.get("user_id") || "");
+      setPToken(params.get("password_token") || "");
+    }
+  }, [currentUrl]);
 
   const [message, setMessage] = useState("");
   const [labelColor, setLabelColor] = useState("text-red-600");
-  const user_id = searchParams.get("user_id");
-  const password_token = searchParams.get("password_token");
+  const user_id = uid;
+  const password_token = ptoken;
   const [run, setRun] = useState(false);
   const { mutate, isLoading, isSuccess, data, isError } = useMutation(
     (formData) => setResetPassword(formData as any)
