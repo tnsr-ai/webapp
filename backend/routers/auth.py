@@ -394,7 +394,7 @@ async def create_user(
         path="/",
         domain=".tnsr.ai",
         secure=True,
-        httponly=True,
+        httponly=False,
         samesite="None"
     )
     response.set_cookie(
@@ -404,7 +404,7 @@ async def create_user(
         path="/",
         domain=".tnsr.ai",
         secure=True,
-        httponly=True,
+        httponly=False,
         samesite="None"
     )
     logger.info(f"User created - {hide_email(create_user_request.email)}")
@@ -490,7 +490,7 @@ async def login_user(
         path="/",
         domain=".tnsr.ai",
         secure=True,
-        httponly=True,
+        httponly=False,
         samesite="None"
     )
     response.set_cookie(
@@ -500,7 +500,7 @@ async def login_user(
         path="/",
         domain=".tnsr.ai",
         secure=True,
-        httponly=True,
+        httponly=False,
         samesite="None"
     )
     logger.info(f"User logged in - {hide_email(form_data.username)}")
@@ -677,7 +677,7 @@ async def check_user_refresh(
         path="/",
         domain=".tnsr.ai",
         secure=True,
-        httponly=True,
+        httponly=False,
         samesite="None",
     )
     response.set_cookie(
@@ -687,7 +687,7 @@ async def check_user_refresh(
         path="/",
         domain=".tnsr.ai",
         secure=True,
-        httponly=True,
+        httponly=False,
         samesite="None"
     )
     logger.info(f"User refreshed - {current_user.user_id}")
@@ -814,7 +814,7 @@ async def google_callback(
         path="/",
         domain=".tnsr.ai",
         secure=True,
-        httponly=True,
+        httponly=False,
         samesite="None"
     )
     response.set_cookie(
@@ -824,7 +824,7 @@ async def google_callback(
         path="/",
         domain=".tnsr.ai",
         secure=True,
-        httponly=True,
+        httponly=False,
         samesite="None"
     )
     content.update(

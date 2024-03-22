@@ -85,7 +85,7 @@ export async function middleware(request: NextRequest) {
           sameSite: "none",
           path: "/",
           domain: ".tnsr.ai",
-          httpOnly: true,
+          httpOnly: false,
         });
         nextResponse.cookies.set("refreshToken", tokenData.refreshToken, {
           maxAge: 30 * 60,
@@ -93,7 +93,7 @@ export async function middleware(request: NextRequest) {
           sameSite: "none",
           path: "/",
           domain: ".tnsr.ai",
-          httpOnly: true,
+          httpOnly: false,
         });
         return nextResponse;
       }
