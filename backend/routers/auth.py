@@ -392,16 +392,20 @@ async def create_user(
         value=access_token,
         max_age=minutes_to_delta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
         path="/",
-        secure=False,
-        samesite="lax",
+        domain=".tnsr.ai",
+        secure=True,
+        httponly=True,
+        samesite="None"
     )
     response.set_cookie(
         key="refreshToken",
         value=refreshToken,
         max_age=minutes_to_delta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES),
         path="/",
-        secure=False,
-        samesite="lax",
+        domain=".tnsr.ai",
+        secure=True,
+        httponly=True,
+        samesite="None"
     )
     logger.info(f"User created - {hide_email(create_user_request.email)}")
     verification_link = f"{TNSR_DOMAIN}/verifyemail/?user_id={get_user.id}&email_token={result['data']['email_token']}"
@@ -484,16 +488,20 @@ async def login_user(
         value=access_token,
         max_age=minutes_to_delta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
         path="/",
-        secure=False,
-        samesite="lax",
+        domain=".tnsr.ai",
+        secure=True,
+        httponly=True,
+        samesite="None"
     )
     response.set_cookie(
         key="refreshToken",
         value=refreshToken,
         max_age=minutes_to_delta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES),
         path="/",
-        secure=False,
-        samesite="lax",
+        domain=".tnsr.ai",
+        secure=True,
+        httponly=True,
+        samesite="None"
     )
     logger.info(f"User logged in - {hide_email(form_data.username)}")
     return {
@@ -667,16 +675,20 @@ async def check_user_refresh(
         value=accessToken,
         max_age=minutes_to_delta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
         path="/",
-        secure=False,
-        samesite="lax",
+        domain=".tnsr.ai",
+        secure=True,
+        httponly=True,
+        samesite="None",
     )
     response.set_cookie(
         key="refreshToken",
         value=refreshToken,
         max_age=minutes_to_delta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES),
         path="/",
-        secure=False,
-        samesite="lax",
+        domain=".tnsr.ai",
+        secure=True,
+        httponly=True,
+        samesite="None"
     )
     logger.info(f"User refreshed - {current_user.user_id}")
     return {"data": content, "detail": "Success"}
@@ -800,16 +812,20 @@ async def google_callback(
         value=access_token,
         max_age=minutes_to_delta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
         path="/",
-        secure=False,
-        samesite="lax",
+        domain=".tnsr.ai",
+        secure=True,
+        httponly=True,
+        samesite="None"
     )
     response.set_cookie(
         key="refreshToken",
         value=refreshToken,
         max_age=minutes_to_delta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES),
         path="/",
-        secure=False,
-        samesite="lax",
+        domain=".tnsr.ai",
+        secure=True,
+        httponly=True,
+        samesite="None"
     )
     content.update(
         {
