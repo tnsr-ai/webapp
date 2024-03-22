@@ -73,18 +73,19 @@ services:
     build:
       dockerfile: celery.dockerfile
 
-  caddy-service:
-    image: caddy:2.7.6-alpine
-    restart: always
+  nginx:
+    image: valian/docker-nginx-auto-ssl:latest
+    restart: on-failure
     ports:
-      - "80:80"
-      - "443:443"
+      - 80:80
+      - 443:443
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
+      - ssl_data:/etc/resty-auto-ssl
+    environment:
+      ALLOWED_DOMAINS: 'tnsr.ai'
+      SITES: 'backend.tnsr.ai:fastapi-backend:8000'
     depends_on:
-      - fastapi-backend
+     - fastapi-backend
 
   flower:
     image: mher/flower:2.0
