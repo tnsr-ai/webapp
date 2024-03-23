@@ -38,6 +38,7 @@ from utils import (
     REDIS_HOST,
     REDIS_PORT,
     TNSR_DOMAIN,
+    APP_ENV,
     create_access_token,
     create_refresh_token,
     forgotpassword_email,
@@ -87,6 +88,11 @@ class CreateUser(BaseModel):
 
 class ForgotPassword(BaseModel):
     email: str
+
+class ResetPassword(BaseModel):
+    user_id: int
+    password_token: str
+    password: str
 
 
 class GoogleUser(BaseModel):
@@ -138,7 +144,6 @@ def minutes_to_delta(minutes: int):
 
 
 oauth2_bearer = OAuth2PasswordBearer(tokenUrl="auth/login", auto_error=False)
-
 
 def get_current_user(db: db_dependency, token: str = Depends(oauth2_bearer)):
     try:
@@ -387,26 +392,44 @@ async def create_user(
             "token_type": "bearer",
         }
     )
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        max_age=minutes_to_delta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
-        path="/",
-        domain=".tnsr.ai",
-        secure=True,
-        httponly=False,
-        samesite="None"
-    )
-    response.set_cookie(
-        key="refreshToken",
-        value=refreshToken,
-        max_age=minutes_to_delta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES),
-        path="/",
-        domain=".tnsr.ai",
-        secure=True,
-        httponly=False,
-        samesite="None"
-    )
+    if APP_ENV == "production":
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            max_age=minutes_to_delta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
+            path="/",
+            domain=".tnsr.ai",
+            secure=True,
+            httponly=False,
+            samesite="None"
+        )
+        response.set_cookie(
+            key="refreshToken",
+            value=refreshToken,
+            max_age=minutes_to_delta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES),
+            path="/",
+            domain=".tnsr.ai",
+            secure=True,
+            httponly=False,
+            samesite="None"
+        )
+    else:
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            max_age=minutes_to_delta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
+            path="/",
+            secure=False,
+            samesite="lax",
+        )
+        response.set_cookie(
+            key="refreshToken",
+            value=refreshToken,
+            max_age=minutes_to_delta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES),
+            path="/",
+            secure=False,
+            samesite="lax",
+        )
     logger.info(f"User created - {hide_email(create_user_request.email)}")
     verification_link = f"{TNSR_DOMAIN}/verifyemail/?user_id={get_user.id}&email_token={result['data']['email_token']}"
     send_email_task.delay(
@@ -483,26 +506,44 @@ async def login_user(
             "token_type": "bearer",
         }
     )
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        max_age=minutes_to_delta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
-        path="/",
-        domain=".tnsr.ai",
-        secure=True,
-        httponly=False,
-        samesite="None"
-    )
-    response.set_cookie(
-        key="refreshToken",
-        value=refreshToken,
-        max_age=minutes_to_delta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES),
-        path="/",
-        domain=".tnsr.ai",
-        secure=True,
-        httponly=False,
-        samesite="None"
-    )
+    if APP_ENV == "production":
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            max_age=minutes_to_delta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
+            path="/",
+            domain=".tnsr.ai",
+            secure=True,
+            httponly=False,
+            samesite="None"
+        )
+        response.set_cookie(
+            key="refreshToken",
+            value=refreshToken,
+            max_age=minutes_to_delta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES),
+            path="/",
+            domain=".tnsr.ai",
+            secure=True,
+            httponly=False,
+            samesite="None"
+        )
+    else:
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            max_age=minutes_to_delta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
+            path="/",
+            secure=False,
+            samesite="lax",
+        )
+        response.set_cookie(
+            key="refreshToken",
+            value=refreshToken,
+            max_age=minutes_to_delta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES),
+            path="/",
+            secure=False,
+            samesite="lax",
+        )
     logger.info(f"User logged in - {hide_email(form_data.username)}")
     return {
         "data": content,
@@ -670,26 +711,44 @@ async def check_user_refresh(
         "refreshToken": refreshToken,
         "token_type": "bearer",
     }
-    response.set_cookie(
-        key="access_token",
-        value=accessToken,
-        max_age=minutes_to_delta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
-        path="/",
-        domain=".tnsr.ai",
-        secure=True,
-        httponly=False,
-        samesite="None",
-    )
-    response.set_cookie(
-        key="refreshToken",
-        value=refreshToken,
-        max_age=minutes_to_delta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES),
-        path="/",
-        domain=".tnsr.ai",
-        secure=True,
-        httponly=False,
-        samesite="None"
-    )
+    if APP_ENV == "production":
+        response.set_cookie(
+            key="access_token",
+            value=accessToken,
+            max_age=minutes_to_delta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
+            path="/",
+            domain=".tnsr.ai",
+            secure=True,
+            httponly=False,
+            samesite="None"
+        )
+        response.set_cookie(
+            key="refreshToken",
+            value=refreshToken,
+            max_age=minutes_to_delta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES),
+            path="/",
+            domain=".tnsr.ai",
+            secure=True,
+            httponly=False,
+            samesite="None"
+        )
+    else:
+        response.set_cookie(
+            key="access_token",
+            value=accessToken,
+            max_age=minutes_to_delta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
+            path="/",
+            secure=False,
+            samesite="lax",
+        )
+        response.set_cookie(
+            key="refreshToken",
+            value=refreshToken,
+            max_age=minutes_to_delta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES),
+            path="/",
+            secure=False,
+            samesite="lax",
+        )
     logger.info(f"User refreshed - {current_user.user_id}")
     return {"data": content, "detail": "Success"}
 
@@ -807,26 +866,44 @@ async def google_callback(
         "lastname": user.last_name,
         "email": user.email,
     }
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        max_age=minutes_to_delta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
-        path="/",
-        domain=".tnsr.ai",
-        secure=True,
-        httponly=False,
-        samesite="None"
-    )
-    response.set_cookie(
-        key="refreshToken",
-        value=refreshToken,
-        max_age=minutes_to_delta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES),
-        path="/",
-        domain=".tnsr.ai",
-        secure=True,
-        httponly=False,
-        samesite="None"
-    )
+    if APP_ENV == "production":
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            max_age=minutes_to_delta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
+            path="/",
+            domain=".tnsr.ai",
+            secure=True,
+            httponly=False,
+            samesite="None"
+        )
+        response.set_cookie(
+            key="refreshToken",
+            value=refreshToken,
+            max_age=minutes_to_delta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES),
+            path="/",
+            domain=".tnsr.ai",
+            secure=True,
+            httponly=False,
+            samesite="None"
+        )
+    else:
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            max_age=minutes_to_delta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
+            path="/",
+            secure=False,
+            samesite="lax",
+        )
+        response.set_cookie(
+            key="refreshToken",
+            value=refreshToken,
+            max_age=minutes_to_delta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES),
+            path="/",
+            secure=False,
+            samesite="lax",
+        )
     content.update(
         {
             "refreshToken": refreshToken,
@@ -884,8 +961,7 @@ async def forgot_password(
     db.commit()
     result = forgot_password_task(
         user.first_name,
-        TNSR_DOMAIN + "/auth/forgotpassword/" + forgotpassword_token["token"],
-        user.email,
+        TNSR_DOMAIN + "/reset-password/" + f"?user_id={user.id}&password_token={forgotpassword_token['token']}", user.email
     )
     if result["detail"] == "Failed":
         logger.error(
@@ -937,3 +1013,40 @@ async def verify_email(
         )
     logger.info(f"Email verified - {user_id}")
     return {"detail": "Success", "data": result["data"]}
+
+@router.post("/resetpassword", status_code=status.HTTP_200_OK, dependencies=[Depends(RateLimiter(times=5, seconds=60))])
+async def reset_password(reset_model: ResetPassword, db: Session = Depends(get_db)):
+    user = db.query(models.Users).filter(models.Users.id == reset_model.user_id).first()
+    if not user:
+        logger.error("User Not Found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+    original_password_token = json.loads(user.forgotpassword_token)
+    if len(original_password_token) < 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Password token is invalid or has expired"
+        )
+    if original_password_token['token'] != reset_model.password_token or int(original_password_token['expires']) < int(time.time()):
+        logger.error("Invalid or Expired Password Token")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Password token is invalid or has expired"
+        )
+    
+    if len(reset_model.password) < 8:
+        logger.error(f"Password too short")
+        raise HTTPException(
+            status_code=status.HTTP_406_NOT_ACCEPTABLE,
+            detail="Password must be at least 8 characters",
+        )
+    if len(reset_model.password) > 50:
+        logger.error(f"Password too long")
+        raise HTTPException(
+            status_code=status.HTTP_406_NOT_ACCEPTABLE,
+            detail="Password must be less than 50 characters",
+        )
+    user.hashed_password = get_hashed_password(reset_model.password)
+    user.forgotpassword_token = "{}"
+    db.add(user)
+    db.commit()
+    return {"detail": "Success", "data": "Password reset complete"}

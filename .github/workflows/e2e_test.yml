@@ -56,8 +56,8 @@ jobs:
 
       - name: Compile node modules
         run: |
-          npm install
-          npm run build
+          bun install
+          bun run build
         working-directory: ./frontend
       - name: Install Ubuntu dependencies
         run: |
