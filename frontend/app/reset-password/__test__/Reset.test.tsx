@@ -93,7 +93,7 @@ describe("ForgotComponent", () => {
       const resetButton = screen.getByTestId("resetPasswordButton");
       resetButton.onclick = jest.fn();
       await userEvent.click(resetButton);
-      await screen.findByText("Password reset successfully");
+      await screen.findByText("Password changed successfully.");
       expect(fetchMock).toHaveBeenCalled();
     });
   });
