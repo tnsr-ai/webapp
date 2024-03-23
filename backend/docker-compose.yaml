@@ -83,9 +83,12 @@ services:
       - ssl_data:/etc/resty-auto-ssl
     environment:
       ALLOWED_DOMAINS: 'tnsr.ai'
-      SITES: 'backend.tnsr.ai:fastapi-backend:8000'
+      SITES: 'backend.tnsr.ai=fastapi-backend:8000;app.tnsr.ai=172.17.0.1:3000'
+
     depends_on:
      - fastapi-backend
+     - grafana
+     - redis
 
   flower:
     image: mher/flower:2.0
@@ -153,3 +156,4 @@ volumes:
   postgres:
   caddy_data:
   caddy_config:
+  ssl_data:
