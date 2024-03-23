@@ -89,6 +89,11 @@ class CreateUser(BaseModel):
 class ForgotPassword(BaseModel):
     email: str
 
+class ResetPassword(BaseModel):
+    user_id: int
+    password_token: str
+    password: str
+
 
 class GoogleUser(BaseModel):
     name: str
@@ -956,8 +961,7 @@ async def forgot_password(
     db.commit()
     result = forgot_password_task(
         user.first_name,
-        TNSR_DOMAIN + "/auth/forgotpassword/" + forgotpassword_token["token"],
-        user.email,
+        TNSR_DOMAIN + "/reset-password/" + f"?user_id={user.id}&password_token={forgotpassword_token['token']}", user.email
     )
     if result["detail"] == "Failed":
         logger.error(
@@ -1009,3 +1013,40 @@ async def verify_email(
         )
     logger.info(f"Email verified - {user_id}")
     return {"detail": "Success", "data": result["data"]}
+
+@router.post("/resetpassword", status_code=status.HTTP_200_OK, dependencies=[Depends(RateLimiter(times=5, seconds=60))])
+async def reset_password(reset_model: ResetPassword, db: Session = Depends(get_db)):
+    user = db.query(models.Users).filter(models.Users.id == reset_model.user_id).first()
+    if not user:
+        logger.error("User Not Found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+    original_password_token = json.loads(user.forgotpassword_token)
+    if len(original_password_token) < 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Password token is invalid or has expired"
+        )
+    if original_password_token['token'] != reset_model.password_token or int(original_password_token['expires']) < int(time.time()):
+        logger.error("Invalid or Expired Password Token")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Password token is invalid or has expired"
+        )
+    
+    if len(reset_model.password) < 8:
+        logger.error(f"Password too short")
+        raise HTTPException(
+            status_code=status.HTTP_406_NOT_ACCEPTABLE,
+            detail="Password must be at least 8 characters",
+        )
+    if len(reset_model.password) > 50:
+        logger.error(f"Password too long")
+        raise HTTPException(
+            status_code=status.HTTP_406_NOT_ACCEPTABLE,
+            detail="Password must be less than 50 characters",
+        )
+    user.hashed_password = get_hashed_password(reset_model.password)
+    user.forgotpassword_token = "{}"
+    db.add(user)
+    db.commit()
+    return {"detail": "Success", "data": "Password reset complete"}

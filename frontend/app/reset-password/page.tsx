@@ -1,32 +1,48 @@
 "use client";
 import GradientBar from "../components/GradientComponent/GradientBar";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { setResetPassword } from "../api";
 import { Loader } from "@mantine/core";
 import { useMutation } from "@tanstack/react-query";
-import { useUrl } from "nextjs-current-url";
+import { useSearchParams } from "next/navigation";
+
+function GetParams({ setUID, setPToken }: { setUID: any; setPToken: any }) {
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    setUID(searchParams.get("user_id") || "");
+    setPToken(searchParams.get("password_token") || "");
+  }, [searchParams, setUID, setPToken]);
+  return null;
+}
+
+function SearchParamsFallback() {
+  return <div>Loading search parameters...</div>;
+}
 
 export default function Reset() {
   const [uid, setUID] = useState("");
   const [ptoken, setPToken] = useState("");
-  const { href: currentUrl, pathname } = useUrl() ?? {};
-
-  useEffect(() => {
-    if (currentUrl) {
-      let url = new URL(currentUrl);
-      let params = new URLSearchParams(url.search);
-      setUID(params.get("user_id") || "");
-      setPToken(params.get("password_token") || "");
-    }
-  }, [currentUrl]);
 
   const [message, setMessage] = useState("");
   const [labelColor, setLabelColor] = useState("text-red-600");
   const user_id = uid;
   const password_token = ptoken;
   const [run, setRun] = useState(false);
-  const { mutate, isLoading, isSuccess, data, isError } = useMutation(
-    (formData) => setResetPassword(formData as any)
+  const { mutate, isLoading } = useMutation(
+    (formData) => setResetPassword(formData as any),
+    {
+      onSuccess: () => {
+        setMessage("Password changed successfully.");
+        setLabelColor("text-green-600");
+        setPasswordAlert("block");
+      },
+      onError: () => {
+        setMessage("Password change failed.");
+        setLabelColor("text-red-600");
+        setPasswordAlert("block");
+      },
+    }
   );
 
   const [password, setPassword] = useState("");
@@ -42,65 +58,32 @@ export default function Reset() {
       password: password,
     };
     mutate(formData as any);
-    setRun(true);
   };
 
   useEffect(() => {
-    if (password.length < 8 && confirmPassword.length < 8) {
+    if (password.length < 8 || confirmPassword.length < 8) {
       setDisabled(true);
       setPasswordAlert("block");
       setMessage("Password must be at least 8 characters");
-    }
-    if (password !== confirmPassword) {
+      setLabelColor("text-red-600");
+    } else if (password !== confirmPassword) {
       setDisabled(true);
       setPasswordAlert("block");
       setMessage("Passwords do not match");
       setLabelColor("text-red-600");
-    }
-    if (password === confirmPassword && password.length >= 8) {
+    } else {
       setDisabled(false);
       setPasswordAlert("hidden");
+      setMessage("");
     }
-    if (password.length === 0 && confirmPassword.length === 0) {
-      setDisabled(true);
-      setPasswordAlert("hidden");
-    }
-    if (isSuccess === true) {
-      if (data.detail === "Success") {
-        setMessage(data.data);
-        setLabelColor("text-green-600");
-        setPasswordAlert("block");
-        if (run === true) {
-          setPassword("");
-          setConfirmPassword("");
-          setRun(false);
-        }
-      } else {
-        setMessage(data.data);
-        setLabelColor("text-red-600");
-        setPasswordAlert("block");
-      }
-    }
-    if (isError === true) {
-      setMessage("Something went wrong");
-      setLabelColor("text-red-600");
-      setPasswordAlert("block");
-    }
-  }, [
-    password,
-    confirmPassword,
-    message,
-    labelColor,
-    disabled,
-    passwordAlert,
-    isSuccess,
-    isError,
-    run,
-  ]);
+  }, [password, confirmPassword]);
 
   return (
     <div className="grid lg:grid-cols-[30%_70%] w-full">
       <GradientBar />
+      <Suspense fallback={<SearchParamsFallback />}>
+        <GetParams setUID={setUID} setPToken={setPToken} />
+      </Suspense>
       <div className="w-full h-full flex justify-center items-center">
         <div
           className="flex-col justify-center items-center text-black"
