@@ -36,10 +36,9 @@ export function VideoFilter(props: any) {
   const tierConfig = props.filterConfig["model_tier"][userTier];
   const maxFilter = tierConfig["video"]["max_filters"] as number;
   const [userMsg, setUserMsg] = useState("");
-  const [enabledFilters, setEnabledFilters] = useState<string[]>([])
-  const [disabledFilters, setDisabledFilters] = useState<string[]>([])
-  const [pushToJob, setPushToJob] = useState(false);
-  const { push } = useRouter();
+  const [enabledFilters, setEnabledFilters] = useState<string[]>([]);
+  const [disabledFilters, setDisabledFilters] = useState<string[]>([]);
+  const router = useRouter();
 
   const video_models = [
     { id: 1, name: "SuperRes 2x v1 (Faster)" },
@@ -68,7 +67,9 @@ export function VideoFilter(props: any) {
   const [slowmodisabled, setSlowmodisabled] = useState(false);
   const [showProcess, setShowProcess] = useState(false);
   const [modelType, setModelType] = useState<VideoModel>(video_models[0]);
-  const [slowmofactor, setSlowmoFactor] = useState<VideoModel>(slowmo_factor[0]);
+  const [slowmofactor, setSlowmoFactor] = useState<VideoModel>(
+    slowmo_factor[0]
+  );
 
   function sleep(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -124,23 +125,19 @@ export function VideoFilter(props: any) {
     return data;
   };
 
-  const { mutate } = useMutation(
-    (formData) => registerJob("video", formData),
-    {
-      onSuccess: (data) => {
-        if (data["detail"] != "Success") {
-          toast.error(data["detail"]);
-          return;
-        } else {
-          setPushToJob(true);
-          toast.success("Job registered successfully");
-        }
-      },
-      onError: () => {
-        toast.error("Failed to register job");
-      },
-    }
-  );
+  const { mutate } = useMutation((formData) => registerJob("video", formData), {
+    onSuccess: (data) => {
+      if (data["detail"] != "Success") {
+        toast.error(data["detail"]);
+        return;
+      } else {
+        toast.success("Job registered successfully");
+      }
+    },
+    onError: () => {
+      toast.error("Failed to register job");
+    },
+  });
 
   const sendJob = async () => {
     const data = createJSON();
@@ -151,21 +148,20 @@ export function VideoFilter(props: any) {
     mutate(jobData as any);
     props.setFilterShow(false);
     await sleep(2000);
-    if (pushToJob) {
-      push("/jobs");
-    }
+    router.push("/jobs");
   };
 
   useEffect(() => {
-
     if (slowmo) {
       if (speech) {
         setSpeech(false);
-        setEnabledFilters(enabledFilters.filter(f => f !== 'speech_enhancement'));
+        setEnabledFilters(
+          enabledFilters.filter((f) => f !== "speech_enhancement")
+        );
       }
       if (transcription) {
         setTranscription(false);
-        setEnabledFilters(enabledFilters.filter(f => f !== 'transcription'));
+        setEnabledFilters(enabledFilters.filter((f) => f !== "transcription"));
       }
       setVoiceDisabled(true);
     } else {
@@ -177,7 +173,7 @@ export function VideoFilter(props: any) {
       if (slowmo) {
         setSlowmo(false);
       }
-      setEnabledFilters(enabledFilters.filter(f => f !== 'slow_motion'));
+      setEnabledFilters(enabledFilters.filter((f) => f !== "slow_motion"));
       setSlowmodisabled(true);
     } else {
       setSlowmodisabled(false);
@@ -198,13 +194,15 @@ export function VideoFilter(props: any) {
 
     if (jobCount === 0) {
       setShowProcess(false);
-    }
-    else if (jobCount < maxFilter) {
+    } else if (jobCount < maxFilter) {
       setUserMsg("");
       setShowProcess(true);
-    }
-    else if (jobCount === maxFilter) {
-      setUserMsg(`Max ${maxFilter} filters allowed for ${capitalizeFirstChar(userTier)} tier`)
+    } else if (jobCount === maxFilter) {
+      setUserMsg(
+        `Max ${maxFilter} filters allowed for ${capitalizeFirstChar(
+          userTier
+        )} tier`
+      );
       setShowProcess(true);
     } else {
       setUserMsg("");
@@ -214,8 +212,19 @@ export function VideoFilter(props: any) {
     setEnabledFilters(newEnabledFilters);
     setDisabledFilters(newDisabledFilters);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slowmo, speech, transcription, SRActive, deblur, denoise, facerestore, colorizer, interpolation, deinterlace, maxFilter]);
-
+  }, [
+    slowmo,
+    speech,
+    transcription,
+    SRActive,
+    deblur,
+    denoise,
+    facerestore,
+    colorizer,
+    interpolation,
+    deinterlace,
+    maxFilter,
+  ]);
 
   return (
     <div className="overflow-y-auto">

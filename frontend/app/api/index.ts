@@ -314,6 +314,7 @@ export const useListContent = (
       const data = await response.json();
       return data;
     },
+    retry: 2,
   });
 };
 

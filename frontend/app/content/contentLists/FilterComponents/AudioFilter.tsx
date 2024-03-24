@@ -7,7 +7,6 @@ import { useMutation } from "@tanstack/react-query";
 import { registerJob } from "../../../api/index";
 import { useRouter } from "next/navigation";
 
-
 interface AudioModel {
   id: number;
   name: string;
@@ -36,10 +35,9 @@ export function AudioFilter(props: any) {
   const tierConfig = props.filterConfig["model_tier"][userTier];
   const maxFilter = tierConfig["audio"]["max_filters"] as number;
   const [userMsg, setUserMsg] = useState("");
-  const [enabledFilters, setEnabledFilters] = useState<string[]>([])
-  const [disabledFilters, setDisabledFilters] = useState<string[]>([])
-  const { push } = useRouter();
-  const [pushToJob, setPushToJob] = useState(false);
+  const [enabledFilters, setEnabledFilters] = useState<string[]>([]);
+  const [disabledFilters, setDisabledFilters] = useState<string[]>([]);
+  const router = useRouter();
   const [musicsep, setMusicsep] = useState(false);
   const [se, setSe] = useState(false);
   const [transcription, setTranscription] = useState(false);
@@ -84,7 +82,6 @@ export function AudioFilter(props: any) {
           toast.error(data["detail"]);
           return;
         } else {
-          setPushToJob(true);
           toast.success("Job registered successfully");
         }
       },
@@ -103,9 +100,7 @@ export function AudioFilter(props: any) {
     mutate(jobData as any);
     props.setFilterShow(false);
     await sleep(2000);
-    if (pushToJob) {
-      push("/jobs");
-    }
+    router.push("/jobs");
   };
 
   useEffect(() => {
@@ -125,13 +120,15 @@ export function AudioFilter(props: any) {
 
     if (jobCount === 0) {
       setShowProcess(false);
-    }
-    else if (jobCount < maxFilter) {
+    } else if (jobCount < maxFilter) {
       setUserMsg("");
       setShowProcess(true);
-    }
-    else if (jobCount === maxFilter) {
-      setUserMsg(`Max ${maxFilter} filters allowed for ${capitalizeFirstChar(userTier)} tier`)
+    } else if (jobCount === maxFilter) {
+      setUserMsg(
+        `Max ${maxFilter} filters allowed for ${capitalizeFirstChar(
+          userTier
+        )} tier`
+      );
       setShowProcess(true);
     } else {
       setUserMsg("");
@@ -141,7 +138,7 @@ export function AudioFilter(props: any) {
     setEnabledFilters(newEnabledFilters);
     setDisabledFilters(newDisabledFilters);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [musicsep, se, transcription, maxFilter])
+  }, [musicsep, se, transcription, maxFilter]);
 
   return (
     <div>
