@@ -20,7 +20,8 @@ import RenamePrompt from "../../content/contentCards/RenameModal";
 import { infinity } from "ldrs";
 import { useJobsConfig } from "../../api/index";
 import Error from "../../components/ErrorTab";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
+import DeletePrompt from "../../content/contentCards/DeleteModal";
 
 function capitalizeWords(input: string): string[] {
   if (input.includes(",") === false) {
@@ -45,7 +46,6 @@ function capitalizeWords(input: string): string[] {
 
 export function ContentComponent(props: any) {
   const queryClient = useQueryClient();
-  const pathName = usePathname().split("/")[1];
   const jobsConfig = useJobsConfig();
   infinity.register();
   const [jobsParams, setJobsParams] = useState(undefined);
@@ -56,6 +56,7 @@ export function ContentComponent(props: any) {
   const [filterShow, setFilterShow] = useState(false);
   const [disableDelete, setDisableDelete] = useState(false);
   const [renamePrompt, setRenamePrompt] = useState(false);
+  const [delPrompt, setDelPrompt] = useState(false);
   const tags = capitalizeWords(props.data.tags);
   let title;
   title = props.data["title"];
@@ -66,7 +67,7 @@ export function ContentComponent(props: any) {
   let fps = parseFloat(props.data.fps).toFixed(2);
   const [isLoaded, setIsLoaded] = useState(false);
   useEffect(() => {
-    if (props.data.tags === "original") {
+    if (props.data.tags === "Original") {
       setDisableDelete(true);
     }
   }, [disableDelete, props.data.tags]);
@@ -156,7 +157,7 @@ export function ContentComponent(props: any) {
     toast.loading("Downloading...", { id: toastID });
     const xhr = new XMLHttpRequest();
     xhr.responseType = "blob";
-    xhr.onprogress = function (event) {
+    xhr.onprogress = function(event) {
       if (event.lengthComputable) {
         const percentComplete = Math.round((event.loaded / event.total) * 100);
         toast.loading(`Downloading... ${percentComplete}%`, {
@@ -206,7 +207,7 @@ export function ContentComponent(props: any) {
       id: toastID,
     });
 
-    xhr.onreadystatechange = function () {
+    xhr.onreadystatechange = function() {
       if (xhr.readyState === 4) {
         if (xhr.status === 200) {
           toast.dismiss(toastID);
@@ -240,9 +241,8 @@ export function ContentComponent(props: any) {
           height={0}
           sizes="100vw"
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          className={`rounded-xl ${
-            props.data.status === "processing" ? "opacity-45" : ""
-          }`}
+          className={`rounded-xl ${props.data.status === "processing" ? "opacity-45" : ""
+            }`}
           onLoad={() => setIsLoaded(true)}
           onClick={() => {
             setVideoPlayer(true);
@@ -286,9 +286,8 @@ export function ContentComponent(props: any) {
           </h1>
         )}
         <div
-          className={`pt-0.5 space-x-2 ${
-            props.data.status === "processing" ? "hidden" : "flex"
-          }`}
+          className={`pt-0.5 space-x-2 ${props.data.status === "processing" ? "hidden" : "flex"
+            }`}
         >
           <p className="text-sm xl:text-lg whitespace-nowrap">
             {props.data.size}
@@ -344,9 +343,8 @@ export function ContentComponent(props: any) {
           height={0}
           sizes="100vw"
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          className={`rounded-xl ${
-            props.data.status === "processing" ? "opacity-45" : ""
-          }`}
+          className={`rounded-xl ${props.data.status === "processing" ? "opacity-45" : ""
+            }`}
           onLoad={() => setIsLoaded(true)}
           onClick={() => {
             setVideoPlayer(true);
@@ -390,9 +388,8 @@ export function ContentComponent(props: any) {
           </h1>
         )}
         <div
-          className={`pt-0.5 space-x-2 ${
-            props.data.status === "processing" ? "hidden" : "flex"
-          }`}
+          className={`pt-0.5 space-x-2 ${props.data.status === "processing" ? "hidden" : "flex"
+            }`}
         >
           <p className="text-sm xl:text-lg whitespace-nowrap">
             {props.data.size}
@@ -452,9 +449,8 @@ export function ContentComponent(props: any) {
               height={0}
               sizes="100vw"
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
-              className={`rounded-xl ${
-                props.data.status === "processing" ? "opacity-45" : ""
-              }`}
+              className={`rounded-xl ${props.data.status === "processing" ? "opacity-45" : ""
+                }`}
               onLoad={() => setIsLoaded(true)}
               onClick={() => {
                 setVideoPlayer(true);
@@ -471,9 +467,8 @@ export function ContentComponent(props: any) {
               height={0}
               sizes="100vw"
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
-              className={`rounded-xl ${
-                props.data.status === "processing" ? "opacity-45" : ""
-              }`}
+              className={`rounded-xl ${props.data.status === "processing" ? "opacity-45" : ""
+                }`}
               onLoad={() => setIsLoaded(true)}
               onClick={() => {
                 setVideoPlayer(true);
@@ -505,9 +500,8 @@ export function ContentComponent(props: any) {
           </h1>
         )}
         <div
-          className={`pt-0.5 space-x-2 ${
-            props.data.status === "processing" ? "hidden" : "flex"
-          }`}
+          className={`pt-0.5 space-x-2 ${props.data.status === "processing" ? "hidden" : "flex"
+            }`}
         >
           <p className="text-sm xl:text-lg whitespace-nowrap">
             {props.data.size}
@@ -548,7 +542,7 @@ export function ContentComponent(props: any) {
     </div>
   );
 
-  useEffect(() => {}), [screenSize];
+  useEffect(() => { }), [screenSize];
   return (
     <div id={props.data.id}>
       <div className="max-w-[1500px] m-auto">
@@ -611,36 +605,41 @@ export function ContentComponent(props: any) {
                 )}
                 <div className="flex justify-center items-center">
                   {props.data.status === "completed" && (
-                    <Menu shadow="md" width={200} withArrow>
-                      <Menu.Target>
-                        <Bars3Icon className="w-[28px] cursor-pointer" />
-                      </Menu.Target>
+                    <button>
+                      <Menu shadow="md" width={200} withArrow>
+                        <Menu.Target>
+                          <Bars3Icon className="w-[28px] cursor-pointer" />
+                        </Menu.Target>
 
-                      <Menu.Dropdown>
-                        <Menu.Item
-                          icon={<IconCloudDownload size={14} />}
-                          onClick={downloadContent}
-                        >
-                          Download
-                        </Menu.Item>
-                        <Menu.Item
-                          icon={<IconBallpen size={14} />}
-                          onClick={() => {
-                            setRenamePrompt(true);
-                          }}
-                        >
-                          Rename
-                        </Menu.Item>
+                        <Menu.Dropdown>
+                          <Menu.Item
+                            icon={<IconCloudDownload size={14} />}
+                            onClick={downloadContent}
+                          >
+                            Download
+                          </Menu.Item>
+                          <Menu.Item
+                            icon={<IconBallpen size={14} />}
+                            onClick={() => {
+                              setRenamePrompt(true);
+                            }}
+                          >
+                            Rename
+                          </Menu.Item>
 
-                        <Menu.Item
-                          color="red"
-                          icon={<IconTrash size={14} />}
-                          disabled={disableDelete}
-                        >
-                          Delete
-                        </Menu.Item>
-                      </Menu.Dropdown>
-                    </Menu>
+                          <Menu.Item
+                            color="red"
+                            icon={<IconTrash size={14} />}
+                            disabled={disableDelete}
+                            onClick={() => {
+                              console.log("Delete Button")
+                            }}
+                          >
+                            Delete
+                          </Menu.Item>
+                        </Menu.Dropdown>
+                      </Menu>
+                    </button>
                   )}
                   {props.data.status === "processing" && (
                     <div className=" cursor-pointer">
@@ -670,6 +669,13 @@ export function ContentComponent(props: any) {
               type={props.type}
               title={props.data.title}
               project={false}
+            />
+            <DeletePrompt
+              delPrompt={delPrompt}
+              setDelPrompt={setDelPrompt}
+              id={props.data.id}
+              type={props.type}
+              title={props.data.title}
             />
           </div>
         )}

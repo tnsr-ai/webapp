@@ -29,7 +29,7 @@ from utils import (
     CLOUDFLARE_CONTENT,
     CONTENT_EXPIRE,
 )
-from utils import remove_key, logger, presigned_get
+from utils import remove_key, logger, presigned_get, delete_r2_file
 
 
 router = APIRouter(
@@ -551,6 +551,8 @@ async def rename_project(
     current_user: TokenData = Depends(get_current_user),
 ):
     try:
+        if len(newtitle) > 30 or len(newtitle) < 3:
+            raise HTTPException(status_code=400, detatil="Invalid Title")
         result = rename_content_celery(
             id, content_type, newtitle, current_user.user_id, db
         )
@@ -563,3 +565,82 @@ async def rename_project(
     except:
         logger.error("Failed to rename content")
         raise HTTPException(status_code=400, detail="Failed to rename content")
+
+
+
+
+def delete_content_task(
+    content_id: int, content_type: str, user_id: int, db: Session
+):
+    try:
+        if content_type not in ["video", "audio", "image"]:
+            return {"detail": "Failed", "data": "Invalid type"}
+        main_file = (
+            db.query(models.Content)
+            .filter(models.Content.id == content_id)
+            .filter(models.Content.user_id == user_id)
+            .filter(models.Content.content_type == content_type)
+            .filter(models.Content.status == "completed")
+            .first()
+        )
+        if main_file:
+            attached_content = (
+                db.query(models.Content)
+                .filter(models.Content.id_related == content_id)
+                .filter(models.Content.user_id == user_id)
+                .filter(models.Content.content_type == content_type)
+                .all()
+            )
+            for all_content in attached_content:
+                if all_content.status == "processing":
+                    return {"detail": "Failed", "data": "Running Job Found"}
+                related_tags = (
+                    db.query(models.ContentTags)
+                    .filter(models.ContentTags.content_id == all_content.id)
+                    .all()
+                )
+                for tag in related_tags:
+                    db.delete(tag)
+                if all_content.status == "completed":
+                    delete_r2_file(all_content.link, CLOUDFLARE_CONTENT)
+                    delete_r2_file(all_content.thumbnail, CLOUDFLARE_METADATA)
+                db.delete(all_content)
+            main_tag = (
+                db.query(models.ContentTags)
+                .filter(models.ContentTags.content_id == main_file.id)
+                .all()
+            )
+            for tag in main_tag:
+                db.delete(tag)
+            db.delete(main_file)
+            db.commit()
+            return {"detail": "Success", "data": "Project Deleted"}
+        else:
+            return {"detail": "Failed", "data": "Project not found"}
+    except Exception as e:
+        return {"detail": "Failed", "data": str(e)}
+
+
+@router.delete(
+    "/delete-content/{id}/{content_type}",
+    dependencies=[Depends(RateLimiter(times=30, seconds=60))],
+)
+async def delete_content(
+    id: int,
+    content_type: str,
+    db: Session = Depends(get_db),
+    current_user: TokenData = Depends(get_current_user),
+):
+    try:
+        result = delete_content_task(
+            id, content_type,  current_user.user_id, db
+        )
+        if result["detail"] == "Success":
+            logger.info("Content renamed successfully")
+            return {"detail": "Success", "data": "Project deleted"}
+        else:
+            logger.error("Failed to delete project - " + str(result["data"]))
+            raise HTTPException(status_code=400, detail=result["data"])
+    except:
+        logger.error("Failed to delete project")
+        raise HTTPException(status_code=400, detail="Failed to delete project")
