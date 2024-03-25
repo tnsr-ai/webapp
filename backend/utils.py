@@ -35,6 +35,7 @@ from starlette.responses import Response
 from starlette.routing import Match
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 from starlette.types import ASGIApp
+from celeryworker import celeryapp
 
 load_dotenv()
 APP_ENV = os.getenv("APP_ENV")
@@ -1081,12 +1082,17 @@ class EndpointFilter(logger.Filter):
 
 logger.getLogger("uvicorn.access").addFilter(EndpointFilter())
 
-
+@celeryapp.task(name="utils.delete_r2_object")
 def delete_r2_file(file_key: str, bucket: str):
     try:
-        main_key = f"{bucket}/" + file_key
-        main_bucket = r2_resource.Bucket(bucket)
-        main_bucket.Object(main_key).delete()
+        r2_resource_ = boto3.resource(
+            "s3",
+            aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
+            aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
+            endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
+        )
+        bucket_ = r2_resource_.Bucket(bucket)
+        bucket_.Object(file_key).delete()
         return True
     except Exception as e:
         return False

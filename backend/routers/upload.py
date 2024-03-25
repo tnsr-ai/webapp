@@ -436,7 +436,7 @@ async def file_index(
         )
         raise HTTPException(status_code=400, detail="Invalid content id")
     if indexdata.processtype not in ["video", "audio", "image"]:
-        delete_r2_file(content_data.link, CLOUDFLARE_CONTENT)
+        delete_r2_file.delay(content_data.link, CLOUDFLARE_CONTENT)
         all_tags = (
             db.query(models.ContentTags)
             .filter(models.ContentTags.content_id == content_data.id)
@@ -450,7 +450,7 @@ async def file_index(
         raise HTTPException(status_code=400, detail="Invalid processtype")
     result = index_media_task(indexdata.dict(), current_user.user_id, db)
     if result["detail"] == "Failed":
-        delete_r2_file(content_data.link, CLOUDFLARE_CONTENT)
+        delete_r2_file.delay(content_data.link, CLOUDFLARE_CONTENT)
         all_tags = (
             db.query(models.ContentTags)
             .filter(models.ContentTags.content_id == content_data.id)

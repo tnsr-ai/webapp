@@ -3,10 +3,21 @@ import * as React from "react";
 import Modal from "@mui/material/Modal";
 import { getCookie, deleteCookie, setCookie } from "cookies-next";
 import { XMarkIcon } from "@heroicons/react/20/solid";
+import { Toaster, toast } from "sonner";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
+function getCurrentDimension() {
+  return {
+    width: window.innerWidth,
+    height: window.innerHeight,
+  };
+}
+
 export default function DeletePrompt(props: any) {
-  const jwt: string = getCookie("access_token") as string;
+  const [screenSize, setScreenSize] = React.useState({
+    width: 0,
+    height: 0,
+  });
   let title;
   title = props.title;
   let title_len = title.length;
@@ -42,19 +53,45 @@ export default function DeletePrompt(props: any) {
     }
   };
 
-  const { mutate } = useMutation(
-    ({ id, type }: { id: number; type: string }) => {
-      const url = `${process.env.BASEURL}/options/delete-project/${id}/${type}`;
-      return fetch(url, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-        },
-      });
-    }
-  );
+  const useDeletemutation = (id: number, type: string) => {
+    const jwt = getCookie("access_token");
+    return useMutation({
+      mutationKey: ["delete-project", { id: id, type: type }],
+      mutationFn: async () => {
+        const url = `${process.env.BASEURL}/options/delete-project/${id}/${type}`;
+        const response = await fetch(url, {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${jwt}`,
+          },
+        });
+        if (!response.ok) {
+          throw new Error("Network response was not ok");
+        }
+        const data = await response.json();
+      },
+      onError: () => {
+        toast.error("Please cancel the running job first", {
+          action: {
+            label: "x",
+            onClick: () => {
+              null;
+            },
+          },
+        });
+      },
+    });
+  };
+
+  const useMutate = useDeletemutation(props.id, props.type);
 
   const queryClient = useQueryClient();
+
+  React.useEffect(() => {
+    if (screenSize.width === 0) {
+      setScreenSize(getCurrentDimension());
+    }
+  }, [screenSize]);
 
   return (
     <div>
@@ -83,8 +120,8 @@ export default function DeletePrompt(props: any) {
               <p className=" text-sm md:text-base ">
                 This action is permanent and cannot be undone.
               </p>
-              <p className=" text-sm md:text-base font-light break-words">
-                {title}
+              <p className=" text-sm md:text-base break-words font-semibold text-red-500">
+                All the files inside project will be deleted
               </p>
             </div>
             <div className="flex justify-end items-center p-2 space-x-5 mt-3">
@@ -101,13 +138,13 @@ export default function DeletePrompt(props: any) {
                 type="button"
                 className="rounded-md bg-purple-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-purple-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-600"
                 onClick={() => {
-                  mutate({ id: props.id, type: props.type });
+                  useMutate.mutate();
                   props.setDelPrompt(false);
                   checkCookies();
                   queryClient.invalidateQueries({
                     queryKey: ["/content/get_content"],
                   });
-                  window.location.reload();
+                  // window.location.reload();
                 }}
               >
                 Yes
@@ -116,6 +153,10 @@ export default function DeletePrompt(props: any) {
           </div>
         </div>
       </Modal>
+      <Toaster
+        position={screenSize.width <= 1030 ? "bottom-right" : "top-right"}
+        richColors
+      />
     </div>
   );
 }

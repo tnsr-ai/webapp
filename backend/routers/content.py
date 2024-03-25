@@ -30,6 +30,7 @@ from utils import (
     CONTENT_EXPIRE,
 )
 from utils import remove_key, logger, presigned_get, delete_r2_file
+from script_utils.util import bytes_to_mb
 
 
 router = APIRouter(
@@ -296,7 +297,7 @@ def get_content_list_celery(
                         models.Content.status == "completed",
                     )
                 )
-                .order_by(models.Content.created_at)
+                .order_by(models.Content.created_at.desc())
                 .limit(limit - 1)
                 .offset(offset)
                 .all()
@@ -337,7 +338,7 @@ def get_content_list_celery(
                         models.Content.status == "completed",
                     )
                 )
-                .order_by(models.Content.created_at)
+                .order_by(models.Content.created_at.desc())
                 .limit(limit)
                 .offset(offset - 1)
                 .all()
@@ -584,6 +585,11 @@ def delete_content_task(
             .first()
         )
         if main_file:
+            dashboard_user = (
+                db.query(models.Dashboard)
+                .filter(models.Dashboard.user_id == user_id)
+                .first()
+            )
             attached_content = (
                 db.query(models.Content)
                 .filter(models.Content.id_related == content_id)
@@ -591,7 +597,33 @@ def delete_content_task(
                 .filter(models.Content.content_type == content_type)
                 .all()
             )
+            attached_content.append(main_file)
             for all_content in attached_content:
+                file_size = "".join([x for x in all_content.size if x.isdigit() or x == "."])
+                if content_type == "video":
+                    dashboard_user.video_processed = int(dashboard_user.video_processed) - 1
+                    storageJSON = json.loads(dashboard_user.storage_json)
+                    storageJSON["video"] = float(storageJSON["video"]) - bytes_to_mb(
+                        float(file_size)
+                    )
+                    dashboard_user.storage_json = json.dumps(storageJSON)
+                elif content_type == "audio":
+                    dashboard_user.audio_processed = int(dashboard_user.audio_processed) - 1
+                    storageJSON = json.loads(dashboard_user.storage_json)
+                    storageJSON["audio"] = float(storageJSON["audio"]) - bytes_to_mb(
+                        float(file_size)
+                    )
+                    dashboard_user.storage_json = json.dumps(storageJSON)
+                elif content_type == "image":
+                    dashboard_user.image_processed = int(dashboard_user.image_processed) - 1
+                    storageJSON = json.loads(dashboard_user.storage_json)
+                    storageJSON["image"] = float(storageJSON["image"]) - bytes_to_mb(
+                        float(file_size)
+                    )
+                    dashboard_user.storage_json = json.dumps(storageJSON)
+                dashboard_user.storage_used = float(dashboard_user.storage_used) - float(
+                    file_size
+                )
                 if all_content.status == "processing":
                     return {"detail": "Failed", "data": "Running Job Found"}
                 related_tags = (
@@ -602,17 +634,17 @@ def delete_content_task(
                 for tag in related_tags:
                     db.delete(tag)
                 if all_content.status == "completed":
-                    delete_r2_file(all_content.link, CLOUDFLARE_CONTENT)
-                    delete_r2_file(all_content.thumbnail, CLOUDFLARE_METADATA)
+                    delete_r2_file.delay(all_content.link, CLOUDFLARE_CONTENT)
+                    delete_r2_file.delay(all_content.thumbnail, CLOUDFLARE_METADATA)
                 db.delete(all_content)
-            main_tag = (
-                db.query(models.ContentTags)
-                .filter(models.ContentTags.content_id == main_file.id)
-                .all()
-            )
-            for tag in main_tag:
-                db.delete(tag)
-            db.delete(main_file)
+            # main_tag = (
+            #     db.query(models.ContentTags)
+            #     .filter(models.ContentTags.content_id == main_file.id)
+            #     .all()
+            # )
+            # for tag in main_tag:
+            #     db.delete(tag)
+            # db.delete(main_file)
             db.commit()
             return {"detail": "Success", "data": "Project Deleted"}
         else:

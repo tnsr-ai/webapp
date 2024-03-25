@@ -119,12 +119,14 @@ def init_db():
             "transcription": "Transcription",
             "remove_background": "Remove Background",
         }
+        counter = 1
         for tag in all_tags:
             db.add(
                 models.Tags(
-                    tag=tag, readable=all_tags[tag], created_at=int(time.time())
+                    id = counter, tag=tag, readable=all_tags[tag], created_at=int(time.time())
                 )
             )
+            counter += 1
         db.commit()
     db.close()
 
