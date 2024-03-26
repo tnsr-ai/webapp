@@ -585,6 +585,13 @@ def delete_content_task(
             .first()
         )
         if main_file:
+            main_tag = (
+                db.query(models.ContentTags)
+                .filter(models.ContentTags.content_id == main_file.id)
+                .all()
+            )
+            if int(main_tag.tag_id) == 1:
+                return {"detail": "Failed", "data": "Main File can't be deleted"} 
             dashboard_user = (
                 db.query(models.Dashboard)
                 .filter(models.Dashboard.user_id == user_id)
@@ -624,7 +631,7 @@ def delete_content_task(
                 dashboard_user.storage_used = float(dashboard_user.storage_used) - float(
                     file_size
                 )
-                if all_content.status == "processing":
+                if str(all_content.status) == "processing":
                     return {"detail": "Failed", "data": "Running Job Found"}
                 related_tags = (
                     db.query(models.ContentTags)
@@ -633,18 +640,13 @@ def delete_content_task(
                 )
                 for tag in related_tags:
                     db.delete(tag)
-                if all_content.status == "completed":
+                if str(all_content.status) == "completed":
                     delete_r2_file.delay(all_content.link, CLOUDFLARE_CONTENT)
                     delete_r2_file.delay(all_content.thumbnail, CLOUDFLARE_METADATA)
                 db.delete(all_content)
-            # main_tag = (
-            #     db.query(models.ContentTags)
-            #     .filter(models.ContentTags.content_id == main_file.id)
-            #     .all()
-            # )
-            # for tag in main_tag:
-            #     db.delete(tag)
-            # db.delete(main_file)
+            for tag in main_tag:
+                db.delete(tag)
+            db.delete(main_file)
             db.commit()
             return {"detail": "Success", "data": "Project Deleted"}
         else:

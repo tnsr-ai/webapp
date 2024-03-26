@@ -138,7 +138,6 @@ async def delete_project(
             logger.info(f"Project deleted {id}")
             return {"detail": "Success", "data": "Project deleted"}
         else:
-            print(result["data"])
             logger.error(f"Failed to delete project {id}")
             raise HTTPException(status_code=400, detail=result["data"])
     except:

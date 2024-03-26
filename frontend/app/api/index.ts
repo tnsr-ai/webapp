@@ -261,7 +261,7 @@ export const useGetContent = (
   const jwt = getCookie("access_token");
   return useQuery({
     queryKey: [
-      contentEndpoints["getContent"],
+      "/content/get_content",
       { limit: limit, offset: offset, content_type: content_type },
     ],
     queryFn: async () => {
@@ -291,7 +291,7 @@ export const useListContent = (
   const jwt = getCookie("access_token");
   return useQuery({
     queryKey: [
-      contentEndpoints["contentList"],
+      "/content/get_content_list",
       {
         content_id: content_id,
         content_type: content_type,

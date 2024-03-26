@@ -13,7 +13,7 @@ function getCurrentDimension() {
   };
 }
 
-export default function DeletePrompt(props: any) {
+export default function ContentDeletePrompt(props: any) {
   const showToastRef = React.useRef(false);
   const [screenSize, setScreenSize] = React.useState({
     width: 0,
@@ -57,9 +57,9 @@ export default function DeletePrompt(props: any) {
   const useDeletemutation = (id: number, type: string) => {
     const jwt = getCookie("access_token");
     return useMutation({
-      mutationKey: ["delete-project", { id: id, type: type }],
+      mutationKey: ["delete-content", { id: id, type: type }],
       mutationFn: async () => {
-        const url = `${process.env.BASEURL}/options/delete-project/${id}/${type}`;
+        const url = `${process.env.BASEURL}/content/delete-content/${id}/${type}`;
         const response = await fetch(url, {
           method: "DELETE",
           headers: {
@@ -73,13 +73,13 @@ export default function DeletePrompt(props: any) {
       },
       onSuccess: () => {
         if (!showToastRef.current) {
-          toast.success("Project deleted");
+          toast.success("Content deleted");
           showToastRef.current = true;
         }
       },
       onError: () => {
         if (!showToastRef.current) {
-          toast.error("Please cancel the running job first");
+          toast.error("Error occured while deleting the file");
           showToastRef.current = true;
         }
       },
@@ -117,7 +117,7 @@ export default function DeletePrompt(props: any) {
             <div className="bg-white rounded-lg p-5">
               <div className="pl-2 md:w-[456px] flex justify-between">
                 <h1 className="font-semibold text-lg lg:text-lg xl:text-xl">
-                  Delete this project?
+                  Delete this file?
                 </h1>
                 <XMarkIcon
                   className="w-[26px] cursor-pointer"
@@ -129,9 +129,6 @@ export default function DeletePrompt(props: any) {
               <div className="p-2">
                 <p className=" text-sm md:text-base ">
                   This action is permanent and cannot be undone.
-                </p>
-                <p className=" text-sm md:text-base break-words font-semibold text-red-500">
-                  All the files inside project will be deleted
                 </p>
               </div>
               <div className="flex justify-end items-center p-2 space-x-5 mt-3">
@@ -152,7 +149,7 @@ export default function DeletePrompt(props: any) {
                     props.setDelPrompt(false);
                     checkCookies();
                     queryClient.invalidateQueries({
-                      queryKey: ["/content/get_content"],
+                      queryKey: ["/content/get_content_list"],
                     });
                     // window.location.reload();
                   }}

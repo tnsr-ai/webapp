@@ -21,7 +21,7 @@ import { infinity } from "ldrs";
 import { useJobsConfig } from "../../api/index";
 import Error from "../../components/ErrorTab";
 import { useQueryClient } from "@tanstack/react-query";
-import DeletePrompt from "../../content/contentCards/DeleteModal";
+import ContentDeletePrompt from "../../content/contentCards/ContentDeleteModal";
 
 function capitalizeWords(input: string): string[] {
   if (input.includes(",") === false) {
@@ -157,7 +157,7 @@ export function ContentComponent(props: any) {
     toast.loading("Downloading...", { id: toastID });
     const xhr = new XMLHttpRequest();
     xhr.responseType = "blob";
-    xhr.onprogress = function(event) {
+    xhr.onprogress = function (event) {
       if (event.lengthComputable) {
         const percentComplete = Math.round((event.loaded / event.total) * 100);
         toast.loading(`Downloading... ${percentComplete}%`, {
@@ -207,7 +207,7 @@ export function ContentComponent(props: any) {
       id: toastID,
     });
 
-    xhr.onreadystatechange = function() {
+    xhr.onreadystatechange = function () {
       if (xhr.readyState === 4) {
         if (xhr.status === 200) {
           toast.dismiss(toastID);
@@ -241,8 +241,9 @@ export function ContentComponent(props: any) {
           height={0}
           sizes="100vw"
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          className={`rounded-xl ${props.data.status === "processing" ? "opacity-45" : ""
-            }`}
+          className={`rounded-xl ${
+            props.data.status === "processing" ? "opacity-45" : ""
+          }`}
           onLoad={() => setIsLoaded(true)}
           onClick={() => {
             setVideoPlayer(true);
@@ -286,8 +287,9 @@ export function ContentComponent(props: any) {
           </h1>
         )}
         <div
-          className={`pt-0.5 space-x-2 ${props.data.status === "processing" ? "hidden" : "flex"
-            }`}
+          className={`pt-0.5 space-x-2 ${
+            props.data.status === "processing" ? "hidden" : "flex"
+          }`}
         >
           <p className="text-sm xl:text-lg whitespace-nowrap">
             {props.data.size}
@@ -343,8 +345,9 @@ export function ContentComponent(props: any) {
           height={0}
           sizes="100vw"
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          className={`rounded-xl ${props.data.status === "processing" ? "opacity-45" : ""
-            }`}
+          className={`rounded-xl ${
+            props.data.status === "processing" ? "opacity-45" : ""
+          }`}
           onLoad={() => setIsLoaded(true)}
           onClick={() => {
             setVideoPlayer(true);
@@ -388,8 +391,9 @@ export function ContentComponent(props: any) {
           </h1>
         )}
         <div
-          className={`pt-0.5 space-x-2 ${props.data.status === "processing" ? "hidden" : "flex"
-            }`}
+          className={`pt-0.5 space-x-2 ${
+            props.data.status === "processing" ? "hidden" : "flex"
+          }`}
         >
           <p className="text-sm xl:text-lg whitespace-nowrap">
             {props.data.size}
@@ -449,8 +453,9 @@ export function ContentComponent(props: any) {
               height={0}
               sizes="100vw"
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
-              className={`rounded-xl ${props.data.status === "processing" ? "opacity-45" : ""
-                }`}
+              className={`rounded-xl ${
+                props.data.status === "processing" ? "opacity-45" : ""
+              }`}
               onLoad={() => setIsLoaded(true)}
               onClick={() => {
                 setVideoPlayer(true);
@@ -467,8 +472,9 @@ export function ContentComponent(props: any) {
               height={0}
               sizes="100vw"
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
-              className={`rounded-xl ${props.data.status === "processing" ? "opacity-45" : ""
-                }`}
+              className={`rounded-xl ${
+                props.data.status === "processing" ? "opacity-45" : ""
+              }`}
               onLoad={() => setIsLoaded(true)}
               onClick={() => {
                 setVideoPlayer(true);
@@ -500,8 +506,9 @@ export function ContentComponent(props: any) {
           </h1>
         )}
         <div
-          className={`pt-0.5 space-x-2 ${props.data.status === "processing" ? "hidden" : "flex"
-            }`}
+          className={`pt-0.5 space-x-2 ${
+            props.data.status === "processing" ? "hidden" : "flex"
+          }`}
         >
           <p className="text-sm xl:text-lg whitespace-nowrap">
             {props.data.size}
@@ -542,7 +549,7 @@ export function ContentComponent(props: any) {
     </div>
   );
 
-  useEffect(() => { }), [screenSize];
+  useEffect(() => {}), [screenSize];
   return (
     <div id={props.data.id}>
       <div className="max-w-[1500px] m-auto">
@@ -632,7 +639,7 @@ export function ContentComponent(props: any) {
                             icon={<IconTrash size={14} />}
                             disabled={disableDelete}
                             onClick={() => {
-                              console.log("Delete Button")
+                              setDelPrompt(true);
                             }}
                           >
                             Delete
@@ -670,7 +677,7 @@ export function ContentComponent(props: any) {
               title={props.data.title}
               project={false}
             />
-            <DeletePrompt
+            <ContentDeletePrompt
               delPrompt={delPrompt}
               setDelPrompt={setDelPrompt}
               id={props.data.id}
