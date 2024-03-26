@@ -123,8 +123,10 @@ export function ImageFilter(props: any) {
     };
     mutate(jobData as any);
     props.setFilterShow(false);
-    await sleep(2000);
-    router.push("/jobs");
+    if (isSuccess) {
+      await sleep(2000);
+      router.push("/jobs");
+    }
   };
 
   useEffect(() => {

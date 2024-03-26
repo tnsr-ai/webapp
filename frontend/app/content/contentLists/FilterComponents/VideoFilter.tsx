@@ -125,19 +125,22 @@ export function VideoFilter(props: any) {
     return data;
   };
 
-  const { mutate } = useMutation((formData) => registerJob("video", formData), {
-    onSuccess: (data) => {
-      if (data["detail"] != "Success") {
-        toast.error(data["detail"]);
-        return;
-      } else {
-        toast.success("Job registered successfully");
-      }
-    },
-    onError: () => {
-      toast.error("Failed to register job");
-    },
-  });
+  const { mutate, isLoading, isSuccess } = useMutation(
+    (formData) => registerJob("video", formData),
+    {
+      onSuccess: (data) => {
+        if (data["detail"] != "Success") {
+          toast.error(data["detail"]);
+          return;
+        } else {
+          toast.success("Job registered successfully");
+        }
+      },
+      onError: () => {
+        toast.error("Failed to register job");
+      },
+    }
+  );
 
   const sendJob = async () => {
     const data = createJSON();
@@ -147,8 +150,10 @@ export function VideoFilter(props: any) {
     };
     mutate(jobData as any);
     props.setFilterShow(false);
-    await sleep(2000);
-    router.push("/jobs");
+    if (isSuccess) {
+      await sleep(2000);
+      router.push("/jobs");
+    }
   };
 
   useEffect(() => {
