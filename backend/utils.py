@@ -777,7 +777,7 @@ def forgotpassword_email(name: str, verification: str, receiver_email: str):
 
 
 def paymentinitiated_email(
-    name: str, payment_status: str, credits: int, amount: str, receiver_email: str
+    name: str, payment_status: str, credits: int, amount: str, receiver_email: str, invoice_id: int
 ):
     try:
         context = ssl.create_default_context()
@@ -797,6 +797,7 @@ def paymentinitiated_email(
             "payment_status": payment_status,
             "credits": credits,
             "amount": amount,
+            "payment_id": "#" + str(invoice_id + 1000)
         }
         all_img = []
         for image_path in all_image_path:
