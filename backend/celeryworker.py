@@ -18,6 +18,8 @@ REDIS_BACKEND = os.getenv("REDIS_BACKEND")
 REDIS_PORT = int(os.getenv("REDIS_PORT"))
 REDIS_HOST = str(os.getenv("REDIS_HOST"))
 
+redbeat_redis_url = REDIS_BROKER
+
 celeryapp = Celery(
     "celeryworker",
     broker=REDIS_BROKER,
