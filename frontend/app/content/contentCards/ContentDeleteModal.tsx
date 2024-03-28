@@ -151,7 +151,7 @@ export default function ContentDeletePrompt(props: any) {
                     queryClient.invalidateQueries({
                       queryKey: ["/content/get_content_list"],
                     });
-                    // window.location.reload();
+                    window.location.reload();
                   }}
                 >
                   Yes

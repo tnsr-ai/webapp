@@ -154,7 +154,7 @@ export default function DeletePrompt(props: any) {
                     queryClient.invalidateQueries({
                       queryKey: ["/content/get_content"],
                     });
-                    // window.location.reload();
+                    window.location.reload();
                   }}
                 >
                   Yes
