@@ -77,12 +77,14 @@ export function AudioFilter(props: any) {
   const { mutate, isLoading, isSuccess } = useMutation(
     (formData) => registerJob("audio", formData),
     {
-      onSuccess: (data) => {
+      onSuccess: async (data) => {
         if (data["detail"] != "Success") {
           toast.error(data["detail"]);
           return;
         } else {
           toast.success("Job registered successfully");
+          await sleep(2000);
+          router.push("/jobs");
         }
       },
       onError: (error: any) => {
@@ -99,10 +101,6 @@ export function AudioFilter(props: any) {
     };
     mutate(jobData as any);
     props.setFilterShow(false);
-    if (isSuccess) {
-      await sleep(2000);
-      router.push("/jobs");
-    }
   };
 
   useEffect(() => {
