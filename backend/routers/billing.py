@@ -265,7 +265,7 @@ def checkout_task(user_id: int, token: int, currency_code: str, db: Session):
         return {"detail": "Failed", "data": str(e)}
 
 
-@celeryapp.task(name="routers.billing.send_paymentInitiated_email_task")
+@celeryapp.task(name="routers.billing.send_paymentInitiated_email_task", acks_late=True)
 def send_paymentInitiated_email_task(
     user_id: int, payment_status: str, credits: int, amount: str, invoice_id: int
 ):
@@ -284,7 +284,7 @@ def send_paymentInitiated_email_task(
     return {"detail": "Success", "data": "Email sent successfully"}
 
 
-@celeryapp.task(name="routers.billing.send_paymentSuccessfull_email_task")
+@celeryapp.task(name="routers.billing.send_paymentSuccessfull_email_task", acks_late=True)
 def send_paymentSuccessfull_email_task(user_id: int, credits: int, amount: str):
     db = SessionLocal()
     user_data = db.query(models.Users).filter(models.Users.id == user_id).first()
@@ -299,7 +299,7 @@ def send_paymentSuccessfull_email_task(user_id: int, credits: int, amount: str):
     return {"detail": "Success", "data": "Email sent successfully"}
 
 
-@celeryapp.task(name="routers.billing.send_paymentFailed_email_task")
+@celeryapp.task(name="routers.billing.send_paymentFailed_email_task", acks_late=True)
 def send_paymentFailed_email_task(user_id: int, credits: int, amount: str):
     db = SessionLocal()
     user_data = db.query(models.Users).filter(models.Users.id == user_id).first()

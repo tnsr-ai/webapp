@@ -1083,7 +1083,7 @@ class EndpointFilter(logger.Filter):
 
 logger.getLogger("uvicorn.access").addFilter(EndpointFilter())
 
-@celeryapp.task(name="utils.delete_r2_object")
+@celeryapp.task(name="utils.delete_r2_object", acks_late=True)
 def delete_r2_file(file_key: str, bucket: str):
     try:
         r2_resource_ = boto3.resource(

@@ -1,4 +1,5 @@
 from celery import Celery
+from celery.signals import worker_init
 from dotenv import load_dotenv
 import os
 
@@ -27,8 +28,20 @@ celeryapp = Celery(
     include=["routers.auth", "routers.dashboard", "routers.upload", "routers.content", "routers.settings", "routers.jobs", "routers.options", "routers.machines", "routers.billing", "utils"],
     broker_connection_retry=False,
     broker_connection_retry_on_startup=True,
-    broker_connection_max_retries=10
+    broker_connection_max_retries=10,
+    worker_prefetch_multiplier=1,
+    task_ignore_result=True
 )
+
+def restore_all_unacknowledged_messages():
+    conn = celeryapp.connection(transport_options={'visibility_timeout': 0})
+    qos = conn.channel().qos
+    qos.restore_visible()
+    print('Unacknowledged messages restored')
+
+@worker_init.connect
+def configure(sender=None, conf=None, **kwargs):
+    restore_all_unacknowledged_messages()
 
 if __name__ == '__main__':
     celeryapp.start()

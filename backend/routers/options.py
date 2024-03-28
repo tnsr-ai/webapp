@@ -196,7 +196,7 @@ async def rename_project(
         raise HTTPException(status_code=400, detail="Failed to rename project")
 
 
-@celeryapp.task(name="routers.options.resend_email_task")
+@celeryapp.task(name="routers.options.resend_email_task", acks_late=True)
 def resend_email_task(user_id: int):
     db = SessionLocal()
     email_token = {

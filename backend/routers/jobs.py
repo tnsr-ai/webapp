@@ -406,31 +406,3 @@ async def filter_config(
         "tier_config": json.dumps(USER_TIER),
         "tier": user_details.user_tier,
     }
-
-@celeryapp.task(name="routers.jobs.schedule_job")
-def my_task(text, schedule_name):
-    for i in range(10):
-        time.sleep(1)
-        print(text)
-    try:
-        entry = RedBeatSchedulerEntry.from_key("redbeat:"+schedule_name, app=celeryapp)
-    except KeyError:
-        entry = None 
-
-    if entry:
-        entry.delete()
-
-@router.get("/job_test")
-async def job_test(db: Session = Depends(get_db)):
-    schedule_name = str(uuid4())
-    dt = datetime.utcnow()
-    interval = rrule(freq="MINUTELY", dtstart=dt)                              
-    entry = RedBeatSchedulerEntry(schedule_name, 
-        "routers.jobs.schedule_job", 
-        interval, 
-        args=["From the scheduler"], 
-        kwargs={"schedule_name": schedule_name},
-        app=celeryapp
-    )
-    entry.save()
-    return "Created the schedule!"
