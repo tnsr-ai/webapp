@@ -9,7 +9,7 @@ python = "^3.9"
 requests = "^2.31.0"
 fastapi = "0.95.2"
 uvicorn = {extras = ["standard"], version = "^0.22.0"}
-SQLAlchemy = "^2.0.15"
+SQLAlchemy = "2.0.29"
 alembic = "^1.11.1"
 pydantic = "^1.10.8"
 psycopg2-binary = "^2.9.6"

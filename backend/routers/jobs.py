@@ -151,7 +151,6 @@ def image_process_task(job_config: dict):
                 )
         if copy_content_url != content_url:
             result = reindex_image_job(job_config, content_url=content_url)
-            print(result)
     except Exception as e:
         return {"detail": "Failed", "data": str(e)}
 
