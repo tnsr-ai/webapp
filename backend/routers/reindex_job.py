@@ -41,6 +41,7 @@ def reindex_image_job(job_config, content_url):
         )
     job_data = (
         db.query(models.Jobs)
+        .join(models.Content, models.Jobs.content_id == models.Content.id)
         .filter(models.Jobs.job_id == job_config["job_id"])
         .filter(models.Content.user_id == job_config["user_id"])
         .first()
@@ -89,7 +90,6 @@ def reindex_image_job(job_config, content_url):
     create_thumbnail_image(thumbnail_path)
     thumbnail_upload(thumbnail_path)
     content_data.link = key_file
-    content_data.size = int(img_size)
     content_data.size = int(img_size)
     content_data.content_type = "image"
     content_data.resolution = f"{width}x{height}"
