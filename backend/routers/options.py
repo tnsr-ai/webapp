@@ -73,8 +73,13 @@ def delete_project_celery(content_id: int, content_type: str, user_id: int, db: 
             attached_content.append(main_file)
             for file in attached_content:
                 if str(file.status) == "processing":
-                    return {"detail": "Failed", "data": "Running Job Found"}
+                    return {"detail": "Failed", "data": "Please cancel the running job first"}
             for all_content in attached_content:
+                job_data = (
+                    db.query(models.Jobs)
+                    .filter(models.Jobs.content_id == all_content.id)
+                    .first()
+                )
                 try:
                     file_size = "".join([x for x in all_content.size if x.isdigit() or x == "."])
                 except:
@@ -113,13 +118,16 @@ def delete_project_celery(content_id: int, content_type: str, user_id: int, db: 
                 if str(all_content.status) == "completed":
                     delete_r2_file.delay(all_content.link, CLOUDFLARE_CONTENT)
                     delete_r2_file.delay(all_content.thumbnail, CLOUDFLARE_METADATA)
+                if job_data is not None:
+                    db.delete(job_data)
                 db.delete(all_content)
             db.commit()
             return {"detail": "Success", "data": "Project Deleted"}
         else:
             return {"detail": "Failed", "data": "Project not found"}
     except Exception as e:
-        return {"detail": "Failed", "data": str(e)}
+        logger.error(f"Failed to delete project {id} - {str(e)}")
+        return {"detail": "Failed", "data": "Failed to delete project"}
 
 
 @router.delete(
@@ -132,17 +140,14 @@ async def delete_project(
     db: Session = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    try:
-        result = delete_project_celery(id, content_type, current_user.user_id, db)
-        if result["detail"] == "Success":
-            logger.info(f"Project deleted {id}")
-            return {"detail": "Success", "data": "Project deleted"}
-        else:
-            logger.error(f"Failed to delete project {id}")
-            raise HTTPException(status_code=400, detail=result["data"])
-    except:
+    result = delete_project_celery(id, content_type, current_user.user_id, db)
+    if result["detail"] == "Success":
+        logger.info(f"Project deleted {id}")
+        return {"detail": "Success", "data": "Project deleted"}
+    else:
         logger.error(f"Failed to delete project {id}")
-        raise HTTPException(status_code=400, detail="Failed to delete project")
+        raise HTTPException(status_code=400, detail=result["data"])
+
 
 
 def rename_project_celery(

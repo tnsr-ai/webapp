@@ -17,7 +17,7 @@ import os
 import redis.asyncio as redis
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from utils import GOOGLE_SECRET, HOST, PORT, REDIS_HOST, APP_ENV
+from utils import GOOGLE_SECRET, HOST, PORT, REDIS_HOST, APP_ENV, REPLICATE_API_TOKEN
 from fastapi_limiter import FastAPILimiter
 from fastapi_limiter.depends import RateLimiter
 import time
@@ -134,6 +134,7 @@ def init_db():
 @app.on_event("startup")
 async def startup():
     init_db()
+    os.environ["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
     redis_connection = redis.from_url(
         f"redis://{REDIS_HOST}", encoding="utf-8", decode_responses=True
     )

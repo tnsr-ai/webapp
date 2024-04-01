@@ -590,11 +590,16 @@ def delete_content_task(
                 .filter(models.ContentTags.content_id == main_file.id)
                 .all()
             )
-            if int(main_tag.tag_id) == 1:
+            if int(main_tag[0].tag_id) == 1:
                 return {"detail": "Failed", "data": "Main File can't be deleted"} 
             dashboard_user = (
                 db.query(models.Dashboard)
                 .filter(models.Dashboard.user_id == user_id)
+                .first()
+            )
+            job_data = (
+                db.query(models.Jobs)
+                .filter(models.Jobs.content_id == content_id)
                 .first()
             )
             attached_content = (
@@ -646,6 +651,7 @@ def delete_content_task(
                 db.delete(all_content)
             for tag in main_tag:
                 db.delete(tag)
+            db.delete(job_data)
             db.delete(main_file)
             db.commit()
             return {"detail": "Success", "data": "Project Deleted"}

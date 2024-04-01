@@ -14,7 +14,6 @@ function getCurrentDimension() {
 }
 
 export default function DeletePrompt(props: any) {
-  const showToastRef = React.useRef(false);
   const [screenSize, setScreenSize] = React.useState({
     width: 0,
     height: 0,
@@ -67,21 +66,16 @@ export default function DeletePrompt(props: any) {
           },
         });
         if (!response.ok) {
-          throw new Error("Network response was not ok");
+          const error = await response.json();
+          throw new Error(error.detail || "Network response was not ok");
         }
-        const data = await response.json();
+        return response.json();
       },
       onSuccess: () => {
-        if (!showToastRef.current) {
-          toast.success("Project deleted");
-          showToastRef.current = true;
-        }
+        toast.success("Project deleted");
       },
-      onError: () => {
-        if (!showToastRef.current) {
-          toast.error("Please cancel the running job first");
-          showToastRef.current = true;
-        }
+      onError: (error: any) => {
+        toast.error(error.message);
       },
     });
   };
@@ -95,12 +89,6 @@ export default function DeletePrompt(props: any) {
       setScreenSize(getCurrentDimension());
     }
   }, [screenSize]);
-
-  React.useEffect(() => {
-    if (props.delPrompt) {
-      showToastRef.current = false;
-    }
-  }, [props.delPrompt]);
 
   return (
     <div>
@@ -147,14 +135,13 @@ export default function DeletePrompt(props: any) {
                 <button
                   type="button"
                   className="rounded-md bg-purple-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-purple-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-600"
-                  onClick={() => {
+                  onClick={async () => {
                     useMutate.mutate();
                     props.setDelPrompt(false);
                     checkCookies();
                     queryClient.invalidateQueries({
                       queryKey: ["/content/get_content"],
                     });
-                    window.location.reload();
                   }}
                 >
                   Yes

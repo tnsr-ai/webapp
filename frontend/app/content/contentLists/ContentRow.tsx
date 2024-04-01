@@ -11,7 +11,7 @@ import FilterModal from "./filterModal";
 import { Menu, Button, Tooltip, Skeleton, Loader } from "@mantine/core";
 import { IconBallpen, IconTrash, IconCloudDownload } from "@tabler/icons-react";
 import { tagColor } from "./TagsClass";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Toaster, toast } from "sonner";
@@ -45,6 +45,7 @@ function capitalizeWords(input: string): string[] {
 }
 
 export function ContentComponent(props: any) {
+  const showToastRef = useRef(false);
   const queryClient = useQueryClient();
   const jobsConfig = useJobsConfig();
   infinity.register();
@@ -99,9 +100,12 @@ export function ContentComponent(props: any) {
       const tier_width = tierConfig?.[userTier][pathname]["width"] || 1920;
       const tier_height = tierConfig?.[userTier][pathname]["height"] || 1080;
       if (width > tier_width || height > tier_height) {
-        toast.error(
-          `Content resolution exceeds ${capitalizeWords(userTier)} tier limit`
-        );
+        if (!showToastRef.current) {
+          toast.error(
+            `Content resolution exceeds ${capitalizeWords(userTier)} tier limit`
+          );
+          showToastRef.current = true;
+        }
         return;
       }
       setFilterShow(true);
@@ -113,9 +117,13 @@ export function ContentComponent(props: any) {
         tier_duration = Infinity;
       }
       if (duration > tier_duration) {
-        toast.error(
-          `Content duration exceeds ${capitalizeWords(userTier)} tier limit`
-        );
+        if (!showToastRef.current) {
+          toast.error(
+            `Content duration exceeds ${capitalizeWords(userTier)} tier limit`
+          );
+          showToastRef.current = true;
+        }
+
         return;
       }
       setFilterShow(true);
@@ -127,9 +135,12 @@ export function ContentComponent(props: any) {
       const tier_width = tierConfig?.[userTier][pathname]["width"] || 1920;
       const tier_height = tierConfig?.[userTier][pathname]["height"] || 1080;
       if (width > tier_width || height > tier_height) {
-        toast.error(
-          `Content resolution exceeds ${capitalizeWords(userTier)} tier limit`
-        );
+        if (!showToastRef.current) {
+          toast.error(
+            `Content resolution exceeds ${capitalizeWords(userTier)} tier limit`
+          );
+          showToastRef.current = true;
+        }
         return;
       }
       setFilterShow(true);
