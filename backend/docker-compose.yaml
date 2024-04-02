@@ -78,20 +78,21 @@ services:
 
   nginx:
     image: valian/docker-nginx-auto-ssl:latest
-    restart: on-failure
+    restart: always
     ports:
       - 80:80
       - 443:443
     volumes:
       - ssl_data:/etc/resty-auto-ssl
+      - ./nginx-conf:/etc/nginx/conf.d:ro
     environment:
       ALLOWED_DOMAINS: 'tnsr.ai'
       SITES: 'backend.tnsr.ai=fastapi-backend:8000;app.tnsr.ai=172.17.0.1:3000'
 
     depends_on:
-     - fastapi-backend
-     - grafana
-     - redis
+      - fastapi-backend
+      - grafana
+      - redis
 
   flower:
     image: mher/flower:2.0
@@ -102,7 +103,7 @@ services:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - FLOWER_PORT=5555
     ports:
-    - 5555:5555 
+      - 5555:5555
     depends_on:
       - redis
 
@@ -112,7 +113,7 @@ services:
     command: -config.file=/etc/loki/local-config.yaml
     ports:
       - "3100:3100"
-    
+
   prometheus:
     image: prom/prometheus:v2.49.0-rc.2
     restart: always
@@ -130,7 +131,13 @@ services:
   tempo:
     image: grafana/tempo:main-19f6a6c
     restart: always
-    command: [ "--target=all", "--storage.trace.backend=local", "--storage.trace.local.path=/var/tempo", "--auth.enabled=false" ]
+    command:
+      [
+        "--target=all",
+        "--storage.trace.backend=local",
+        "--storage.trace.local.path=/var/tempo",
+        "--auth.enabled=false"
+      ]
     ports:
       - "4317:4317"
       - "4318:4318"
