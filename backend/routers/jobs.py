@@ -22,13 +22,17 @@ from fastapi import (
 from fastapi_limiter.depends import RateLimiter
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+import copy
 
 import models
 from database import SessionLocal, engine
 from routers.auth import TokenData, get_current_user
 from routers.content import add_presigned_single, allTags
 from script_utils.util import *
-from utils import CLOUDFLARE_METADATA
+from utils import CLOUDFLARE_METADATA, CLOUDFLARE_CONTENT, IMAGE_MODELS
+from utils import remove_key, sql_dict, job_presigned_get
+import replicate
+from routers.reindex_job import reindex_image_job
 
 load_dotenv()
 
@@ -112,12 +116,43 @@ def create_content_entry(config: dict, db: Session, user_id: int):
         raise HTTPException(status_code=400, detail="Unable to create content entry")
 
 
-# @celeryapp.task(name="routers.jobs.process_workers_demo")
-# def process_media_celery():
-#     try:
-#         pass
-#     except Exception as e:
-#         return {"detail": "Failed", "data": str(e)}
+@celeryapp.task(name="routers.jobs.image_process")
+def image_process_task(job_config: dict):
+    try:
+        db = SessionLocal()
+        main_content = (
+            db.query(models.Content)
+            .filter(
+                models.Content.id == job_config["config_json"]["job_data"]["content_id"]
+            )
+            .filter(models.Content.user_id == job_config["user_id"])
+            .filter(models.Content.status == "completed")
+            .filter(models.Content.content_type == job_config["job_type"])
+            .first()
+        )
+        if main_content is None:
+            raise Exception("Content not found")
+        content_url = job_presigned_get(main_content.link, CLOUDFLARE_CONTENT)
+        copy_content_url = copy.copy(content_url)
+        for filter_ in job_config["config_json"]["job_data"]["filters"]:
+            model_config = job_config["config_json"]["job_data"]["filters"][filter_]
+            if model_config["active"]:
+                params = {
+                    "seed": 1999,
+                    "image": content_url
+                }
+                model_tag = IMAGE_MODELS[filter_]["model"]
+                if "params" in IMAGE_MODELS[filter_].keys():
+                    for x in IMAGE_MODELS[filter_]["params"]:
+                        params[x] = model_config[IMAGE_MODELS[filter_]["params"][x]]
+                content_url = replicate.run(
+                    model_tag ,
+                    input = params
+                )
+        if copy_content_url != content_url:
+            result = reindex_image_job(job_config, content_url=content_url)
+    except Exception as e:
+        return {"detail": "Failed", "data": str(e)}
 
 
 @router.post(
@@ -165,13 +200,23 @@ async def register_job(
         db.add(create_job_model)
         db.commit()
         db.refresh(create_job_model)
-        # celery_process = process_media_celery.delay()
-        # create_job_model.celery_id = celery_process.id
-        # db.commit()
+        job_config = sql_dict(create_job_model)
+        remove_key(job_config, "_sa_instance_state")
+        job_config['config_json'] = json.loads(job_config['config_json'])
+        if job_dict.job_type == "video":
+            # To Do
+            pass
+        if job_dict.job_type == "image":
+            celery_process = image_process_task.delay(job_config)
+            create_job_model.celery_id = celery_process.id
+            db.commit()
+        if job_dict.job_type == "audio":
+            # To Do
+            pass
         return {"detail": "Success", "data": "Job registered successfully"}
     except HTTPException as e:
         raise e
-    except Exception:
+    except Exception as e:
         raise HTTPException(status_code=400, detail="Unable to register job")
 
 

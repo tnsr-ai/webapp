@@ -96,7 +96,7 @@ export default function RenamePrompt(props: any) {
       setErrorText("");
       setBtnDisabled(true);
     }
-  }, [newtitle]);
+  }, [newtitle, btnDisabled]);
 
   return (
     <div>
@@ -156,7 +156,7 @@ export default function RenamePrompt(props: any) {
               </button>
               <button
                 type="button"
-                className="rounded-md bg-purple-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-purple-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-600"
+                className="rounded-md bg-purple-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-purple-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-600 disabled:text-gray-50 disabled:bg-purple-200"
                 onClick={() => {
                   mutate({
                     id: props.id,
@@ -169,6 +169,7 @@ export default function RenamePrompt(props: any) {
                   });
                   window.location.reload();
                 }}
+                disabled={btnDisabled}
               >
                 Rename
               </button>

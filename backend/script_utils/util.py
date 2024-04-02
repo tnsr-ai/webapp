@@ -251,6 +251,7 @@ def audio_image(url, file_ext, savepath):
         pad_inches=0,
         facecolor=fig.get_facecolor(),
         edgecolor="none",
+        dpi=200
     )
     plt.close()
     audio_data = is_audio_valid(temp_name)

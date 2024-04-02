@@ -33,13 +33,13 @@ function capitalizeFirstChar(word: string) {
 export function ImageFilter(props: any) {
   const userTier = props.filterConfig["user_tier"];
   const tierConfig = props.filterConfig["model_tier"][userTier];
-  const contentRes = props.filterConfig["content_data"]["resolution"].split("x")
+  const contentRes =
+    props.filterConfig["content_data"]["resolution"].split("x");
   const maxFilter = tierConfig["image"]["max_filters"] as number;
   const [userMsg, setUserMsg] = useState("");
-  const [enabledFilters, setEnabledFilters] = useState<string[]>([])
-  const [disabledFilters, setDisabledFilters] = useState<string[]>([])
-  const [pushToJob, setPushToJob] = useState(false);
-  const { push } = useRouter();
+  const [enabledFilters, setEnabledFilters] = useState<string[]>([]);
+  const [disabledFilters, setDisabledFilters] = useState<string[]>([]);
+  const router = useRouter();
   const video_models = [
     { id: 1, name: "SuperRes 2x v1 (Faster)" },
     { id: 2, name: "SuperRes 4x v1 (Faster)" },
@@ -101,13 +101,14 @@ export function ImageFilter(props: any) {
   const { mutate, isLoading, isSuccess } = useMutation(
     (formData) => registerJob("image", formData),
     {
-      onSuccess: (data) => {
+      onSuccess: async (data) => {
         if (data["detail"] != "Success") {
           toast.error(data["detail"]);
           return;
         } else {
-          setPushToJob(true);
           toast.success("Job registered successfully");
+          await sleep(2000);
+          router.push("/jobs");
         }
       },
       onError: (error: any) => {
@@ -124,10 +125,6 @@ export function ImageFilter(props: any) {
     };
     mutate(jobData as any);
     props.setFilterShow(false);
-    await sleep(2000);
-    if (pushToJob) {
-      push("/jobs");
-    }
   };
 
   useEffect(() => {
@@ -147,13 +144,15 @@ export function ImageFilter(props: any) {
 
     if (jobCount === 0) {
       setShowProcess(false);
-    }
-    else if (jobCount < maxFilter) {
+    } else if (jobCount < maxFilter) {
       setUserMsg("");
       setShowProcess(true);
-    }
-    else if (jobCount === maxFilter) {
-      setUserMsg(`Max ${maxFilter} filters allowed for ${capitalizeFirstChar(userTier)} tier`)
+    } else if (jobCount === maxFilter) {
+      setUserMsg(
+        `Max ${maxFilter} filters allowed for ${capitalizeFirstChar(
+          userTier
+        )} tier`
+      );
       setShowProcess(true);
     } else {
       setUserMsg("");

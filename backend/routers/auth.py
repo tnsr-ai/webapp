@@ -290,7 +290,7 @@ def create_user_task(
         return {"detail": "Failed", "data": str(e)}
 
 
-@celeryapp.task(name="routers.auth.send_email_task")
+@celeryapp.task(name="routers.auth.send_email_task", acks_late=True)
 def send_email_task(name: int, verification_link: str, receiver_email: str):
     email_status = registration_email(name, verification_link, receiver_email)
     if email_status == False:

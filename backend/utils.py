@@ -35,6 +35,7 @@ from starlette.responses import Response
 from starlette.routing import Match
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 from starlette.types import ASGIApp
+from celeryworker import celeryapp
 
 load_dotenv()
 APP_ENV = os.getenv("APP_ENV")
@@ -120,12 +121,6 @@ API_KEY = os.getenv("METRICS_API_KEY")
 
 # Replicate
 REPLICATE_API_TOKEN = os.getenv("REPLICATE_API_TOKEN")
-IMAGE_SUPERRES = os.getenv("IMAGE_SUPERRES")
-IMAGE_DEBLURRING = os.getenv("IMAGE_DEBLURRING")
-IMAGE_DENOISING = os.getenv("IMAGE_DENOISING")
-IMAGE_FACERESTORATION = os.getenv("IMAGE_FACERESTORATION")
-IMAGE_REMOVEBG = os.getenv("IMAGE_REMOVEBG")
-IMAGE_COLORIZER = os.getenv("IMAGE_COLORIZER")
 
 STORAGE_LIMITS = {
     "free": 2 * 1024**3,
@@ -156,7 +151,7 @@ USER_TIER = {
             "height": 1080,
             "max_filters": 2,
         },
-        "max_jobs": 1,
+        "max_jobs": 100,
     },
     "standard": {
         "video": {
@@ -622,6 +617,30 @@ REQUESTS_IN_PROGRESS = Gauge(
     ["method", "path", "app_name"],
 )
 
+IMAGE_MODELS = {
+    "super_resolution": {
+        "model": "amitalokbera/imagesr:7a766d216010219a837e5b60bc85c5391329d4f22ce259c228e1c96491cc1c45",
+        "params": {
+            "model_name": "model"
+        }
+    },
+    "image_deblurring": {
+        "model": "amitalokbera/imagedeblurring:d92cbbbc9ce8b92db53f7a63f51b7f5eb055c0cfbb5fee0dc50ff0916d882af0"
+    },
+    "image_denoising": {
+        "model": "amitalokbera/imagedenoising:a9948d49980973c800d11c5ed5e409422452a76b8ef2a532ce9cd0bed6355bd0"
+    },
+    "face_restoration": {
+        "model": "amitalokbera/facerestoration:a66c794e36d8b0c7c0b6a3e716e9235ff1d7f15cf540781241c4a129519d6475"
+    },
+    "bw_to_color": {
+        "model": "amitalokbera/imagecolorizer:0ed84ed3f6d18bad203b994d1827b5aad36ba5cbf1f0d7fdb729aeb31f1e30fe"
+    },
+    "remove_background": {
+        "model": "amitalokbera/removebg:b0e5380f3d45f7f6b424557f3feb69f0eaa57bc42ac6643fd2b399118b2f7bb5"
+    }
+}
+
 r2_client = boto3.client(
     "s3",
     aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
@@ -776,7 +795,7 @@ def forgotpassword_email(name: str, verification: str, receiver_email: str):
 
 
 def paymentinitiated_email(
-    name: str, payment_status: str, credits: int, amount: str, receiver_email: str
+    name: str, payment_status: str, credits: int, amount: str, receiver_email: str, invoice_id: int
 ):
     try:
         context = ssl.create_default_context()
@@ -796,6 +815,7 @@ def paymentinitiated_email(
             "payment_status": payment_status,
             "credits": credits,
             "amount": amount,
+            "payment_id": "#" + str(invoice_id + 1000)
         }
         all_img = []
         for image_path in all_image_path:
@@ -931,6 +951,31 @@ def presigned_get(key, bucket, rd):
         )
         rd.set(key, response)
         rd.expire(key, CONTENT_EXPIRE - 60)
+        return response
+    except Exception as e:
+        return None
+    
+def job_presigned_get(key, bucket):
+    try:
+        r2_client = boto3.client(
+            "s3",
+            aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
+            aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
+            endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
+            config=botocore.config.Config(
+                s3={"addressing_style": "path"},
+                signature_version="s3v4",
+                retries=dict(max_attempts=3),
+            ),
+        )
+        response = r2_client.generate_presigned_url(
+            ClientMethod="get_object",
+            Params={
+                "Bucket": bucket,
+                "Key": key,
+            },
+            ExpiresIn=259200,
+        )
         return response
     except Exception as e:
         return None
@@ -1081,12 +1126,17 @@ class EndpointFilter(logger.Filter):
 
 logger.getLogger("uvicorn.access").addFilter(EndpointFilter())
 
-
+@celeryapp.task(name="utils.delete_r2_object", acks_late=True)
 def delete_r2_file(file_key: str, bucket: str):
     try:
-        main_key = f"{bucket}/" + file_key
-        main_bucket = r2_resource.Bucket(bucket)
-        main_bucket.Object(main_key).delete()
+        r2_resource_ = boto3.resource(
+            "s3",
+            aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
+            aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
+            endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
+        )
+        bucket_ = r2_resource_.Bucket(bucket)
+        bucket_.Object(file_key).delete()
         return True
     except Exception as e:
         return False

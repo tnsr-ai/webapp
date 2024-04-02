@@ -259,14 +259,15 @@ def checkout_task(user_id: int, token: int, currency_code: str, db: Session):
             "detail": "Success",
             "data": {"session_id": checkout_session.id},
             "amount": f"{invoice_data['symbol'].strip()}{billing_amount['final_amt']}",
+            "id": create_invoice_model.id
         }
     except Exception as e:
         return {"detail": "Failed", "data": str(e)}
 
 
-@celeryapp.task(name="routers.billing.send_paymentInitiated_email_task")
+@celeryapp.task(name="routers.billing.send_paymentInitiated_email_task", acks_late=True)
 def send_paymentInitiated_email_task(
-    user_id: int, payment_status: str, credits: int, amount: str
+    user_id: int, payment_status: str, credits: int, amount: str, invoice_id: int
 ):
     db = SessionLocal()
     user_data = db.query(models.Users).filter(models.Users.id == user_id).first()
@@ -275,7 +276,7 @@ def send_paymentInitiated_email_task(
     name = user_data.first_name
     receiver_email = user_data.email
     email_status = paymentinitiated_email(
-        name, payment_status, credits, amount, receiver_email
+        name, payment_status, credits, amount, receiver_email, invoice_id
     )
     db.close()
     if email_status == False:
@@ -283,7 +284,7 @@ def send_paymentInitiated_email_task(
     return {"detail": "Success", "data": "Email sent successfully"}
 
 
-@celeryapp.task(name="routers.billing.send_paymentSuccessfull_email_task")
+@celeryapp.task(name="routers.billing.send_paymentSuccessfull_email_task", acks_late=True)
 def send_paymentSuccessfull_email_task(user_id: int, credits: int, amount: str):
     db = SessionLocal()
     user_data = db.query(models.Users).filter(models.Users.id == user_id).first()
@@ -298,7 +299,7 @@ def send_paymentSuccessfull_email_task(user_id: int, credits: int, amount: str):
     return {"detail": "Success", "data": "Email sent successfully"}
 
 
-@celeryapp.task(name="routers.billing.send_paymentFailed_email_task")
+@celeryapp.task(name="routers.billing.send_paymentFailed_email_task", acks_late=True)
 def send_paymentFailed_email_task(user_id: int, credits: int, amount: str):
     db = SessionLocal()
     user_data = db.query(models.Users).filter(models.Users.id == user_id).first()
@@ -330,7 +331,7 @@ async def create_checkout_session(
     if result["detail"] == "Success":
         logger.info(f"User {current_user.user_id} checkout initiated")
         send_paymentInitiated_email_task.delay(
-            current_user.user_id, "Initiated", checkout.token, result["amount"]
+            current_user.user_id, "Initiated", checkout.token, result["amount"], result["id"]
         )
         return result
     else:
