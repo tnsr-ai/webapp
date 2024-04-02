@@ -120,7 +120,10 @@ API_KEY_NAME = "access_token"
 API_KEY = os.getenv("METRICS_API_KEY")
 
 # Replicate
-REPLICATE_API_TOKEN = os.getenv("REPLICATE_API_TOKEN")
+try:
+    REPLICATE_API_TOKEN = os.getenv("REPLICATE_API_TOKEN")
+except:
+    REPLICATE_API_TOKEN = "REPLICATE_API_TOKEN"
 
 STORAGE_LIMITS = {
     "free": 2 * 1024**3,

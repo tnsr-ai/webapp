@@ -134,7 +134,8 @@ def init_db():
 @app.on_event("startup")
 async def startup():
     init_db()
-    os.environ["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
+    if APP_ENV == "production":
+        os.environ["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
     redis_connection = redis.from_url(
         f"redis://{REDIS_HOST}", encoding="utf-8", decode_responses=True
     )
