@@ -11,7 +11,7 @@ import FilterModal from "./filterModal";
 import { Menu, Button, Tooltip, Skeleton, Loader } from "@mantine/core";
 import { IconBallpen, IconTrash, IconCloudDownload } from "@tabler/icons-react";
 import { tagColor } from "./TagsClass";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Toaster, toast } from "sonner";
@@ -20,7 +20,8 @@ import RenamePrompt from "../../content/contentCards/RenameModal";
 import { infinity } from "ldrs";
 import { useJobsConfig } from "../../api/index";
 import Error from "../../components/ErrorTab";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
+import ContentDeletePrompt from "../../content/contentCards/ContentDeleteModal";
 
 function capitalizeWords(input: string): string[] {
   if (input.includes(",") === false) {
@@ -44,8 +45,8 @@ function capitalizeWords(input: string): string[] {
 }
 
 export function ContentComponent(props: any) {
+  const showToastRef = useRef(false);
   const queryClient = useQueryClient();
-  const pathName = usePathname().split("/")[1];
   const jobsConfig = useJobsConfig();
   infinity.register();
   const [jobsParams, setJobsParams] = useState(undefined);
@@ -56,6 +57,7 @@ export function ContentComponent(props: any) {
   const [filterShow, setFilterShow] = useState(false);
   const [disableDelete, setDisableDelete] = useState(false);
   const [renamePrompt, setRenamePrompt] = useState(false);
+  const [delPrompt, setDelPrompt] = useState(false);
   const tags = capitalizeWords(props.data.tags);
   let title;
   title = props.data["title"];
@@ -66,7 +68,7 @@ export function ContentComponent(props: any) {
   let fps = parseFloat(props.data.fps).toFixed(2);
   const [isLoaded, setIsLoaded] = useState(false);
   useEffect(() => {
-    if (props.data.tags === "original") {
+    if (props.data.tags === "Original") {
       setDisableDelete(true);
     }
   }, [disableDelete, props.data.tags]);
@@ -98,9 +100,12 @@ export function ContentComponent(props: any) {
       const tier_width = tierConfig?.[userTier][pathname]["width"] || 1920;
       const tier_height = tierConfig?.[userTier][pathname]["height"] || 1080;
       if (width > tier_width || height > tier_height) {
-        toast.error(
-          `Content resolution exceeds ${capitalizeWords(userTier)} tier limit`
-        );
+        if (!showToastRef.current) {
+          toast.error(
+            `Content resolution exceeds ${capitalizeWords(userTier)} tier limit`
+          );
+          showToastRef.current = true;
+        }
         return;
       }
       setFilterShow(true);
@@ -112,9 +117,13 @@ export function ContentComponent(props: any) {
         tier_duration = Infinity;
       }
       if (duration > tier_duration) {
-        toast.error(
-          `Content duration exceeds ${capitalizeWords(userTier)} tier limit`
-        );
+        if (!showToastRef.current) {
+          toast.error(
+            `Content duration exceeds ${capitalizeWords(userTier)} tier limit`
+          );
+          showToastRef.current = true;
+        }
+
         return;
       }
       setFilterShow(true);
@@ -126,9 +135,12 @@ export function ContentComponent(props: any) {
       const tier_width = tierConfig?.[userTier][pathname]["width"] || 1920;
       const tier_height = tierConfig?.[userTier][pathname]["height"] || 1080;
       if (width > tier_width || height > tier_height) {
-        toast.error(
-          `Content resolution exceeds ${capitalizeWords(userTier)} tier limit`
-        );
+        if (!showToastRef.current) {
+          toast.error(
+            `Content resolution exceeds ${capitalizeWords(userTier)} tier limit`
+          );
+          showToastRef.current = true;
+        }
         return;
       }
       setFilterShow(true);
@@ -611,36 +623,41 @@ export function ContentComponent(props: any) {
                 )}
                 <div className="flex justify-center items-center">
                   {props.data.status === "completed" && (
-                    <Menu shadow="md" width={200} withArrow>
-                      <Menu.Target>
-                        <Bars3Icon className="w-[28px] cursor-pointer" />
-                      </Menu.Target>
+                    <button>
+                      <Menu shadow="md" width={200} withArrow>
+                        <Menu.Target>
+                          <Bars3Icon className="w-[28px] cursor-pointer" />
+                        </Menu.Target>
 
-                      <Menu.Dropdown>
-                        <Menu.Item
-                          icon={<IconCloudDownload size={14} />}
-                          onClick={downloadContent}
-                        >
-                          Download
-                        </Menu.Item>
-                        <Menu.Item
-                          icon={<IconBallpen size={14} />}
-                          onClick={() => {
-                            setRenamePrompt(true);
-                          }}
-                        >
-                          Rename
-                        </Menu.Item>
+                        <Menu.Dropdown>
+                          <Menu.Item
+                            icon={<IconCloudDownload size={14} />}
+                            onClick={downloadContent}
+                          >
+                            Download
+                          </Menu.Item>
+                          <Menu.Item
+                            icon={<IconBallpen size={14} />}
+                            onClick={() => {
+                              setRenamePrompt(true);
+                            }}
+                          >
+                            Rename
+                          </Menu.Item>
 
-                        <Menu.Item
-                          color="red"
-                          icon={<IconTrash size={14} />}
-                          disabled={disableDelete}
-                        >
-                          Delete
-                        </Menu.Item>
-                      </Menu.Dropdown>
-                    </Menu>
+                          <Menu.Item
+                            color="red"
+                            icon={<IconTrash size={14} />}
+                            disabled={disableDelete}
+                            onClick={() => {
+                              setDelPrompt(true);
+                            }}
+                          >
+                            Delete
+                          </Menu.Item>
+                        </Menu.Dropdown>
+                      </Menu>
+                    </button>
                   )}
                   {props.data.status === "processing" && (
                     <div className=" cursor-pointer">
@@ -670,6 +687,13 @@ export function ContentComponent(props: any) {
               type={props.type}
               title={props.data.title}
               project={false}
+            />
+            <ContentDeletePrompt
+              delPrompt={delPrompt}
+              setDelPrompt={setDelPrompt}
+              id={props.data.id}
+              type={props.type}
+              title={props.data.title}
             />
           </div>
         )}

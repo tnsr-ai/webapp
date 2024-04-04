@@ -35,48 +35,39 @@ export default function Register() {
       error: null,
       data: null,
     });
-    if (inputs.email.length >= 2 && !isValidEmail(inputs.email)) {
-      setEmailAlert("block");
-    }
-    if (inputs.email.length >= 2 && isValidEmail(inputs.email)) {
-      setEmailAlert("hidden");
-    }
-    if (inputs.email.length === 0) {
-      setEmailAlert("hidden");
-    }
-    if (inputs.password.length >= 2 && !isStrongPassword(inputs.password)) {
+    const validFirstName = inputs.firstname.trim().length >= 1;
+    const validLastName = inputs.lastname.trim().length >= 1;
+    const validEmail = isValidEmail(inputs.email);
+    const validPassword = isStrongPassword(inputs.password);
+    const passwordsMatch = inputs.password === inputs.passwordConfirm;
+    const allFieldsValid =
+      validFirstName &&
+      validLastName &&
+      validEmail &&
+      validPassword &&
+      passwordsMatch;
+
+    setDisabled(!allFieldsValid);
+
+    if (inputs.password.length >= 1 && !validPassword) {
       setStrongPasswordAlert("block");
-    }
-    if (inputs.password.length >= 2 && isStrongPassword(inputs.password)) {
-      setStrongPasswordAlert("hidden");
-    }
-    if (inputs.password.length === 0) {
-      setStrongPasswordAlert("hidden");
-    }
-    if (
-      inputs.firstname &&
-      inputs.firstname.trim().length >= 1 &&
-      inputs.lastname &&
-      inputs.lastname.trim().length >= 1 &&
-      inputs.email &&
-      inputs.password.length >= 8 &&
-      inputs.passwordConfirm === inputs.password &&
-      strongPasswordAlert === "hidden" &&
-      isValidEmail(inputs.email)
-    ) {
-      setDisabled(false);
     } else {
-      setDisabled(true);
+      setStrongPasswordAlert("hidden");
     }
-    if (inputs.passwordConfirm.length >= 1) {
-      if (inputs.passwordConfirm !== inputs.password) {
-        setpasswordAlert("block");
-      }
-      if (inputs.passwordConfirm === inputs.password) {
-        setpasswordAlert("hidden");
-      }
+
+    if (inputs.passwordConfirm.length >= 1 && !passwordsMatch) {
+      setpasswordAlert("block");
+    } else {
+      setpasswordAlert("hidden");
+    }
+
+    if (inputs.email.length >= 1 && !validEmail) {
+      setEmailAlert("block");
+    } else {
+      setEmailAlert("hidden");
     }
   }, [inputs]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputs({
       ...inputs,

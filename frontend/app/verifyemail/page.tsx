@@ -1,21 +1,41 @@
 "use client";
 import GradientBar from "../components/GradientComponent/GradientBar";
-import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader } from "@mantine/core";
 import { useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
+
+function SearchBarFallback() {
+  return <>placeholder</>;
+}
+
+function GetParams({ setUID, setEToken }: { setUID: any; setEToken: any }) {
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const uid = searchParams.get("user_id");
+    const etoken = searchParams.get("email_token");
+
+    if (uid) setUID(uid);
+    if (etoken) setEToken(etoken);
+  }, [searchParams, setUID, setEToken]);
+
+  return null;
+}
 
 export default function Forgot() {
   const [counter, setCounter] = useState(5);
-  const searchParams = useSearchParams();
-  const user_id = searchParams.get("user_id");
-  const email_token = searchParams.get("email_token");
+  const [uid, setUID] = useState("");
+  const [etoken, setEToken] = useState("");
+
+  const user_id = uid;
+  const email_token = etoken;
   const [missing, setMissing] = useState(false);
 
   const queryClient = useQueryClient();
 
-  const { data, isLoading, isSuccess, isError, refetch } = useQuery({
+  const { data, isLoading, isSuccess, isError, refetch, error } = useQuery({
     queryKey: [
       `/auth/verifyemail/?user_id=${user_id}&email_token=${email_token}`,
     ],
@@ -24,38 +44,49 @@ export default function Forgot() {
       const response = await fetch(url, {
         method: "GET",
       });
+      if (!response.ok) {
+        throw new Error(`Email verification failed: ${response.status}`);
+      }
       const data = await response.json();
       return data;
     },
     enabled: false,
+    retry: false,
   });
 
   useEffect(() => {
     queryClient.invalidateQueries(["verifyUser"]);
-    if (user_id && email_token) {
+    if (uid && etoken) {
+      setMissing(false);
       refetch();
     } else {
       setMissing(true);
     }
+  }, [uid, etoken, refetch]);
+
+  useEffect(() => {
     const timer =
       counter > 0 && setInterval(() => setCounter(counter - 1), 1000);
     if (counter === 0) {
       window.location.href = "/";
     }
     return () => clearInterval(timer as any);
-  }, [counter, isLoading, isSuccess, isError, data, missing]);
+  }, [counter]);
 
   return (
     <div className="grid lg:grid-cols-[30%_70%] w-full">
-      <GradientBar />
+      <Suspense fallback={<SearchBarFallback />}>
+        <GradientBar />
+        <GetParams setUID={setUID} setEToken={setEToken} />
+      </Suspense>
       <div className="w-full h-full flex justify-center items-center">
         <div className="flex-col justify-center items-center text-black">
-          {isLoading === true && missing === false && (
+          {isLoading && (
             <div>
               <Loader color="grape" variant="dots" />
             </div>
           )}
-          {isSuccess === true && (
+          {!isLoading && isSuccess && (
             <div>
               <h1 className="text-center font-semibold text-2xl lg:text-3xl mt-[2em] lg:mt-0 tracking-tight">
                 Email Verified
@@ -65,7 +96,7 @@ export default function Forgot() {
               </p>
             </div>
           )}
-          {(missing === true || isError === true) && (
+          {!isLoading && isError && (
             <div>
               <h1 className="text-center font-semibold text-2xl lg:text-3xl mt-[2em] lg:mt-0 tracking-tight">
                 Email Not Verified

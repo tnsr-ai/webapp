@@ -300,13 +300,12 @@ def audio_indexing(response, thumbnail_path, db, indexdata, user_tier):
 def index_media_task(indexdata: dict, user_id: int, db: Session):
     try:
         user = db.query(models.Users).filter(models.Users.id == user_id).first()
-        user_data = db.query(models.Users).filter(models.Users.id == user_id).first()
         user_dashboard = (
             db.query(models.Dashboard)
             .filter(models.Dashboard.user_id == user_id)
             .first()
         )
-        if user_data.verified == False:
+        if user.verified == False:
             return {"detail": "Failed", "data": "User not verified"}
         info = indexdata["config"]
         indexfilename = info["indexfilename"]
@@ -436,7 +435,7 @@ async def file_index(
         )
         raise HTTPException(status_code=400, detail="Invalid content id")
     if indexdata.processtype not in ["video", "audio", "image"]:
-        delete_r2_file(content_data.link, CLOUDFLARE_CONTENT)
+        delete_r2_file.delay(content_data.link, CLOUDFLARE_CONTENT)
         all_tags = (
             db.query(models.ContentTags)
             .filter(models.ContentTags.content_id == content_data.id)
@@ -450,7 +449,7 @@ async def file_index(
         raise HTTPException(status_code=400, detail="Invalid processtype")
     result = index_media_task(indexdata.dict(), current_user.user_id, db)
     if result["detail"] == "Failed":
-        delete_r2_file(content_data.link, CLOUDFLARE_CONTENT)
+        delete_r2_file.delay(content_data.link, CLOUDFLARE_CONTENT)
         all_tags = (
             db.query(models.ContentTags)
             .filter(models.ContentTags.content_id == content_data.id)

@@ -9,3 +9,4 @@ nohup.out
 test.db
 *.ipynb
 Caddyfile
+logs

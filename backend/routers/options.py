@@ -45,116 +45,89 @@ def isAlpnanumeric(string):
 db_dependency = Annotated[Session, Depends(get_db)]
 
 
-def delete_project_celery(id: int, content_type: str, user_id: int, db: Session):
+def delete_project_celery(content_id: int, content_type: str, user_id: int, db: Session):
     try:
         if content_type not in ["video", "audio", "image"]:
             return {"detail": "Failed", "data": "Invalid type"}
-        dashboard_user = (
-            db.query(models.Dashboard)
-            .filter(models.Dashboard.user_id == user_id)
-            .first()
-        )
         main_file = (
             db.query(models.Content)
-            .filter(models.Content.id == id)
+            .filter(models.Content.id == content_id)
             .filter(models.Content.user_id == user_id)
             .filter(models.Content.content_type == content_type)
+            .filter(models.Content.status == "completed")
             .first()
         )
-        all_tags = (
-            db.query(models.ContentTags)
-            .filter(models.ContentTags.content_id == id)
-            .all()
-        )
-        if all_tags:
-            for tag in all_tags:
-                db.delete(tag)
-                db.commit()
         if main_file:
-            main_key = f"{CLOUDFLARE_CONTENT}/" + main_file.link
-            main_bucket = r2_resource.Bucket(CLOUDFLARE_CONTENT)
-            main_bucket.Object(main_key).delete()
-            thumbnail_key = f"{CLOUDFLARE_METADATA}/" + main_file.thumbnail
-            thumbnail_bucket = r2_resource.Bucket(CLOUDFLARE_METADATA)
-            thumbnail_bucket.Object(thumbnail_key).delete()
-            db.delete(main_file)
-            file_size = "".join([x for x in main_file.size if x.isdigit() or x == "."])
-            if content_type == "video":
-                dashboard_user.video_processed = int(dashboard_user.video_processed) - 1
-                storageJSON = json.loads(dashboard_user.storage_json)
-                storageJSON["video"] = float(storageJSON["video"]) - bytes_to_mb(
-                    float(file_size)
-                )
-                dashboard_user.storage_json = json.dumps(storageJSON)
-            elif content_type == "audio":
-                dashboard_user.audio_processed = int(dashboard_user.audio_processed) - 1
-                storageJSON = json.loads(dashboard_user.storage_json)
-                storageJSON["audio"] = float(storageJSON["audio"]) - bytes_to_mb(
-                    float(file_size)
-                )
-                dashboard_user.storage_json = json.dumps(storageJSON)
-            elif content_type == "image":
-                dashboard_user.image_processed = int(dashboard_user.image_processed) - 1
-                storageJSON = json.loads(dashboard_user.storage_json)
-                storageJSON["image"] = float(storageJSON["image"]) - bytes_to_mb(
-                    float(file_size)
-                )
-                dashboard_user.storage_json = json.dumps(storageJSON)
-            dashboard_user.storage_used = float(dashboard_user.storage_used) - float(
-                file_size
+            dashboard_user = (
+                db.query(models.Dashboard)
+                .filter(models.Dashboard.user_id == user_id)
+                .first()
             )
-            db.commit()
-        related_file = (
-            db.query(models.Content)
-            .filter(models.Content.id_related == id)
-            .filter(models.Content.user_id == user_id)
-            .filter(models.Content.content_type == content_type)
-            .all()
-        )
-        if related_file:
-            for file in related_file:
-                main_key = f"{CLOUDFLARE_CONTENT}/" + file.link
-                main_bucket = r2_resource.Bucket(CLOUDFLARE_CONTENT)
-                main_bucket.Object(main_key).delete()
-                thumbnail_key = f"{CLOUDFLARE_METADATA}/" + file.thumbnail
-                thumbnail_bucket = r2_resource.Bucket(CLOUDFLARE_METADATA)
-                thumbnail_bucket.Object(thumbnail_key).delete()
-                db.delete(file)
-                file_size = "".join([x for x in file.size if x.isdigit() or x == "."])
+            attached_content = (
+                db.query(models.Content)
+                .filter(models.Content.id_related == content_id)
+                .filter(models.Content.user_id == user_id)
+                .filter(models.Content.content_type == content_type)
+                .all()
+            )
+            attached_content.append(main_file)
+            for file in attached_content:
+                if str(file.status) == "processing":
+                    return {"detail": "Failed", "data": "Please cancel the running job first"}
+            for all_content in attached_content:
+                job_data = (
+                    db.query(models.Jobs)
+                    .filter(models.Jobs.content_id == all_content.id)
+                    .first()
+                )
+                try:
+                    file_size = "".join([x for x in all_content.size if x.isdigit() or x == "."])
+                except:
+                    file_size = 0
                 if content_type == "video":
-                    dashboard_user.video_processed = (
-                        int(dashboard_user.video_processed) - 1
-                    )
+                    dashboard_user.video_processed = int(dashboard_user.video_processed) - 1
                     storageJSON = json.loads(dashboard_user.storage_json)
                     storageJSON["video"] = float(storageJSON["video"]) - bytes_to_mb(
                         float(file_size)
                     )
                     dashboard_user.storage_json = json.dumps(storageJSON)
                 elif content_type == "audio":
-                    dashboard_user.audio_processed = (
-                        int(dashboard_user.audio_processed) - 1
-                    )
+                    dashboard_user.audio_processed = int(dashboard_user.audio_processed) - 1
                     storageJSON = json.loads(dashboard_user.storage_json)
                     storageJSON["audio"] = float(storageJSON["audio"]) - bytes_to_mb(
                         float(file_size)
                     )
                     dashboard_user.storage_json = json.dumps(storageJSON)
                 elif content_type == "image":
-                    dashboard_user.image_processed = (
-                        int(dashboard_user.image_processed) - 1
-                    )
+                    dashboard_user.image_processed = int(dashboard_user.image_processed) - 1
                     storageJSON = json.loads(dashboard_user.storage_json)
                     storageJSON["image"] = float(storageJSON["image"]) - bytes_to_mb(
                         float(file_size)
                     )
                     dashboard_user.storage_json = json.dumps(storageJSON)
-                dashboard_user.storage_used = float(
-                    dashboard_user.storage_used
-                ) - float(file_size)
-                db.commit()
-        return {"detail": "Success", "data": "Project deleted"}
+                dashboard_user.storage_used = float(dashboard_user.storage_used) - float(
+                    file_size
+                )
+                related_tags = (
+                    db.query(models.ContentTags)
+                    .filter(models.ContentTags.content_id == all_content.id)
+                    .all()
+                )
+                for tag in related_tags:
+                    db.delete(tag)
+                if str(all_content.status) == "completed":
+                    delete_r2_file.delay(all_content.link, CLOUDFLARE_CONTENT)
+                    delete_r2_file.delay(all_content.thumbnail, CLOUDFLARE_METADATA)
+                if job_data is not None:
+                    db.delete(job_data)
+                db.delete(all_content)
+            db.commit()
+            return {"detail": "Success", "data": "Project Deleted"}
+        else:
+            return {"detail": "Failed", "data": "Project not found"}
     except Exception as e:
-        return {"detail": "Failed", "data": str(e)}
+        logger.error(f"Failed to delete project {id} - {str(e)}")
+        return {"detail": "Failed", "data": "Failed to delete project"}
 
 
 @router.delete(
@@ -167,18 +140,14 @@ async def delete_project(
     db: Session = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    try:
-        result = delete_project_celery(id, content_type, current_user.user_id, db)
-        if result["detail"] == "Success":
-            logger.info(f"Project deleted {id}")
-            return {"detail": "Success", "data": "Project deleted"}
-        else:
-            print(result["data"])
-            logger.error(f"Failed to delete project {id}")
-            raise HTTPException(status_code=400, detail=result["data"])
-    except:
+    result = delete_project_celery(id, content_type, current_user.user_id, db)
+    if result["detail"] == "Success":
+        logger.info(f"Project deleted {id}")
+        return {"detail": "Success", "data": "Project deleted"}
+    else:
         logger.error(f"Failed to delete project {id}")
-        raise HTTPException(status_code=400, detail="Failed to delete project")
+        raise HTTPException(status_code=400, detail=result["data"])
+
 
 
 def rename_project_celery(
@@ -232,7 +201,7 @@ async def rename_project(
         raise HTTPException(status_code=400, detail="Failed to rename project")
 
 
-@celeryapp.task(name="routers.options.resend_email_task")
+@celeryapp.task(name="routers.options.resend_email_task", acks_late=True)
 def resend_email_task(user_id: int):
     db = SessionLocal()
     email_token = {

@@ -39,7 +39,7 @@ export default function ContentListRow(props: any) {
   const [prevPage, setPrevPage] = useState(pageJSON.prevPage);
   const [nextPage, setNextPage] = useState(pageJSON.nextPage);
 
-  const { data, isLoading, isSuccess, isError, refetch, isFetched } =
+  const { data, isLoading, isSuccess, isError, refetch, isFetched, error } =
     useListContent(content_id, pathname, limit, offset);
   const [btnClicked, setBtnClicked] = useState(false);
 
@@ -122,7 +122,6 @@ export default function ContentListRow(props: any) {
       tempTitle = tempTitle.substring(0, lastDot);
       setTitle(tempTitle);
     }
-
     var cookieJSON = {
       key: content_id,
       startPage: startPage,

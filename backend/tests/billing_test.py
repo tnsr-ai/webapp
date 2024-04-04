@@ -58,6 +58,7 @@ def test_checkout_success(client, create_test_db):
             "detail": "Success",
             "data": {"session_id": "1234"},
             "amount": "₹1000",
+            "id": 1
         }
         mock_send_paymentInitiated_email_task.return_value = {
             "detail": "Success",

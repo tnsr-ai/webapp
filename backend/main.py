@@ -17,7 +17,7 @@ import os
 import redis.asyncio as redis
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from utils import GOOGLE_SECRET, HOST, PORT, REDIS_HOST, APP_ENV
+from utils import GOOGLE_SECRET, HOST, PORT, REDIS_HOST, APP_ENV, REPLICATE_API_TOKEN
 from fastapi_limiter import FastAPILimiter
 from fastapi_limiter.depends import RateLimiter
 import time
@@ -71,6 +71,8 @@ origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://0.0.0.0:3000",
+    "https://app.tnsr.ai",
+    "http://app.tnsr.ai"
 ]
 
 app.add_middleware(
@@ -117,12 +119,14 @@ def init_db():
             "transcription": "Transcription",
             "remove_background": "Remove Background",
         }
+        counter = 1
         for tag in all_tags:
             db.add(
                 models.Tags(
-                    tag=tag, readable=all_tags[tag], created_at=int(time.time())
+                    id = counter, tag=tag, readable=all_tags[tag], created_at=int(time.time())
                 )
             )
+            counter += 1
         db.commit()
     db.close()
 
@@ -130,6 +134,8 @@ def init_db():
 @app.on_event("startup")
 async def startup():
     init_db()
+    if APP_ENV == "production":
+        os.environ["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
     redis_connection = redis.from_url(
         f"redis://{REDIS_HOST}", encoding="utf-8", decode_responses=True
     )

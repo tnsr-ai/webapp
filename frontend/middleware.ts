@@ -82,14 +82,18 @@ export async function middleware(request: NextRequest) {
         nextResponse.cookies.set("access_token", tokenData.access_token, {
           maxAge: 30 * 60,
           secure: true,
-          sameSite: "strict",
+          sameSite: "none",
           path: "/",
+          domain: ".tnsr.ai",
+          httpOnly: false,
         });
         nextResponse.cookies.set("refreshToken", tokenData.refreshToken, {
           maxAge: 30 * 60,
           secure: true,
-          sameSite: "strict",
+          sameSite: "none",
           path: "/",
+          domain: ".tnsr.ai",
+          httpOnly: false,
         });
         return nextResponse;
       }

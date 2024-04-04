@@ -163,6 +163,9 @@ export const setForgotPassword = async (formData: { email: string }) => {
     },
   });
   const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.message || "Error occurred");
+  }
   return data;
 };
 
@@ -179,7 +182,13 @@ export const setResetPassword = async (formData: {
       "Content-Type": "application/json",
     },
   });
+
   const data = await response.json();
+  if (!response.ok) {
+    throw new Error(
+      data.message || "An error occurred during the password reset."
+    );
+  }
   return data;
 };
 
@@ -252,7 +261,7 @@ export const useGetContent = (
   const jwt = getCookie("access_token");
   return useQuery({
     queryKey: [
-      contentEndpoints["getContent"],
+      "/content/get_content",
       { limit: limit, offset: offset, content_type: content_type },
     ],
     queryFn: async () => {
@@ -282,7 +291,7 @@ export const useListContent = (
   const jwt = getCookie("access_token");
   return useQuery({
     queryKey: [
-      contentEndpoints["contentList"],
+      "/content/get_content_list",
       {
         content_id: content_id,
         content_type: content_type,
@@ -305,6 +314,7 @@ export const useListContent = (
       const data = await response.json();
       return data;
     },
+    retry: 2,
   });
 };
 
