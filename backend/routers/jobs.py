@@ -80,6 +80,18 @@ def create_content_entry(config: dict, db: Session, user_id: int):
             .filter(models.Content.content_type == config["job_type"])
             .first()
         )
+        main_id = None
+        r_tags = []
+        if content_detail.id_related == None:
+            main_id = content_detail.id
+        else:
+            main_id = content_detail.id_related
+            related_tags = (
+                db.query(models.ContentTags)
+                .filter(models.ContentTags.content_id == content_detail.id)
+                .all()
+            )
+            r_tags = [x.tag_id for x in related_tags]
         if content_detail is None:
             raise HTTPException(status_code=400, detail="Content not found")
         if content_detail.user_id != user_id:
@@ -90,11 +102,12 @@ def create_content_entry(config: dict, db: Session, user_id: int):
             for x in config["config_json"]["job_data"]["filters"].keys()
             if config["config_json"]["job_data"]["filters"][x]["active"] == True
         ]
+        tags.extend(x for x in r_tags if x not in tags)
         create_content_model = models.Content(
             user_id=user_id,
             title=content_detail.title,
             thumbnail=content_detail.thumbnail,
-            id_related=content_detail.id,
+            id_related=main_id,
             created_at=int(time.time()),
             status="processing",
             content_type=content_detail.content_type,
@@ -112,7 +125,7 @@ def create_content_entry(config: dict, db: Session, user_id: int):
             )
             db.commit()
         return create_content_model.id
-    except Exception:
+    except Exception as e:
         raise HTTPException(status_code=400, detail="Unable to create content entry")
 
 
