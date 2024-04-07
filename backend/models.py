@@ -91,6 +91,7 @@ class Content(Base):
     created_at = Column(Integer, nullable=True)
     updated_at = Column(Integer, nullable=True)
     id_related = Column(Integer, nullable=True)
+    job_id = Column(Integer, nullable=True)
     status = Column(Enum(ContentStatus, name="content_status", create_type=False))
     content_type = Column(
         Enum("video", "audio", "image", name="content_type", create_type=False)

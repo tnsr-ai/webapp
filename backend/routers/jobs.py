@@ -3,10 +3,12 @@ import sys
 sys.path.append("..")
 
 import asyncio
+import base64
+import binascii
 import hashlib
 import json
 import time
-from typing import Annotated
+from typing import Annotated, Optional
 
 import hruid
 import redis
@@ -33,6 +35,7 @@ from utils import CLOUDFLARE_METADATA, CLOUDFLARE_CONTENT, IMAGE_MODELS
 from utils import remove_key, sql_dict, job_presigned_get
 import replicate
 from routers.reindex_job import reindex_image_job
+from routers.upload import generate_new_filename, get_user_data, get_user_dashboard
 
 load_dotenv()
 
@@ -67,8 +70,21 @@ class RegisterJobModel(BaseModel):
     job_type: str
     config_json: dict
 
+class UploadJobModel(BaseModel):
+    filename: str
+    md5: str
+    filesize: int
+    job_id: int
+    key: str
+    is_srt: Optional[bool] = False
 
-def create_content_entry(config: dict, db: Session, user_id: int):
+class IndexContent(BaseModel):
+    config: dict
+    processtype: str
+    md5: str
+    
+
+def create_content_entry(config: dict, db: Session, user_id: int, job_id: int):
     try:
         content_detail = (
             db.query(models.Content)
@@ -103,11 +119,35 @@ def create_content_entry(config: dict, db: Session, user_id: int):
             if config["config_json"]["job_data"]["filters"][x]["active"] == True
         ]
         tags.extend(x for x in r_tags if x not in tags)
+        if 14 in tags and config["job_type"] == "video":
+            create_srt_model = models.Content(
+                user_id=user_id,
+                title=str(content_detail.title).rsplit('.',1)[:-1][0] + ".srt",
+                thumbnail="srt_thumbnail.jpg",
+                id_related=main_id,
+                job_id = job_id,
+                created_at=int(time.time()),
+                status="processing",
+                content_type=content_detail.content_type,
+            )
+            db.add(create_srt_model)
+            db.commit()
+            db.refresh(create_srt_model)
+            db.add(
+                models.ContentTags(
+                    content_id=create_srt_model.id,
+                    tag_id=14,
+                    created_at=int(time.time()),
+                )
+            )
+            db.commit()
+            tags.remove(14)
         create_content_model = models.Content(
             user_id=user_id,
             title=content_detail.title,
             thumbnail=content_detail.thumbnail,
             id_related=main_id,
+            job_id = job_id,
             created_at=int(time.time()),
             status="processing",
             content_type=content_detail.content_type,
@@ -191,15 +231,12 @@ async def register_job(
             .count()
         )
         if running_jobs >= USER_TIER[user_details.user_tier]["max_jobs"]:
-            print("Max jobs reached")
             raise HTTPException(
                 status_code=400,
                 detail="You have reached your maximum active jobs. Please wait for them to complete.",
             )
-        content_id = create_content_entry(job_dict.dict(), db, current_user.user_id)
         create_job_model = models.Jobs(
             user_id=current_user.user_id,
-            content_id=content_id,
             job_name=phrase,
             job_type=job_dict.job_type,
             job_status="Processing",
@@ -213,6 +250,10 @@ async def register_job(
         db.add(create_job_model)
         db.commit()
         db.refresh(create_job_model)
+        content_id = create_content_entry(job_dict.dict(), db, current_user.user_id, create_job_model.job_id)
+        create_job_model.content_id = content_id
+        db.add(create_job_model)
+        db.commit()
         job_config = sql_dict(create_job_model)
         remove_key(job_config, "_sa_instance_state")
         job_config['config_json'] = json.loads(job_config['config_json'])
@@ -244,7 +285,8 @@ def fetch_content_data(content_id: int, table: str, db: Session):
         if content_detail is None:
             raise HTTPException(status_code=400, detail="Content not found")
         return content_detail
-    except Exception:
+    except Exception as e:
+        print(str(e))
         raise HTTPException(status_code=400, detail="Unable to fetch content data")
 
 
@@ -274,9 +316,11 @@ async def fetch_jobs(
         job_config["content"] = add_presigned_single(
             main_content["link"], CLOUDFLARE_CONTENT, None
         )
+        job_config["title"] = main_content["title"]
         job_config["job"] = json.loads(job_detail.config_json)
         return {"detail": "Success", "data": job_config}
     except Exception as e:
+        print(str(e))
         raise HTTPException(status_code=400, detail="Unable to fetch job details")
 
 
@@ -291,10 +335,12 @@ async def active_jobs(
         job_details = (
             db.query(models.Jobs)
             .filter(models.Jobs.user_id == current_user.user_id)
+            .filter(models.Jobs.job_status == "Processing")
             .all()
         )
         job_details = [x.__dict__ for x in job_details]
         remove_keys = [
+            "celery_id",
             "_sa_instance_state",
             "user_id",
             "config_json",
@@ -308,6 +354,7 @@ async def active_jobs(
                 x.pop(y)
         final_data = []
         for job in job_details:
+        # for job in job_details:
             content_detail = fetch_content_data(
                 job["content_id"], job["job_type"], db
             ).__dict__
@@ -319,12 +366,18 @@ async def active_jobs(
             if content_detail["status"].value != "processing":
                 continue
             job["content_detail"] = content_detail
-            tags_query = (
-                db.query(models.ContentTags)
-                .filter(models.ContentTags.content_id == int(job["content_id"]))
+            all_content_tags = []
+            related_content = (
+                db.query(models.Content)
+                .filter(models.Content.job_id == job["job_id"])
                 .all()
             )
-            all_content_tags = []
+            all_content_id = [x.id for x in related_content]
+            tags_query = (
+                db.query(models.ContentTags)
+                .filter(models.ContentTags.content_id.in_(all_content_id))
+                .all()
+            )
             for y in tags_query:
                 all_content_tags.append(y.tag_id)
             job["content_detail"]["tags"] = []
@@ -333,7 +386,8 @@ async def active_jobs(
             job["content_detail"]["tags"] = ",".join(job["content_detail"]["tags"])
             final_data.append(job)
         return {"detail": "Success", "data": final_data}
-    except Exception:
+    except Exception as e:
+        print(str(e))
         raise HTTPException(status_code=400, detail="Unable to fetch jobs")
 
 
@@ -461,3 +515,78 @@ async def filter_config(
         "tier_config": json.dumps(USER_TIER),
         "tier": user_details.user_tier,
     }
+
+
+def generate_signed_url_task(uploaddict: dict, db: Session):
+    try:
+        job_detail = (
+            db.query(models.Jobs)
+            .filter(models.Jobs.job_id == uploaddict["job_id"])
+            .filter(models.Jobs.key == uploaddict["key"])
+            .first()
+        ) 
+        if job_detail is None:
+            return {"detail": "Failed", "data": "Job Not Found"}
+        unique_filename = generate_new_filename(uploaddict["filename"])
+        key_file = f"{job_detail.user_id}/{unique_filename}"
+        content_md5 = base64.b64encode(binascii.unhexlify(uploaddict["md5"])).decode(
+            "utf-8"
+        )
+        response = r2_client.generate_presigned_url(
+            ClientMethod="put_object",
+            Params={
+                "Bucket": os.getenv("BUCKET_NAME", CLOUDFLARE_CONTENT),
+                "Key": key_file,
+                "ContentMD5": content_md5,
+            },
+            ExpiresIn=int(os.getenv("EXPIRE_TIME", 3600)),
+        )
+        update_contents = (
+            db.query(models.Content)
+            .filter(models.Content.id == job_detail.content_id)
+            .all()
+        )
+        update_content = None
+        if uploaddict["is_srt"]:
+            for x in update_contents:
+                if x.title.endswith(".srt"):
+                    update_content = x
+                    break 
+        else:
+            for x in update_content:
+                if x.title.endswith(".srt") == False:
+                    update_content = x
+                    break
+        print(uploaddict)
+        update_content.link = key_file
+        update_content.md5 = content_md5
+        update_content.updated_at = int(time.time())
+        db.add(update_content)
+        db.commit()
+        return {
+                "detail": "Success",
+                "data": {
+                    "signed_url": response,
+                    "filename": unique_filename,
+                    "md5": content_md5,
+                    "id": update_content.id,
+                },
+            }
+    except Exception as e:
+        return {"detail": "Failed", "data": "Filetype not supported"}
+
+@router.post(
+    "/generate_presigned_post",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(RateLimiter(times=20, seconds=60))],
+)
+async def generate_url(
+    upload: UploadJobModel,
+    db: Session = Depends(get_db),
+):
+    result = generate_signed_url_task(upload.dict(), db)
+    if result["detail"] == "Failed":
+        if "Storage limit exceeded" in result["data"]:
+            raise HTTPException(status_code=507, detail=result["data"])
+        raise HTTPException(status_code=400, detail=result["data"])
+    return result
