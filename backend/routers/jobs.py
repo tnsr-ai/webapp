@@ -543,7 +543,7 @@ def generate_signed_url_task(uploaddict: dict, db: Session):
         )
         update_contents = (
             db.query(models.Content)
-            .filter(models.Content.id == job_detail.content_id)
+            .filter(models.Content.job_id == job_detail.job_id)
             .all()
         )
         update_content = None
@@ -553,11 +553,10 @@ def generate_signed_url_task(uploaddict: dict, db: Session):
                     update_content = x
                     break 
         else:
-            for x in update_content:
+            for x in update_contents:
                 if x.title.endswith(".srt") == False:
                     update_content = x
                     break
-        print(uploaddict)
         update_content.link = key_file
         update_content.md5 = content_md5
         update_content.updated_at = int(time.time())
