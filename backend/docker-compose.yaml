@@ -19,8 +19,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USERNAME}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DATABASE}
-    ports:
-      - "5432:5432"
     volumes:
       - postgres:/var/lib/postgresql/data
 
@@ -43,10 +41,10 @@ services:
   redis:
     image: redis
     restart: always
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
+    ports:
+      - 6379:6379
     command: redis-server --appendonly yes
 
   fastapi-backend:
@@ -76,23 +74,23 @@ services:
     build:
       dockerfile: celery.dockerfile
 
-  nginx:
-    image: valian/docker-nginx-auto-ssl:latest
+  caddy-service:
+    image: caddy:2.7.6-alpine
     restart: always
     ports:
-      - 80:80
-      - 443:443
+      - "80:80"
+      - "443:443"
     volumes:
-      - ssl_data:/etc/resty-auto-ssl
-      - ./nginx-conf:/etc/nginx/conf.d:ro
-    environment:
-      ALLOWED_DOMAINS: 'tnsr.ai'
-      SITES: 'backend.tnsr.ai=fastapi-backend:8000;app.tnsr.ai=172.17.0.1:3000'
-
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
     depends_on:
       - fastapi-backend
       - grafana
       - redis
+    networks:
+      - default
+      - shared-network
 
   flower:
     image: mher/flower:2.0
@@ -138,9 +136,6 @@ services:
         "--storage.trace.local.path=/var/tempo",
         "--auth.enabled=false"
       ]
-    ports:
-      - "4317:4317"
-      - "4318:4318"
     depends_on:
       - loki
     logging: *default-logging
@@ -148,8 +143,6 @@ services:
   grafana:
     image: grafana/grafana:9.5.15-ubuntu
     restart: always
-    ports:
-      - "4000:3000"
     volumes:
       - ./etc/grafana/:/etc/grafana/provisioning/datasources
       - ./etc/dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml
@@ -168,3 +161,10 @@ volumes:
   caddy_config:
   ssl_data:
   redis_data:
+
+
+networks:
+  default:
+    driver: bridge
+  shared-network:
+    external: true
