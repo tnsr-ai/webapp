@@ -23,6 +23,7 @@ from urllib.request import urlopen
 from urllib.parse import urljoin, urlparse
 from utils import *
 import decimal
+from boto3.s3.transfer import TransferConfig
 
 
 def is_video_valid(file_path):
@@ -84,22 +85,22 @@ def lower_resolution(image_file):
                 image, (new_width, new_height), interpolation=cv2.INTER_AREA
             )
             cv2.imwrite(image_file, resized_image)
-        else:
-            print("Image size is already within 720p resolution.")
     except FileNotFoundError:
         raise FileNotFoundError("Image file not found.")
 
+metadata_s3 = boto3.client(
+    "s3",
+    aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
+    aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
+    endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
+    config=boto3.session.Config(signature_version="s3v4"),
+)
 
-def thumbnail_upload(filepath):
+def thumbnail_upload(filepath, s3 = metadata_s3):
     try:
-        s3 = boto3.client(
-            "s3",
-            aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
-            aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
-            endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
-            config=boto3.session.Config(signature_version="s3v4"),
-        )
-        s3.upload_file(filepath, CLOUDFLARE_METADATA, filepath)
+        GB = 1024 ** 3
+        config = TransferConfig(multipart_threshold=5 * GB, max_concurrency=5)
+        s3.upload_file(filepath, CLOUDFLARE_METADATA, filepath, Config=config)
     except FileNotFoundError:
         raise FileNotFoundError("Image file not found.")
     except Exception as e:

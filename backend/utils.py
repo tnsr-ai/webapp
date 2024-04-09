@@ -593,6 +593,20 @@ MODELS_CONFIG = {
     ],
 }
 
+REDIS_KEY = {
+    "Job Initiated": "job_initiated",
+    "Super Resolution": "super_resolution",
+    "Video Deblurring": "video_deblurring",
+    "Video Denoising": "video_denoising",
+    "Face Restoration": "face_restoration",
+    "B/W to Color": "bw_to_color",
+    "Slow Motion": "slow_motion",
+    "Video Interpolation": "video_interpolation",
+    "Video Deinterlacing": "video_deinterlacing",
+    "Speech Enhancement": "speech_enhancement",
+    "Transcription": "transcription"
+}
+
 INFO = Gauge("fastapi_app_info", "FastAPI application information.", ["app_name"])
 REQUESTS = Counter(
     "fastapi_requests_total",
