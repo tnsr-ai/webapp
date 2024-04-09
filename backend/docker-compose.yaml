@@ -88,9 +88,6 @@ services:
       - fastapi-backend
       - grafana
       - redis
-    networks:
-      - default
-      - shared-network
 
   flower:
     image: mher/flower:2.0
@@ -161,10 +158,3 @@ volumes:
   caddy_config:
   ssl_data:
   redis_data:
-
-
-networks:
-  default:
-    driver: bridge
-  shared-network:
-    external: true
