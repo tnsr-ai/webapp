@@ -35,7 +35,7 @@ from utils import CLOUDFLARE_METADATA, CLOUDFLARE_CONTENT, IMAGE_MODELS
 from utils import remove_key, sql_dict, job_presigned_get
 import replicate
 from routers.reindex_job import reindex_image_job
-from routers.upload import generate_new_filename, get_user_data, get_user_dashboard
+from routers.upload import generate_new_filename, index_media_task
 
 load_dotenv()
 
@@ -82,6 +82,8 @@ class IndexContent(BaseModel):
     config: dict
     processtype: str
     md5: str
+    key: str
+    job_id: int
     
 
 def create_content_entry(config: dict, db: Session, user_id: int, job_id: int):
@@ -354,7 +356,6 @@ async def active_jobs(
                 x.pop(y)
         final_data = []
         for job in job_details:
-        # for job in job_details:
             content_detail = fetch_content_data(
                 job["content_id"], job["job_type"], db
             ).__dict__
@@ -387,7 +388,6 @@ async def active_jobs(
             final_data.append(job)
         return {"detail": "Success", "data": final_data}
     except Exception as e:
-        print(str(e))
         raise HTTPException(status_code=400, detail="Unable to fetch jobs")
 
 
@@ -589,3 +589,63 @@ async def generate_url(
             raise HTTPException(status_code=507, detail=result["data"])
         raise HTTPException(status_code=400, detail=result["data"])
     return result
+
+@router.post(
+    "/reindexfile",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(RateLimiter(times=20, seconds=60))],
+)
+async def file_index(
+    indexdata: IndexContent,
+    db: Session = Depends(get_db),
+):
+    job_info = (
+        db.query(models.Jobs)
+        .filter(models.Jobs.job_id == indexdata.job_id)
+        .filter(models.Jobs.key == indexdata.key)
+        .first()
+    )
+    if job_info is None:
+        raise HTTPException(status_code=400, detail="Job not found")
+    content_data = (
+        db.query(models.Content)
+        .filter(models.Content.id == indexdata.config["id"])
+        .filter(models.Content.user_id == job_info.user_id)
+        .first()
+    )
+    if content_data is None:
+        logger.error(
+            f"Invalid content id in job reindex - {indexdata.config['id']}"
+        )
+        raise HTTPException(status_code=400, detail="Invalid content id")
+    if indexdata.processtype not in ["video", "audio", "subtitle"]:
+        delete_r2_file.delay(content_data.link, CLOUDFLARE_CONTENT)
+        all_tags = (
+            db.query(models.ContentTags)
+            .filter(models.ContentTags.content_id == content_data.id)
+            .all()
+        )
+        for tag in all_tags:
+            db.delete(tag)
+        db.delete(job_info)
+        db.delete(content_data)
+        db.commit()
+        logger.error(f"Invalid processtype for in job reindex")
+        raise HTTPException(status_code=400, detail="Invalid processtype")
+    result = index_media_task(indexdata.dict(), job_info.user_id, db, True)
+    if result["detail"] == "Failed":
+        delete_r2_file.delay(content_data.link, CLOUDFLARE_CONTENT)
+        all_tags = (
+            db.query(models.ContentTags)
+            .filter(models.ContentTags.content_id == content_data.id)
+            .all()
+        )
+        for tag in all_tags:
+            db.delete(tag)
+        db.delete(job_info)
+        db.delete(content_data)
+        db.commit()
+        logger.error(f"Failed to reindex file for {job_info.user_id}")
+        raise HTTPException(status_code=400, detail=result["data"])
+    logger.info(f"File indexed for {job_info.user_id}")
+    return HTTPException(status_code=201, detail="File indexed")

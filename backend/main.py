@@ -17,11 +17,11 @@ import os
 import redis.asyncio as redis
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from utils import GOOGLE_SECRET, HOST, PORT, REDIS_HOST, APP_ENV, REPLICATE_API_TOKEN
+from utils import GOOGLE_SECRET, HOST, PORT, REDIS_HOST, APP_ENV, REPLICATE_API_TOKEN, CLOUDFLARE_METADATA
 from fastapi_limiter import FastAPILimiter
 from fastapi_limiter.depends import RateLimiter
 import time
-from utils import PrometheusMiddleware, metrics, logger
+from utils import PrometheusMiddleware, metrics, logger, r2_client
 from dotenv import load_dotenv
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
@@ -33,6 +33,8 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from prometheus_client import multiprocess
 from prometheus_client import generate_latest, CollectorRegistry, CONTENT_TYPE_LATEST, Gauge, Counter, make_asgi_app
 import logging
+import boto3
+from botocore.exceptions import ClientError
 
 load_dotenv()
 
@@ -134,6 +136,10 @@ def init_db():
 @app.on_event("startup")
 async def startup():
     init_db()
+    try:
+        r2_client.head_object(Bucket=CLOUDFLARE_METADATA, Key="srt_thumbnail.jpg")
+    except:
+        r2_client.upload_file("./script_utils/srt_thumbnail.jpg", CLOUDFLARE_METADATA, "srt_thumbnail.jpg")
     if APP_ENV == "production":
         os.environ["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
     redis_connection = redis.from_url(
