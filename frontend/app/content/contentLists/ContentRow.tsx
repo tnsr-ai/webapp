@@ -66,6 +66,11 @@ export function ContentComponent(props: any) {
     title = title.substring(0, 15) + "...";
   }
   let fps = parseFloat(props.data.fps).toFixed(2);
+  let isSRT = false;
+
+  if (fps === "NaN" && props.data.content_type === "video") {
+    isSRT = true;
+  }
   const [isLoaded, setIsLoaded] = useState(false);
   useEffect(() => {
     if (props.data.tags === "Original") {
@@ -305,7 +310,9 @@ export function ContentComponent(props: any) {
           <p className="text-sm xl:text-lg whitespace-nowrap">
             {props.data.size}
           </p>
-          <p className="whitespace-nowrap text-sm xl:text-lg">{fps} FPS</p>
+          {isSRT === false && (
+            <p className="whitespace-nowrap text-sm xl:text-lg">{fps} FPS</p>
+          )}
         </div>
         <div className="flex-row space-y-[1px] pt-0.5">
           <p className="whitespace-nowrap text-sm xl:text-lg">
@@ -599,7 +606,7 @@ export function ContentComponent(props: any) {
                 id="process"
                 className="col-span-6 md:col-span-2 row-span-1 flex space-x-3 justify-center items-center"
               >
-                {props.data.status === "completed" && (
+                {props.data.status === "completed" && isSRT === false && (
                   <div className="flex justify-center items-center">
                     <Button
                       variant="outline"

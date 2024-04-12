@@ -140,8 +140,10 @@ async def startup():
         os.environ["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
         try:
             r2_client.head_object(Bucket=CLOUDFLARE_METADATA, Key="srt_thumbnail.jpg")
+            r2_client.head_object(Bucket=CLOUDFLARE_METADATA, Key="stem.jpg")
         except:
             r2_client.upload_file("./script_utils/srt_thumbnail.jpg", CLOUDFLARE_METADATA, "srt_thumbnail.jpg")
+            r2_client.upload_file("./script_utils/stem.jpg", CLOUDFLARE_METADATA, "srt_thumbnail.jpg")
     redis_connection = redis.from_url(
         f"redis://{REDIS_HOST}", encoding="utf-8", decode_responses=True
     )
