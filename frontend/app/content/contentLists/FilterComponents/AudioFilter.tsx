@@ -141,17 +141,7 @@ export function AudioFilter(props: any) {
   }, [musicsep, se, transcription, maxFilter]);
 
   return (
-    <div>
-      <div id="stem_seperation" className="">
-        <div className="m-3">
-          <SwitchComponent
-            value={musicsep}
-            setValue={setMusicsep}
-            name="Stem Separation"
-            disabled={filterDisableCheck("stem_seperation")}
-          />
-        </div>
-      </div>
+    <div className="overflow-y-auto">
       <div id="speech_enhancement">
         <div className="m-3">
           <SwitchComponent
@@ -170,6 +160,19 @@ export function AudioFilter(props: any) {
             name="Transcription"
             disabled={filterDisableCheck("transcription")}
           />
+        </div>
+        <div id="stem_seperation" className="w-full">
+          <div className="m-3">
+            <SwitchComponent
+              value={musicsep}
+              setValue={setMusicsep}
+              name="Audio Separation"
+              disabled={filterDisableCheck("stem_seperation")}
+            />
+            {musicsep === true && (
+              <p className="font-semibold pl-[52px]">Output will be zipped*</p>
+            )}
+          </div>
         </div>
       </div>
       {showProcess === true && (

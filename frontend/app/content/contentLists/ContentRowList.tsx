@@ -84,7 +84,7 @@ export default function ContentListRow(props: any) {
   const queryClient = useQueryClient();
 
   async function refetchAndSetTotal() {
-    queryClient.invalidateQueries({ queryKey: ["/content/get_content_list"] });
+    queryClient.refetchQueries({ queryKey: ["/content/get_content_list"] });
     const refectedData = await refetch();
     if (isSuccess === true) {
       setTotalPage(refectedData.data.total);

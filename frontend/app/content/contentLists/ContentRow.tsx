@@ -262,17 +262,28 @@ export function ContentComponent(props: any) {
           }`}
           onLoad={() => setIsLoaded(true)}
           onClick={() => {
-            setVideoPlayer(true);
+            if (
+              props.data.tags != "Transcription" &&
+              props.data.status === "completed"
+            ) {
+              setVideoPlayer(true);
+            }
           }}
         />
-        {props.data.status === "completed" && (
-          <PlayIcon
-            className="w-10 lg:w-12 fill-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-            onClick={() => {
-              setVideoPlayer(true);
-            }}
-          />
-        )}
+        {props.data.status === "completed" &&
+          props.data.tags != "Transcription" && (
+            <PlayIcon
+              className="w-10 lg:w-12 fill-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+              onClick={() => {
+                if (
+                  props.data.tags != "Transcription" &&
+                  props.data.status === "completed"
+                ) {
+                  setVideoPlayer(true);
+                }
+              }}
+            />
+          )}
         {props.data.status === "processing" && (
           <BeakerIcon className="w-10 lg:w-12 fill-slate-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
         )}
@@ -368,14 +379,18 @@ export function ContentComponent(props: any) {
           }`}
           onLoad={() => setIsLoaded(true)}
           onClick={() => {
-            setVideoPlayer(true);
+            if (props.data.status === "completed") {
+              setVideoPlayer(true);
+            }
           }}
         />
         {props.data.status === "completed" && (
           <PlayIcon
             className="w-10 lg:w-12 fill-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
             onClick={() => {
-              setVideoPlayer(true);
+              if (props.data.status === "completed") {
+                setVideoPlayer(true);
+              }
             }}
           />
         )}
@@ -476,7 +491,9 @@ export function ContentComponent(props: any) {
               }`}
               onLoad={() => setIsLoaded(true)}
               onClick={() => {
-                setVideoPlayer(true);
+                if (props.data.status === "completed") {
+                  setVideoPlayer(true);
+                }
               }}
             />
           </Link>
@@ -495,7 +512,9 @@ export function ContentComponent(props: any) {
               }`}
               onLoad={() => setIsLoaded(true)}
               onClick={() => {
-                setVideoPlayer(true);
+                if (props.data.status === "completed") {
+                  setVideoPlayer(true);
+                }
               }}
             />
             {props.data.status === "processing" && (

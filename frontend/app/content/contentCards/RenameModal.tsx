@@ -164,10 +164,9 @@ export default function RenamePrompt(props: any) {
                     newtitle_: newtitle,
                   });
                   props.setRenamePrompt(false);
-                  queryClient.invalidateQueries({
+                  queryClient.refetchQueries({
                     queryKey: [query_key],
                   });
-                  window.location.reload();
                 }}
                 disabled={btnDisabled}
               >

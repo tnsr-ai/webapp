@@ -651,7 +651,8 @@ def delete_content_task(
                 db.delete(all_content)
             for tag in main_tag:
                 db.delete(tag)
-            db.delete(job_data)
+            if job_data != None:
+                db.delete(job_data)
             db.delete(main_file)
             db.commit()
             return {"detail": "Success", "data": "Project Deleted"}

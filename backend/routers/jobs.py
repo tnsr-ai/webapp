@@ -144,6 +144,29 @@ def create_content_entry(config: dict, db: Session, user_id: int, job_id: int):
             )
             db.commit()
             tags.remove(14)
+        if 12 in tags and config["job_type"] == "audio":
+            create_stem_model = models.Content(
+                user_id=user_id,
+                title=str(content_detail.title).rsplit('.',1)[:-1][0] + ".zip",
+                thumbnail="stem.jpg",
+                id_related=main_id,
+                job_id = job_id,
+                created_at=int(time.time()),
+                status="processing",
+                content_type=content_detail.content_type,
+            )
+            db.add(create_stem_model)
+            db.commit()
+            db.refresh(create_stem_model)
+            db.add(
+                models.ContentTags(
+                    content_id=create_stem_model.id,
+                    tag_id=12,
+                    created_at=int(time.time()),
+                )
+            )
+            db.commit()
+            tags.remove(12)
         create_content_model = models.Content(
             user_id=user_id,
             title=content_detail.title,
@@ -206,7 +229,31 @@ def image_process_task(job_config: dict):
                 )
         if copy_content_url != content_url:
             result = reindex_image_job(job_config, content_url=content_url)
+        db.close()
     except Exception as e:
+        db = SessionLocal()
+        content = (
+            db.query(models.Content)
+            .filter(
+                models.Content.id == job_config["content_id"]
+            )
+            .filter(models.Content.user_id == job_config["user_id"])
+            .filter(models.Content.content_type == job_config["job_type"])
+            .first()
+        )
+        content.status = "failed"
+        content.updated_at = int(time.time())
+        job = (
+            db.query(models.Jobs)
+            .filter(models.Jobs.job_id == content.job_id)
+            .first()
+        )
+        job.job_status = "Failed"
+        job.job_process = "error"
+        db.add(job)
+        db.add(content)
+        db.commit()
+        db.close()
         return {"detail": "Failed", "data": str(e)}
 
 
@@ -572,6 +619,7 @@ def generate_signed_url_task(uploaddict: dict, db: Session):
                 },
             }
     except Exception as e:
+        print(str(e))
         return {"detail": "Failed", "data": "Filetype not supported"}
 
 @router.post(
