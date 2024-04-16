@@ -121,7 +121,7 @@ def create_content_entry(config: dict, db: Session, user_id: int, job_id: int):
             if config["config_json"]["job_data"]["filters"][x]["active"] == True
         ]
         tags.extend(x for x in r_tags if x not in tags)
-        if 14 in tags and config["job_type"] == "video":
+        if 14 in tags:
             create_srt_model = models.Content(
                 user_id=user_id,
                 title=str(content_detail.title).rsplit('.',1)[:-1][0] + ".srt",

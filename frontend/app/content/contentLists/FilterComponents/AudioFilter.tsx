@@ -160,6 +160,9 @@ export function AudioFilter(props: any) {
             name="Transcription"
             disabled={filterDisableCheck("transcription")}
           />
+          {transcription === true && (
+            <p className="font-semibold pl-[52px]">Generate .srt file*</p>
+          )}
         </div>
         <div id="stem_seperation" className="w-full">
           <div className="m-3">
