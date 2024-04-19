@@ -25,6 +25,7 @@ from fastapi_limiter.depends import RateLimiter
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 import copy
+from pathlib import Path
 
 import models
 from database import SessionLocal, engine
@@ -168,9 +169,10 @@ def create_content_entry(config: dict, db: Session, user_id: int, job_id: int):
             )
             db.commit()
             tags.remove(12)
+        content_title = Path(content_detail.title).stem
         create_content_model = models.Content(
             user_id=user_id,
-            title=content_detail.title,
+            title=content_title,
             thumbnail=content_detail.thumbnail,
             id_related=main_id,
             job_id = job_id,
@@ -688,17 +690,17 @@ async def file_index(
         raise HTTPException(status_code=400, detail="Invalid processtype")
     result = index_media_task(indexdata.dict(), job_info.user_id, db, True)
     if result["detail"] == "Failed":
-        delete_r2_file.delay(content_data.link, CLOUDFLARE_CONTENT)
-        all_tags = (
-            db.query(models.ContentTags)
-            .filter(models.ContentTags.content_id == content_data.id)
-            .all()
-        )
-        for tag in all_tags:
-            db.delete(tag)
-        db.delete(job_info)
-        db.delete(content_data)
-        db.commit()
+        # delete_r2_file.delay(content_data.link, CLOUDFLARE_CONTENT)
+        # all_tags = (
+        #     db.query(models.ContentTags)
+        #     .filter(models.ContentTags.content_id == content_data.id)
+        #     .all()
+        # )
+        # for tag in all_tags:
+        #     db.delete(tag)
+        # db.delete(job_info)
+        # db.delete(content_data)
+        # db.commit()
         logger.error(f"Failed to reindex file for {job_info.user_id}")
         raise HTTPException(status_code=400, detail=result["data"])
     logger.info(f"File indexed for {job_info.user_id}")
