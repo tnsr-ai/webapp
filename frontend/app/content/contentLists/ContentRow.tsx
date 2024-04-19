@@ -65,11 +65,14 @@ export function ContentComponent(props: any) {
   if (title_len > 15) {
     title = title.substring(0, 15) + "...";
   }
-  let fps = parseFloat(props.data.fps).toFixed(2);
-  let isSRT = false;
+  const fps = parseFloat(props.data.fps).toFixed(2);
+  let notContent = false;
 
   if (fps === "NaN" && props.data.content_type === "video") {
-    isSRT = true;
+    notContent = true;
+  }
+  if (props.data.hz === null && props.data.content_type === "audio") {
+    notContent = true;
   }
   const [isLoaded, setIsLoaded] = useState(false);
   useEffect(() => {
@@ -321,7 +324,7 @@ export function ContentComponent(props: any) {
           <p className="text-sm xl:text-lg whitespace-nowrap">
             {props.data.size}
           </p>
-          {isSRT === false && (
+          {notContent === false && (
             <p className="whitespace-nowrap text-sm xl:text-lg">{fps} FPS</p>
           )}
         </div>
@@ -625,7 +628,7 @@ export function ContentComponent(props: any) {
                 id="process"
                 className="col-span-6 md:col-span-2 row-span-1 flex space-x-3 justify-center items-center"
               >
-                {props.data.status === "completed" && isSRT === false && (
+                {props.data.status === "completed" && notContent === false && (
                   <div className="flex justify-center items-center">
                     <Button
                       variant="outline"

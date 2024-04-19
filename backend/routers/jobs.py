@@ -77,6 +77,7 @@ class UploadJobModel(BaseModel):
     job_id: int
     key: str
     is_srt: Optional[bool] = False
+    is_zip: Optional[bool] = False
 
 class IndexContent(BaseModel):
     config: dict
@@ -599,9 +600,14 @@ def generate_signed_url_task(uploaddict: dict, db: Session):
                 if x.title.endswith(".srt"):
                     update_content = x
                     break 
+        elif uploaddict["is_zip"]:
+            for x in update_contents:
+                if x.title.endswith(".zip"):
+                    update_content = x
+                    break 
         else:
             for x in update_contents:
-                if x.title.endswith(".srt") == False:
+                if x.title.endswith(".srt") == False and x.title.endswith(".zip") == False:
                     update_content = x
                     break
         update_content.link = key_file
@@ -666,7 +672,7 @@ async def file_index(
             f"Invalid content id in job reindex - {indexdata.config['id']}"
         )
         raise HTTPException(status_code=400, detail="Invalid content id")
-    if indexdata.processtype not in ["video", "audio", "subtitle"]:
+    if indexdata.processtype not in ["video", "audio", "subtitle", "zip"]:
         delete_r2_file.delay(content_data.link, CLOUDFLARE_CONTENT)
         all_tags = (
             db.query(models.ContentTags)
