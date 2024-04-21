@@ -144,10 +144,10 @@ async def startup():
         except:
             r2_client.upload_file("./script_utils/srt_thumbnail.jpg", CLOUDFLARE_METADATA, "srt_thumbnail.jpg")
             r2_client.upload_file("./script_utils/stem.jpg", CLOUDFLARE_METADATA, "stem.jpg")
-        redis_connection = redis.from_url(
-            f"redis://{REDIS_HOST}", encoding="utf-8", decode_responses=True
-        )
-        await FastAPILimiter.init(redis_connection)
+    redis_connection = redis.from_url(
+        f"redis://{REDIS_HOST}", encoding="utf-8", decode_responses=True
+    )
+    await FastAPILimiter.init(redis_connection)
 
 
 @app.get("/", dependencies=[Depends(RateLimiter(times=60, seconds=60))])
