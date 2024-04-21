@@ -47,8 +47,10 @@ def reindex_image_job(job_config, content_url):
         .first()
     )
     pathlib.Path(f'thumbnail/{job_config["user_id"]}').mkdir(parents=True, exist_ok=True)
-    content_title = os.path.splitext(content_data.title)[0] + "_" + str(uuid4()) + content_url.split(".")[-1]
-    content_path = f'thumbnail/{job_config["user_id"]}/{os.path.splitext(content_title)[0]}.jpg'
+    basename = Path(content_data.title).stem
+    file_ext = Path(content_url).suffix
+    content_title = os.path.splitext(content_data.title)[0] + "_" + str(uuid4()) + file_ext
+    content_path = f'thumbnail/{job_config["user_id"]}/{os.path.splitext(content_title)[0]}{file_ext}'
     response = requests.get(content_url, stream=True)
     with open(content_path, 'wb') as out_file:
         shutil.copyfileobj(response.raw, out_file)
@@ -89,6 +91,7 @@ def reindex_image_job(job_config, content_url):
     img_size, width, height = lower_resolution_image(response, thumbnail_path)
     create_thumbnail_image(thumbnail_path)
     thumbnail_upload(thumbnail_path)
+    content_data.title = basename + file_ext
     content_data.link = key_file
     content_data.size = int(img_size)
     content_data.content_type = "image"

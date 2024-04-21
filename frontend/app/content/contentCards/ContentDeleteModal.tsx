@@ -148,10 +148,9 @@ export default function ContentDeletePrompt(props: any) {
                     useMutate.mutate();
                     props.setDelPrompt(false);
                     checkCookies();
-                    queryClient.invalidateQueries({
+                    queryClient.refetchQueries({
                       queryKey: ["/content/get_content_list"],
                     });
-                    window.location.reload();
                   }}
                 >
                   Yes

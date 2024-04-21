@@ -56,11 +56,11 @@ class NotificationDict(BaseModel):
 
 def change_password_task(passworddict: dict, user_id: int, db: Session) -> None:
     try:
-        user = db.query(models.Users).filter(models.Users.id == user_id).first()
-        user = authenticate_user(user.email, passworddict["current_password"], db)
-        if user is False:
+        user = (db.query(models.Users).filter(models.Users.id == user_id).first())
+        user_status = authenticate_user(user.email, passworddict["current_password"], db)
+        if user_status is False:
             return {"detail": "Failed", "data": "Incorrect password"}
-        if not user:
+        if not user_status:
             return {"detail": "Failed", "data": "Incorrect password"}
         if passworddict["new_password"] != passworddict["confirm_password"]:
             return {"detail": "Failed", "data": "Password do not match"}
@@ -69,7 +69,7 @@ def change_password_task(passworddict: dict, user_id: int, db: Session) -> None:
                 "detail": "Failed",
                 "data": "Password cannot be same as old password",
             }
-        user = db.query(models.Users).filter(models.Users.email == user.email).first()
+        user = db.query(models.Users).filter(models.Users.id == user_id).first()
         user.hashed_password = get_hashed_password(passworddict["new_password"])
         db.commit()
         return {"detail": "Success", "data": "Password changed successfully"}

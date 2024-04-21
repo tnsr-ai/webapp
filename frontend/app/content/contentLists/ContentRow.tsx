@@ -65,7 +65,15 @@ export function ContentComponent(props: any) {
   if (title_len > 15) {
     title = title.substring(0, 15) + "...";
   }
-  let fps = parseFloat(props.data.fps).toFixed(2);
+  const fps = parseFloat(props.data.fps).toFixed(2);
+  let notContent = false;
+
+  if (fps === "NaN" && props.data.content_type === "video") {
+    notContent = true;
+  }
+  if (props.data.hz === null && props.data.content_type === "audio") {
+    notContent = true;
+  }
   const [isLoaded, setIsLoaded] = useState(false);
   useEffect(() => {
     if (props.data.tags === "Original") {
@@ -257,17 +265,30 @@ export function ContentComponent(props: any) {
           }`}
           onLoad={() => setIsLoaded(true)}
           onClick={() => {
-            setVideoPlayer(true);
+            if (
+              props.data.tags != "Transcription" &&
+              props.data.status === "completed" &&
+              notContent === true
+            ) {
+              setVideoPlayer(true);
+            }
           }}
         />
-        {props.data.status === "completed" && (
-          <PlayIcon
-            className="w-10 lg:w-12 fill-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-            onClick={() => {
-              setVideoPlayer(true);
-            }}
-          />
-        )}
+        {props.data.status === "completed" &&
+          props.data.tags != "Transcription" &&
+          notContent === true && (
+            <PlayIcon
+              className="w-10 lg:w-12 fill-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+              onClick={() => {
+                if (
+                  props.data.tags != "Transcription" &&
+                  props.data.status === "completed"
+                ) {
+                  setVideoPlayer(true);
+                }
+              }}
+            />
+          )}
         {props.data.status === "processing" && (
           <BeakerIcon className="w-10 lg:w-12 fill-slate-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
         )}
@@ -305,7 +326,9 @@ export function ContentComponent(props: any) {
           <p className="text-sm xl:text-lg whitespace-nowrap">
             {props.data.size}
           </p>
-          <p className="whitespace-nowrap text-sm xl:text-lg">{fps} FPS</p>
+          {notContent === false && (
+            <p className="whitespace-nowrap text-sm xl:text-lg">{fps} FPS</p>
+          )}
         </div>
         <div className="flex-row space-y-[1px] pt-0.5">
           <p className="whitespace-nowrap text-sm xl:text-lg">
@@ -361,14 +384,18 @@ export function ContentComponent(props: any) {
           }`}
           onLoad={() => setIsLoaded(true)}
           onClick={() => {
-            setVideoPlayer(true);
+            if (props.data.status === "completed" && notContent === false) {
+              setVideoPlayer(true);
+            }
           }}
         />
-        {props.data.status === "completed" && (
+        {props.data.status === "completed" && notContent === false && (
           <PlayIcon
             className="w-10 lg:w-12 fill-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
             onClick={() => {
-              setVideoPlayer(true);
+              if (props.data.status === "completed") {
+                setVideoPlayer(true);
+              }
             }}
           />
         )}
@@ -409,9 +436,11 @@ export function ContentComponent(props: any) {
           <p className="text-sm xl:text-lg whitespace-nowrap">
             {props.data.size}
           </p>
-          <p className="whitespace-nowrap text-sm xl:text-lg">
-            {props.data.hz} HZ
-          </p>
+          {notContent === false && (
+            <p className="whitespace-nowrap text-sm xl:text-lg">
+              {props.data.hz} HZ
+            </p>
+          )}
         </div>
         <div className="flex-row space-y-[1px] pt-0.5">
           <p className="whitespace-nowrap text-sm xl:text-lg">
@@ -469,7 +498,9 @@ export function ContentComponent(props: any) {
               }`}
               onLoad={() => setIsLoaded(true)}
               onClick={() => {
-                setVideoPlayer(true);
+                if (props.data.status === "completed") {
+                  setVideoPlayer(true);
+                }
               }}
             />
           </Link>
@@ -488,7 +519,9 @@ export function ContentComponent(props: any) {
               }`}
               onLoad={() => setIsLoaded(true)}
               onClick={() => {
-                setVideoPlayer(true);
+                if (props.data.status === "completed") {
+                  setVideoPlayer(true);
+                }
               }}
             />
             {props.data.status === "processing" && (
@@ -599,7 +632,7 @@ export function ContentComponent(props: any) {
                 id="process"
                 className="col-span-6 md:col-span-2 row-span-1 flex space-x-3 justify-center items-center"
               >
-                {props.data.status === "completed" && (
+                {props.data.status === "completed" && notContent === false && (
                   <div className="flex justify-center items-center">
                     <Button
                       variant="outline"

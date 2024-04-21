@@ -74,7 +74,7 @@ export default function ContentList(props: any) {
   const queryClient = useQueryClient();
 
   async function refetchAndSetTotal() {
-    queryClient.invalidateQueries({ queryKey: ["/content/get_content"] });
+    queryClient.refetchQueries({ queryKey: ["/content/get_content"] });
     const refectedData = await refetch();
     if (isSuccess === true) {
       setTotalPage(refectedData.data.total);

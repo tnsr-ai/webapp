@@ -181,7 +181,7 @@ async def generate_url(
     return result
 
 
-def video_indexing(response, thumbnail_path, db, indexdata, user_tier):
+def video_indexing(response, thumbnail_path, db, indexdata, user_tier, reindex: bool = False):
     try:
         video_data = is_video_valid(response)
         if video_data == False:
@@ -189,8 +189,8 @@ def video_indexing(response, thumbnail_path, db, indexdata, user_tier):
         vidData = video_fetch_data(video_data)
         allowed_config = USER_TIER[user_tier]["video"]
         if (
-            vidData["width"] > allowed_config["width"]
-            or vidData["height"] > allowed_config["height"]
+            (vidData["width"] > allowed_config["width"]
+            or vidData["height"] > allowed_config["height"]) and reindex == False
         ):
             return {
                 "detail": "Failed",
@@ -199,7 +199,7 @@ def video_indexing(response, thumbnail_path, db, indexdata, user_tier):
         allowed_duration = allowed_config["duration"]
         if float(allowed_config["duration"]) == -1:
             allowed_duration = float("inf")
-        if float(vidData["duration"]) > allowed_duration:
+        if float(vidData["duration"]) > allowed_duration and reindex == False:
             return {
                 "detail": "Failed",
                 "data": f"Video duration is too long for {user_tier} tier",
@@ -220,7 +220,7 @@ def video_indexing(response, thumbnail_path, db, indexdata, user_tier):
         videoData.thumbnail = thumbnail_path
         videoData.md5 = indexdata["md5"]
         videoData.status = "completed"
-        if indexdata["id_related"] is not None:
+        if "id_related" in indexdata and indexdata["id_related"] is not None and reindex == False:
             videoData.id_related = indexdata["id_related"]
         videoData.updated_at = int(time.time())
         return {"detail": "Success", "data": videoData}
@@ -228,11 +228,11 @@ def video_indexing(response, thumbnail_path, db, indexdata, user_tier):
         return {"detail": "Failed", "data": str(e)}
 
 
-def image_indexing(response, thumbnail_path, db, indexdata, user_tier):
+def image_indexing(response, thumbnail_path, db, indexdata, user_tier, reindex: bool = False):
     try:
         img_size, width, height = lower_resolution_image(response, thumbnail_path)
         allowed_config = USER_TIER[user_tier]["image"]
-        if width > allowed_config["width"] or height > allowed_config["height"]:
+        if (width > allowed_config["width"] or height > allowed_config["height"]) and reindex == False:
             return {
                 "detail": "Failed",
                 "data": f"Image resolution is too large for {user_tier} tier",
@@ -250,7 +250,7 @@ def image_indexing(response, thumbnail_path, db, indexdata, user_tier):
         imageData.thumbnail = thumbnail_path
         imageData.md5 = indexdata["md5"]
         imageData.status = "completed"
-        if indexdata["id_related"] is not None:
+        if "id_related" in indexdata and indexdata["id_related"] is not None and reindex == False:
             imageData.id_related = indexdata["id_related"]
         imageData.updated_at = int(time.time())
         return {"detail": "Success", "data": imageData}
@@ -258,7 +258,7 @@ def image_indexing(response, thumbnail_path, db, indexdata, user_tier):
         return {"detail": "Failed", "data": str(e)}
 
 
-def audio_indexing(response, thumbnail_path, db, indexdata, user_tier):
+def audio_indexing(response, thumbnail_path, db, indexdata, user_tier, reindex: bool = False):
     try:
         audio_data = audio_image(
             response, indexdata["config"]["filename"].split(".")[-1], thumbnail_path
@@ -267,7 +267,7 @@ def audio_indexing(response, thumbnail_path, db, indexdata, user_tier):
         allowed_duration = allowed_config["duration"]
         if float(allowed_config["duration"]) == -1:
             allowed_duration = float("inf")
-        if float(audio_data["format"]["duration"]) > float(allowed_duration):
+        if float(audio_data["format"]["duration"]) > float(allowed_duration) and reindex == False:
             return {
                 "detail": "Failed",
                 "data": f"Audio duration is too long for {user_tier} tier",
@@ -288,7 +288,7 @@ def audio_indexing(response, thumbnail_path, db, indexdata, user_tier):
         audioData.hz = audio_data["streams"][0]["sample_rate"]
         audioData.thumbnail = thumbnail_path
         audioData.md5 = indexdata["md5"]
-        if indexdata["id_related"] is not None:
+        if "id_related" in indexdata and indexdata["id_related"] is not None and reindex == False:
             audioData.id_related = indexdata["id_related"]
         audioData.status = "completed"
         audioData.updated_at = int(time.time())
@@ -297,7 +297,7 @@ def audio_indexing(response, thumbnail_path, db, indexdata, user_tier):
         return {"detail": "Failed", "data": str(e)}
 
 
-def index_media_task(indexdata: dict, user_id: int, db: Session):
+def index_media_task(indexdata: dict, user_id: int, db: Session, reindex: bool = False):
     try:
         user = db.query(models.Users).filter(models.Users.id == user_id).first()
         user_dashboard = (
@@ -327,7 +327,7 @@ def index_media_task(indexdata: dict, user_id: int, db: Session):
         if user_dashboard is not None:
             if int(user_dashboard.storage_limit) - int(
                 user_dashboard.storage_used
-            ) < int(obj_data["ContentLength"]):
+            ) < int(obj_data["ContentLength"]) and reindex == False:
                 return {"detail": "Failed", "data": "Storage limit exceeded"}
         response = s3.generate_presigned_url(
             "get_object",
@@ -337,7 +337,7 @@ def index_media_task(indexdata: dict, user_id: int, db: Session):
         s3.close()
         if indexdata["processtype"] == "video":
             result = video_indexing(
-                response, thumbnail_path, db, indexdata, user.user_tier
+                response, thumbnail_path, db, indexdata, user.user_tier, reindex
             )
             if result["detail"] == "Failed":
                 return result
@@ -362,7 +362,7 @@ def index_media_task(indexdata: dict, user_id: int, db: Session):
             return {"detail": "Success", "data": "Video indexed"}
         if indexdata["processtype"] == "image":
             result = image_indexing(
-                response, thumbnail_path, db, indexdata, user.user_tier
+                response, thumbnail_path, db, indexdata, user.user_tier, reindex
             )
             if result["detail"] == "Failed":
                 return result
@@ -387,7 +387,7 @@ def index_media_task(indexdata: dict, user_id: int, db: Session):
             return {"detail": "Success", "data": "Image indexed"}
         if indexdata["processtype"] == "audio":
             result = audio_indexing(
-                response, thumbnail_path, db, indexdata, user.user_tier
+                response, thumbnail_path, db, indexdata, user.user_tier, reindex
             )
             if result["detail"] == "Failed":
                 return result
@@ -410,6 +410,54 @@ def index_media_task(indexdata: dict, user_id: int, db: Session):
             db.commit()
             shutil.rmtree(f"thumbnail/{user_id}")
             return {"detail": "Success", "data": "Audio indexed"}
+        if indexdata["processtype"] == "subtitle":
+            subtitleData = (
+                db.query(models.Content)
+                .filter(models.Content.id == indexdata["config"]["id"])
+                .first()
+            )
+            s3 = boto3.client(
+                "s3",
+                aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
+                aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
+                endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
+                config=botocore.config.Config(
+                    s3={"addressing_style": "path"},
+                    signature_version="s3v4",
+                    retries=dict(max_attempts=3),
+                ),
+            )
+            subtitleData.size = obj_data['ContentLength']
+            subtitleData.md5 = indexdata["md5"]
+            subtitleData.status = "completed"
+            subtitleData.updated_at = int(time.time())
+            db.add(subtitleData)
+            db.commit()
+            return {"detail": "Success", "data": "Subtitle indexed"}
+        if indexdata["processtype"] == "zip":
+            zipData = (
+                db.query(models.Content)
+                .filter(models.Content.id == indexdata["config"]["id"])
+                .first()
+            )
+            s3 = boto3.client(
+                "s3",
+                aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
+                aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
+                endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
+                config=botocore.config.Config(
+                    s3={"addressing_style": "path"},
+                    signature_version="s3v4",
+                    retries=dict(max_attempts=3),
+                ),
+            )
+            zipData.size = obj_data['ContentLength']
+            zipData.md5 = indexdata["md5"]
+            zipData.status = "completed"
+            zipData.updated_at = int(time.time())
+            db.add(zipData)
+            db.commit()
+            return {"detail": "Success", "data": "Zip indexed"}
     except Exception as e:
         return {"detail": "Failed", "data": "Invalid processtype"}
 

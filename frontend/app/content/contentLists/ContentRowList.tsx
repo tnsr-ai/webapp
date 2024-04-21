@@ -1,5 +1,5 @@
 "use client";
-import { useListContent } from "../../api/index";
+
 import { ContentComponent } from "./ContentRow";
 import { Loader } from "@mantine/core";
 import { useQueryClient } from "@tanstack/react-query";
@@ -7,6 +7,8 @@ import { getCookie, setCookie } from "cookies-next";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import Error from "../../components/ErrorTab";
+import { contentEndpoints } from "@/app/api/endpoints";
+import { useQuery } from "@tanstack/react-query";
 
 export default function ContentListRow(props: any) {
   const content_id = Number(props.content_id);
@@ -39,8 +41,53 @@ export default function ContentListRow(props: any) {
   const [prevPage, setPrevPage] = useState(pageJSON.prevPage);
   const [nextPage, setNextPage] = useState(pageJSON.nextPage);
 
+  const useListContent = (
+    content_id: number,
+    content_type: string,
+    limit: number,
+    offset: number
+  ) => {
+    const jwt = getCookie("access_token");
+    const [shouldPoll, setShouldPoll] = useState(false);
+    return useQuery({
+      queryKey: [
+        "/content/get_content_list",
+        {
+          content_id: content_id,
+          content_type: content_type,
+          limit: limit,
+          offset: offset,
+        },
+      ],
+      queryFn: async () => {
+        const url = `${contentEndpoints["contentList"]}/?limit=${limit}&offset=${offset}&content_id=${content_id}&content_type=${content_type}`;
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${jwt}`,
+          },
+        });
+        if (!response.ok) {
+          throw `Network response was not ok. Status: ${response.status}`;
+        }
+        const data = await response.json();
+        return data;
+      },
+      onSuccess: (data) => {
+        const isProcessing = data.data.some(
+          (content: any) => content.status === "processing"
+        );
+        setShouldPoll(isProcessing);
+      },
+      refetchInterval: shouldPoll ? 1000 * 60 : false,
+      retry: 2,
+    });
+  };
+
   const { data, isLoading, isSuccess, isError, refetch, isFetched, error } =
     useListContent(content_id, pathname, limit, offset);
+
   const [btnClicked, setBtnClicked] = useState(false);
 
   const nextData = () => {
@@ -84,7 +131,7 @@ export default function ContentListRow(props: any) {
   const queryClient = useQueryClient();
 
   async function refetchAndSetTotal() {
-    queryClient.invalidateQueries({ queryKey: ["/content/get_content_list"] });
+    queryClient.refetchQueries({ queryKey: ["/content/get_content_list"] });
     const refectedData = await refetch();
     if (isSuccess === true) {
       setTotalPage(refectedData.data.total);
