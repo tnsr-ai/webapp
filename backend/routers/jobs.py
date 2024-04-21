@@ -124,7 +124,7 @@ def create_content_entry(config: dict, db: Session, user_id: int, job_id: int):
         ]
         tags.extend(x for x in r_tags if x not in tags)
         if 14 in tags:
-            create_srt_model = models.Content(
+            create_content_model = models.Content(
                 user_id=user_id,
                 title=str(content_detail.title).rsplit('.',1)[:-1][0] + ".srt",
                 thumbnail="srt_thumbnail.jpg",
@@ -134,12 +134,12 @@ def create_content_entry(config: dict, db: Session, user_id: int, job_id: int):
                 status="processing",
                 content_type=content_detail.content_type,
             )
-            db.add(create_srt_model)
+            db.add(create_content_model)
             db.commit()
-            db.refresh(create_srt_model)
+            db.refresh(create_content_model)
             db.add(
                 models.ContentTags(
-                    content_id=create_srt_model.id,
+                    content_id=create_content_model.id,
                     tag_id=14,
                     created_at=int(time.time()),
                 )
@@ -147,7 +147,7 @@ def create_content_entry(config: dict, db: Session, user_id: int, job_id: int):
             db.commit()
             tags.remove(14)
         if 12 in tags and config["job_type"] == "audio":
-            create_stem_model = models.Content(
+            create_content_model = models.Content(
                 user_id=user_id,
                 title=str(content_detail.title).rsplit('.',1)[:-1][0] + ".zip",
                 thumbnail="stem.jpg",
@@ -157,12 +157,12 @@ def create_content_entry(config: dict, db: Session, user_id: int, job_id: int):
                 status="processing",
                 content_type=content_detail.content_type,
             )
-            db.add(create_stem_model)
+            db.add(create_content_model)
             db.commit()
-            db.refresh(create_stem_model)
+            db.refresh(create_content_model)
             db.add(
                 models.ContentTags(
-                    content_id=create_stem_model.id,
+                    content_id=create_content_model.id,
                     tag_id=12,
                     created_at=int(time.time()),
                 )
@@ -170,28 +170,29 @@ def create_content_entry(config: dict, db: Session, user_id: int, job_id: int):
             db.commit()
             tags.remove(12)
         content_title = Path(content_detail.title).stem
-        create_content_model = models.Content(
-            user_id=user_id,
-            title=content_title,
-            thumbnail=content_detail.thumbnail,
-            id_related=main_id,
-            job_id = job_id,
-            created_at=int(time.time()),
-            status="processing",
-            content_type=content_detail.content_type,
-        )
-        db.add(create_content_model)
-        db.commit()
-        db.refresh(create_content_model)
-        for tag in tags:
-            db.add(
-                models.ContentTags(
-                    content_id=create_content_model.id,
-                    tag_id=tag,
-                    created_at=int(time.time()),
-                )
+        if len(tags) != 0: 
+            create_content_model = models.Content(
+                user_id=user_id,
+                title=content_title,
+                thumbnail=content_detail.thumbnail,
+                id_related=main_id,
+                job_id = job_id,
+                created_at=int(time.time()),
+                status="processing",
+                content_type=content_detail.content_type,
             )
+            db.add(create_content_model)
             db.commit()
+            db.refresh(create_content_model)
+            for tag in tags:
+                db.add(
+                    models.ContentTags(
+                        content_id=create_content_model.id,
+                        tag_id=tag,
+                        created_at=int(time.time()),
+                    )
+                )
+                db.commit()
         return create_content_model.id
     except Exception as e:
         raise HTTPException(status_code=400, detail="Unable to create content entry")

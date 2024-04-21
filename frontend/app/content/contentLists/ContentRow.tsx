@@ -267,14 +267,16 @@ export function ContentComponent(props: any) {
           onClick={() => {
             if (
               props.data.tags != "Transcription" &&
-              props.data.status === "completed"
+              props.data.status === "completed" &&
+              notContent === true
             ) {
               setVideoPlayer(true);
             }
           }}
         />
         {props.data.status === "completed" &&
-          props.data.tags != "Transcription" && (
+          props.data.tags != "Transcription" &&
+          notContent === true && (
             <PlayIcon
               className="w-10 lg:w-12 fill-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
               onClick={() => {
@@ -382,12 +384,12 @@ export function ContentComponent(props: any) {
           }`}
           onLoad={() => setIsLoaded(true)}
           onClick={() => {
-            if (props.data.status === "completed") {
+            if (props.data.status === "completed" && notContent === false) {
               setVideoPlayer(true);
             }
           }}
         />
-        {props.data.status === "completed" && (
+        {props.data.status === "completed" && notContent === false && (
           <PlayIcon
             className="w-10 lg:w-12 fill-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
             onClick={() => {
@@ -434,9 +436,11 @@ export function ContentComponent(props: any) {
           <p className="text-sm xl:text-lg whitespace-nowrap">
             {props.data.size}
           </p>
-          <p className="whitespace-nowrap text-sm xl:text-lg">
-            {props.data.hz} HZ
-          </p>
+          {notContent === false && (
+            <p className="whitespace-nowrap text-sm xl:text-lg">
+              {props.data.hz} HZ
+            </p>
+          )}
         </div>
         <div className="flex-row space-y-[1px] pt-0.5">
           <p className="whitespace-nowrap text-sm xl:text-lg">
