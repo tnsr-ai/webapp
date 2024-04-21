@@ -24,6 +24,9 @@ from urllib.parse import urljoin, urlparse
 from utils import *
 import decimal
 from boto3.s3.transfer import TransferConfig
+import warnings
+
+warnings.filterwarnings('ignore')
 
 
 def is_video_valid(file_path):

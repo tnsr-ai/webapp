@@ -139,7 +139,7 @@ export default function DeletePrompt(props: any) {
                     useMutate.mutate();
                     props.setDelPrompt(false);
                     checkCookies();
-                    queryClient.invalidateQueries({
+                    queryClient.refetchQueries({
                       queryKey: ["/content/get_content"],
                     });
                   }}

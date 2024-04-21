@@ -434,6 +434,30 @@ def index_media_task(indexdata: dict, user_id: int, db: Session, reindex: bool =
             db.add(subtitleData)
             db.commit()
             return {"detail": "Success", "data": "Subtitle indexed"}
+        if indexdata["processtype"] == "zip":
+            zipData = (
+                db.query(models.Content)
+                .filter(models.Content.id == indexdata["config"]["id"])
+                .first()
+            )
+            s3 = boto3.client(
+                "s3",
+                aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
+                aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
+                endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
+                config=botocore.config.Config(
+                    s3={"addressing_style": "path"},
+                    signature_version="s3v4",
+                    retries=dict(max_attempts=3),
+                ),
+            )
+            zipData.size = obj_data['ContentLength']
+            zipData.md5 = indexdata["md5"]
+            zipData.status = "completed"
+            zipData.updated_at = int(time.time())
+            db.add(zipData)
+            db.commit()
+            return {"detail": "Success", "data": "Zip indexed"}
     except Exception as e:
         return {"detail": "Failed", "data": "Invalid processtype"}
 

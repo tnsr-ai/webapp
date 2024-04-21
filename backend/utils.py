@@ -143,7 +143,7 @@ USER_TIER = {
         },
         "audio": {
             "size": STORAGE_LIMITS["free"],
-            "formats": ["mp3", "wav", "aac"],
+            "formats": ["mp3", "wav", "m4v"],
             "duration": 180,
             "max_filters": 2,
         },
@@ -167,7 +167,7 @@ USER_TIER = {
         },
         "audio": {
             "size": STORAGE_LIMITS["standard"],
-            "formats": ["mp3", "wav", "aac"],
+            "formats": ["mp3", "wav", "m4v"],
             "duration": -1,
             "max_filters": 5,
         },
@@ -191,7 +191,7 @@ USER_TIER = {
         },
         "audio": {
             "size": STORAGE_LIMITS["deluxe"],
-            "formats": ["mp3", "wav", "aac"],
+            "formats": ["mp3", "wav", "m4v"],
             "duration": -1,
             "max_filters": 8,
         },

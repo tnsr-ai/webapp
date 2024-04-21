@@ -114,10 +114,10 @@ export const audioData = {
     "audio/mp3": [".mp3"],
     "audio/wav": [".wav"],
     "audio/mpeg": [".mp3"],
-    "audio/aac": [".aac"],
+    "audio/m4a": [".m4a"],
   },
   maxFileSizeInBytes: 200000000,
-  dropzoneMsg: "MP3, WAV or AAC (MAX. 200MB)",
+  dropzoneMsg: "MP3, WAV or M4A (MAX. 200MB)",
 };
 
 export const fileSizeUnits = [

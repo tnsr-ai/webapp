@@ -25,6 +25,7 @@ from fastapi_limiter.depends import RateLimiter
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 import copy
+from pathlib import Path
 
 import models
 from database import SessionLocal, engine
@@ -77,6 +78,7 @@ class UploadJobModel(BaseModel):
     job_id: int
     key: str
     is_srt: Optional[bool] = False
+    is_zip: Optional[bool] = False
 
 class IndexContent(BaseModel):
     config: dict
@@ -121,8 +123,8 @@ def create_content_entry(config: dict, db: Session, user_id: int, job_id: int):
             if config["config_json"]["job_data"]["filters"][x]["active"] == True
         ]
         tags.extend(x for x in r_tags if x not in tags)
-        if 14 in tags and config["job_type"] == "video":
-            create_srt_model = models.Content(
+        if 14 in tags:
+            create_content_model = models.Content(
                 user_id=user_id,
                 title=str(content_detail.title).rsplit('.',1)[:-1][0] + ".srt",
                 thumbnail="srt_thumbnail.jpg",
@@ -132,40 +134,65 @@ def create_content_entry(config: dict, db: Session, user_id: int, job_id: int):
                 status="processing",
                 content_type=content_detail.content_type,
             )
-            db.add(create_srt_model)
+            db.add(create_content_model)
             db.commit()
-            db.refresh(create_srt_model)
+            db.refresh(create_content_model)
             db.add(
                 models.ContentTags(
-                    content_id=create_srt_model.id,
+                    content_id=create_content_model.id,
                     tag_id=14,
                     created_at=int(time.time()),
                 )
             )
             db.commit()
             tags.remove(14)
-        create_content_model = models.Content(
-            user_id=user_id,
-            title=content_detail.title,
-            thumbnail=content_detail.thumbnail,
-            id_related=main_id,
-            job_id = job_id,
-            created_at=int(time.time()),
-            status="processing",
-            content_type=content_detail.content_type,
-        )
-        db.add(create_content_model)
-        db.commit()
-        db.refresh(create_content_model)
-        for tag in tags:
+        if 12 in tags and config["job_type"] == "audio":
+            create_content_model = models.Content(
+                user_id=user_id,
+                title=str(content_detail.title).rsplit('.',1)[:-1][0] + ".zip",
+                thumbnail="stem.jpg",
+                id_related=main_id,
+                job_id = job_id,
+                created_at=int(time.time()),
+                status="processing",
+                content_type=content_detail.content_type,
+            )
+            db.add(create_content_model)
+            db.commit()
+            db.refresh(create_content_model)
             db.add(
                 models.ContentTags(
                     content_id=create_content_model.id,
-                    tag_id=tag,
+                    tag_id=12,
                     created_at=int(time.time()),
                 )
             )
             db.commit()
+            tags.remove(12)
+        content_title = Path(content_detail.title).stem
+        if len(tags) != 0: 
+            create_content_model = models.Content(
+                user_id=user_id,
+                title=content_title,
+                thumbnail=content_detail.thumbnail,
+                id_related=main_id,
+                job_id = job_id,
+                created_at=int(time.time()),
+                status="processing",
+                content_type=content_detail.content_type,
+            )
+            db.add(create_content_model)
+            db.commit()
+            db.refresh(create_content_model)
+            for tag in tags:
+                db.add(
+                    models.ContentTags(
+                        content_id=create_content_model.id,
+                        tag_id=tag,
+                        created_at=int(time.time()),
+                    )
+                )
+                db.commit()
         return create_content_model.id
     except Exception as e:
         raise HTTPException(status_code=400, detail="Unable to create content entry")
@@ -206,7 +233,31 @@ def image_process_task(job_config: dict):
                 )
         if copy_content_url != content_url:
             result = reindex_image_job(job_config, content_url=content_url)
+        db.close()
     except Exception as e:
+        db = SessionLocal()
+        content = (
+            db.query(models.Content)
+            .filter(
+                models.Content.id == job_config["content_id"]
+            )
+            .filter(models.Content.user_id == job_config["user_id"])
+            .filter(models.Content.content_type == job_config["job_type"])
+            .first()
+        )
+        content.status = "failed"
+        content.updated_at = int(time.time())
+        job = (
+            db.query(models.Jobs)
+            .filter(models.Jobs.job_id == content.job_id)
+            .first()
+        )
+        job.job_status = "Failed"
+        job.job_process = "error"
+        db.add(job)
+        db.add(content)
+        db.commit()
+        db.close()
         return {"detail": "Failed", "data": str(e)}
 
 
@@ -552,9 +603,14 @@ def generate_signed_url_task(uploaddict: dict, db: Session):
                 if x.title.endswith(".srt"):
                     update_content = x
                     break 
+        elif uploaddict["is_zip"]:
+            for x in update_contents:
+                if x.title.endswith(".zip"):
+                    update_content = x
+                    break 
         else:
             for x in update_contents:
-                if x.title.endswith(".srt") == False:
+                if x.title.endswith(".srt") == False and x.title.endswith(".zip") == False:
                     update_content = x
                     break
         update_content.link = key_file
@@ -572,6 +628,7 @@ def generate_signed_url_task(uploaddict: dict, db: Session):
                 },
             }
     except Exception as e:
+        print(str(e))
         return {"detail": "Failed", "data": "Filetype not supported"}
 
 @router.post(
@@ -618,7 +675,7 @@ async def file_index(
             f"Invalid content id in job reindex - {indexdata.config['id']}"
         )
         raise HTTPException(status_code=400, detail="Invalid content id")
-    if indexdata.processtype not in ["video", "audio", "subtitle"]:
+    if indexdata.processtype not in ["video", "audio", "subtitle", "zip"]:
         delete_r2_file.delay(content_data.link, CLOUDFLARE_CONTENT)
         all_tags = (
             db.query(models.ContentTags)
@@ -634,17 +691,17 @@ async def file_index(
         raise HTTPException(status_code=400, detail="Invalid processtype")
     result = index_media_task(indexdata.dict(), job_info.user_id, db, True)
     if result["detail"] == "Failed":
-        delete_r2_file.delay(content_data.link, CLOUDFLARE_CONTENT)
-        all_tags = (
-            db.query(models.ContentTags)
-            .filter(models.ContentTags.content_id == content_data.id)
-            .all()
-        )
-        for tag in all_tags:
-            db.delete(tag)
-        db.delete(job_info)
-        db.delete(content_data)
-        db.commit()
+        # delete_r2_file.delay(content_data.link, CLOUDFLARE_CONTENT)
+        # all_tags = (
+        #     db.query(models.ContentTags)
+        #     .filter(models.ContentTags.content_id == content_data.id)
+        #     .all()
+        # )
+        # for tag in all_tags:
+        #     db.delete(tag)
+        # db.delete(job_info)
+        # db.delete(content_data)
+        # db.commit()
         logger.error(f"Failed to reindex file for {job_info.user_id}")
         raise HTTPException(status_code=400, detail=result["data"])
     logger.info(f"File indexed for {job_info.user_id}")

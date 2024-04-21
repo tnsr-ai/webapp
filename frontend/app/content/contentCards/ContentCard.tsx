@@ -19,7 +19,11 @@ export default function ContentCard(props: any) {
   const pathname = usePathname().replace("/", "");
   if (props.type === "video") {
     let fps_data = parseFloat(props.data["fps"]).toFixed(2);
-    content_info = `${file_ext} - ${props.data["size"]} - ${props.data["duration"]} - ${fps_data} FPS`;
+    if (Number(fps_data) > 0) {
+      content_info = `${file_ext} - ${props.data["size"]} - ${props.data["duration"]} - ${fps_data} FPS`;
+    } else {
+      content_info = `${file_ext} - ${props.data["size"]}`;
+    }
   }
   if (props.type === "audio") {
     content_info = `${file_ext} - ${props.data["size"]} - ${props.data["duration"]} - ${props.data["hz"]} HZ`;
@@ -40,8 +44,9 @@ export default function ContentCard(props: any) {
             height={0}
             sizes="100vw"
             style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            className={`rounded-t-2xl transition-all duration-500 ease-in-out ${isLoaded ? "opacity-100" : "opacity-0"
-              }`}
+            className={`rounded-t-2xl transition-all duration-500 ease-in-out ${
+              isLoaded ? "opacity-100" : "opacity-0"
+            }`}
             onLoad={() => setIsLoaded(true)}
             priority={true}
           />
