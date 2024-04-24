@@ -90,7 +90,6 @@ class IndexContent(BaseModel):
 class JobStatus(BaseModel):
     job_id: int 
     job_key: str
-    status: str
     
 
 def create_content_entry(config: dict, db: Session, user_id: int, job_id: int):
@@ -722,17 +721,21 @@ async def job_status(
             .filter(models.Content.job_id == job_status.job_id)
             .all()
         )
+        status = "completed"
         for x in content_data:
-            x.status = job_status.status.lower()
-            x.updated_at = int(time.time())
-            db.add(x)
-        job.job_status = job_status.status.capitalize()
-        job.job_process = job_status.status.lower()
+            if x.status == "completed":
+                x.updated_at = int(time.time())
+                db.add(x)
+            else:
+                status = "failed"
+        job.job_status = status.capitalize()
+        job.job_process = status.lower()
         job.updated_at = int(time.time())
         job.job_key = False
         db.add(job)
         db.commit()
         return HTTPException(status_code=200, detail="Job updated")
     except Exception as e:
-        logger.info(f"Error while job indexing - {job_status}")
+        logger.error(f"Error while job indexing - {job_status}")
+        logger.error(f"Error - {str(e)}")
         return HTTPException(status_code=400, detail="Error in Job Indexing")
