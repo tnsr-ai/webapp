@@ -86,6 +86,11 @@ class IndexContent(BaseModel):
     md5: str
     key: str
     job_id: int
+
+class JobStatus(BaseModel):
+    job_id: int 
+    job_key: str
+    status: str
     
 
 def create_content_entry(config: dict, db: Session, user_id: int, job_id: int):
@@ -676,33 +681,58 @@ async def file_index(
         )
         raise HTTPException(status_code=400, detail="Invalid content id")
     if indexdata.processtype not in ["video", "audio", "subtitle", "zip"]:
-        delete_r2_file.delay(content_data.link, CLOUDFLARE_CONTENT)
-        all_tags = (
-            db.query(models.ContentTags)
-            .filter(models.ContentTags.content_id == content_data.id)
-            .all()
-        )
-        for tag in all_tags:
-            db.delete(tag)
-        db.delete(job_info)
-        db.delete(content_data)
-        db.commit()
         logger.error(f"Invalid processtype for in job reindex")
         raise HTTPException(status_code=400, detail="Invalid processtype")
     result = index_media_task(indexdata.dict(), job_info.user_id, db, True)
     if result["detail"] == "Failed":
-        # delete_r2_file.delay(content_data.link, CLOUDFLARE_CONTENT)
-        # all_tags = (
-        #     db.query(models.ContentTags)
-        #     .filter(models.ContentTags.content_id == content_data.id)
-        #     .all()
-        # )
-        # for tag in all_tags:
-        #     db.delete(tag)
-        # db.delete(job_info)
-        # db.delete(content_data)
-        # db.commit()
+        delete_r2_file.delay(content_data.link, CLOUDFLARE_CONTENT)
+        content_data.status = "failed"
+        job_info.job_status = "Failed"
+        job_info.job_process = "failed"
+        job_info.updated_at = int(time.time())
+        job_info.job_key = False
+        db.add(job_info)
+        db.add(content_data)
+        db.commit()
         logger.error(f"Failed to reindex file for {job_info.user_id}")
         raise HTTPException(status_code=400, detail=result["data"])
     logger.info(f"File indexed for {job_info.user_id}")
     return HTTPException(status_code=201, detail="File indexed")
+
+@router.post(
+    "/job_status",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(RateLimiter(times=20, seconds=60))],
+)
+async def job_status(
+    job_status: JobStatus,
+    db: Session = Depends(get_db)
+):
+    try:
+        job = (
+            db.query(models.Jobs)
+            .filter(models.Jobs.job_id == job_status.job_id)
+            .filter(models.Jobs.key == job_status.job_key)
+            .first()
+        )
+        if job is None:
+            raise HTTPException(status_code=400, detail="Job not found")
+        content_data = (
+            db.query(models.Content)
+            .filter(models.Content.job_id == job_status.job_id)
+            .all()
+        )
+        for x in content_data:
+            x.status = job_status.status.lower()
+            x.updated_at = int(time.time())
+            db.add(x)
+        job.job_status = job_status.status.capitalize()
+        job.job_process = job_status.status.lower()
+        job.updated_at = int(time.time())
+        job.job_key = False
+        db.add(job)
+        db.commit()
+        return HTTPException(status_code=200, detail="Job updated")
+    except Exception as e:
+        logger.info(f"Error while job indexing - {job_status}")
+        return HTTPException(status_code=400, detail="Error in Job Indexing")
