@@ -233,33 +233,32 @@ def is_audio_valid(file_path):
 
 
 def audio_image(url, file_ext, savepath):
-    z = io.BytesIO(urlopen(url).read())
-    temp_name = tempfile.NamedTemporaryFile()
-    temp_name = temp_name.name + "." + file_ext
-    p = pathlib.Path(temp_name).write_bytes(z.getbuffer())
-    audio_duration = librosa.get_duration(path=temp_name)
-    desired_length = min(audio_duration, 5)
-    audio, sr = librosa.load(temp_name, sr=None)
-    start, end = find_loudest_section(audio, sr, desired_length)
-    extracted_audio = audio[start:end]
-    fig, ax = plt.subplots(nrows=1, sharex=True, sharey=True)
-    y_harm, y_perc = librosa.effects.hpss(extracted_audio)
-    librosa.display.waveshow(y_harm, sr=sr, alpha=0.25, ax=ax)
-    librosa.display.waveshow(y_perc, sr=sr, color="r", alpha=0.5, ax=ax)
-    ax.axis("off")
-    fig.patch.set_facecolor("#E2E8F0")  # set the figure background color
-    ax.set_facecolor("#E2E8F0")  # set the axes element background color
-    plt.savefig(
-        savepath,
-        bbox_inches="tight",
-        pad_inches=0,
-        facecolor=fig.get_facecolor(),
-        edgecolor="none",
-        dpi=200
-    )
-    plt.close()
-    audio_data = is_audio_valid(temp_name)
-    os.remove(temp_name)
+    response = requests.get(url)
+    audio_data = response.content
+    with tempfile.NamedTemporaryFile(suffix='.' + file_ext) as temp_file:
+        temp_file.write(audio_data)
+        temp_file.flush()  # Ensure data is written to disk
+        desired_length = 1000
+        audio, sr = librosa.load(temp_file.name, sr=None, duration=desired_length)
+        start, end = find_loudest_section(audio, sr, desired_length)
+        extracted_audio = audio[start:end]
+        fig, ax = plt.subplots(nrows=1, sharex=True, sharey=True)
+        y_harm, y_perc = librosa.effects.hpss(extracted_audio)
+        librosa.display.waveshow(y_harm, sr=sr, alpha=0.25, ax=ax)
+        librosa.display.waveshow(y_perc, sr=sr, color="r", alpha=0.5, ax=ax)
+        ax.axis("off")
+        fig.patch.set_facecolor("#E2E8F0")  # set the figure background color
+        ax.set_facecolor("#E2E8F0")  # set the axes element background color
+        plt.savefig(
+            savepath,
+            bbox_inches="tight",
+            pad_inches=0,
+            facecolor=fig.get_facecolor(),
+            edgecolor="none",
+            dpi=50
+        )
+        plt.close()
+    audio_data = is_audio_valid(temp_file.name)
     return audio_data
 
 
