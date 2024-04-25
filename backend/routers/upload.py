@@ -27,6 +27,7 @@ from utils import logger
 from routers.content import allTags
 from utils import r2_resource, r2_client, logger, delete_r2_file
 from utils import USER_TIER, STORAGE_LIMITS
+import pathlib
 
 load_dotenv()
 
@@ -212,6 +213,9 @@ def video_indexing(response, thumbnail_path, db, indexdata, user_tier, reindex: 
             .filter(models.Content.id == indexdata["config"]["id"])
             .first()
         )
+        if reindex == True:
+            file_ext = pathlib.Path(indexdata["config"]["filename"]).suffix
+            videoData.title = videoData.title + file_ext
         videoData.duration = convert_seconds(int(float(vidData["duration"])))
         videoData.content_type = "video"
         videoData.size = int(vidData["filesize"])

@@ -723,7 +723,7 @@ async def job_status(
         )
         status = "completed"
         for x in content_data:
-            if x.status == "completed":
+            if str(x.status) == "completed":
                 x.updated_at = int(time.time())
                 db.add(x)
             else:

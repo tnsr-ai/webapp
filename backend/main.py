@@ -17,7 +17,7 @@ import os
 import redis.asyncio as redis
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from utils import GOOGLE_SECRET, HOST, PORT, REDIS_HOST, APP_ENV, REPLICATE_API_TOKEN, CLOUDFLARE_METADATA
+from utils import GOOGLE_SECRET, HOST, PORT, REDIS_HOST, APP_ENV, REPLICATE_API_TOKEN, CLOUDFLARE_METADATA, REDIS_PORT
 from fastapi_limiter import FastAPILimiter
 from fastapi_limiter.depends import RateLimiter
 import time
@@ -145,7 +145,7 @@ async def startup():
             r2_client.upload_file("./script_utils/srt_thumbnail.jpg", CLOUDFLARE_METADATA, "srt_thumbnail.jpg")
             r2_client.upload_file("./script_utils/stem.jpg", CLOUDFLARE_METADATA, "stem.jpg")
     redis_connection = redis.from_url(
-        f"redis://{REDIS_HOST}", encoding="utf-8", decode_responses=True
+        f"redis://{REDIS_HOST}:{REDIS_PORT}", encoding="utf-8", decode_responses=True
     )
     await FastAPILimiter.init(redis_connection)
 
