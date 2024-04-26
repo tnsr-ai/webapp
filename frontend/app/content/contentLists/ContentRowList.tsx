@@ -80,7 +80,7 @@ export default function ContentListRow(props: any) {
         );
         setShouldPoll(isProcessing);
       },
-      refetchInterval: shouldPoll ? 1000 * 60 : false,
+      refetchInterval: shouldPoll ? 1000 * 15 : false,
       retry: 2,
     });
   };

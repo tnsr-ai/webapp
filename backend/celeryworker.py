@@ -30,7 +30,7 @@ celeryapp = Celery(
     broker_connection_retry_on_startup=True,
     broker_connection_max_retries=10,
     worker_prefetch_multiplier=1,
-    task_ignore_result=True
+    task_track_started=True
 )
 
 def restore_all_unacknowledged_messages():

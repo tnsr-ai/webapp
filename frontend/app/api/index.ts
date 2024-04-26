@@ -253,34 +253,7 @@ export const useGetSettings = () => {
 
 // Content Endpoints
 
-export const useGetContent = (
-  limit: number,
-  offset: number,
-  content_type: string
-) => {
-  const jwt = getCookie("access_token");
-  return useQuery({
-    queryKey: [
-      "/content/get_content",
-      { limit: limit, offset: offset, content_type: content_type },
-    ],
-    queryFn: async () => {
-      const url = `${contentEndpoints["getContent"]}/?limit=${limit}&offset=${offset}&content_type=${content_type}`;
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${jwt}`,
-        },
-      });
-      if (!response.ok) {
-        throw new Error("Network response was not ok");
-      }
-      const data = await response.json();
-      return data;
-    },
-  });
-};
+
 
 export const useListContent = (
   content_id: number,

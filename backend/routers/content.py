@@ -24,7 +24,6 @@ from utils import (
     CLOUDFLARE_ACCESS_KEY,
     CLOUDFLARE_SECRET_KEY,
     CLOUDFLARE_ACCOUNT_ENDPOINT,
-    CLOUDFLARE_EXPIRE_TIME,
     CLOUDFLARE_METADATA,
     CLOUDFLARE_CONTENT,
     CONTENT_EXPIRE,
@@ -126,7 +125,6 @@ def add_presigned_single(file_key, bucket, rd):
             rd.expire(file_key, CONTENT_EXPIRE - 43200)
         return response
     except Exception as e:
-        print(str(e))
         return None
 
 
@@ -179,8 +177,8 @@ def get_content_table(user_id, table_name, limit, offset, db):
             db.query(models.Content)
             .filter(models.Content.user_id == user_id)
             .filter(models.Content.id_related == None)
-            .filter(models.Content.status == "completed")
             .filter(models.Content.content_type == table_name)
+            .filter(or_(models.Content.status == "completed", models.Content.status == "indexing"))
             .order_by(models.Content.created_at.desc())
             .limit(limit)
             .offset(offset)
@@ -195,7 +193,7 @@ def get_content_table(user_id, table_name, limit, offset, db):
             db.query(models.Content)
             .filter(models.Content.user_id == user_id)
             .filter(models.Content.id_related == None)
-            .filter(models.Content.status == "completed")
+            .filter(or_(models.Content.status == "completed", models.Content.status == "indexing"))
             .count()
         )
         return {"detail": "Success", "data": [all_result, get_counts]}
@@ -368,7 +366,6 @@ def get_content_list_celery(
                 "title": main_title,
             }
     except Exception as e:
-        print(str(e))
         return {"detail": "Failed", "data": "Unable to fetch content"}
 
 

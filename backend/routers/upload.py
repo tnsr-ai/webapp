@@ -27,6 +27,7 @@ from utils import logger
 from routers.content import allTags
 from utils import r2_resource, r2_client, logger, delete_r2_file
 from utils import USER_TIER, STORAGE_LIMITS
+from celery.result import AsyncResult
 import pathlib
 
 load_dotenv()
@@ -300,126 +301,22 @@ def audio_indexing(response, thumbnail_path, db, indexdata, user_tier, reindex: 
     except Exception as e:
         return {"detail": "Failed", "data": str(e)}
 
-
-def index_media_task(indexdata: dict, user_id: int, db: Session, reindex: bool = False):
-    try:
-        user = db.query(models.Users).filter(models.Users.id == user_id).first()
-        user_dashboard = (
-            db.query(models.Dashboard)
-            .filter(models.Dashboard.user_id == user_id)
-            .first()
-        )
-        if user.verified == False:
-            return {"detail": "Failed", "data": "User not verified"}
-        info = indexdata["config"]
-        indexfilename = info["indexfilename"]
-        pathlib.Path(f"thumbnail/{user_id}").mkdir(parents=True, exist_ok=True)
-        thumbnail_path = f"thumbnail/{user_id}/{os.path.splitext(indexfilename)[0]}.jpg"
-        s3 = boto3.client(
-            "s3",
-            aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
-            aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
-            endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
-            config=botocore.config.Config(
-                s3={"addressing_style": "path"},
-                signature_version="s3v4",
-                retries=dict(max_attempts=3),
-            ),
-        )
-        key_file = f"{user_id}/{indexfilename}"
-        obj_data = s3.head_object(Bucket=CLOUDFLARE_CONTENT, Key=key_file)
-        if user_dashboard is not None:
-            if int(user_dashboard.storage_limit) - int(
-                user_dashboard.storage_used
-            ) < int(obj_data["ContentLength"]) and reindex == False:
-                return {"detail": "Failed", "data": "Storage limit exceeded"}
-        response = s3.generate_presigned_url(
-            "get_object",
-            Params={"Bucket": CLOUDFLARE_CONTENT, "Key": key_file},
-            ExpiresIn=3600,
-        )
-        s3.close()
-        if indexdata["processtype"] == "video":
-            result = video_indexing(
-                response, thumbnail_path, db, indexdata, user.user_tier, reindex
-            )
-            if result["detail"] == "Failed":
-                return result
-            videoData = result["data"]
-            user_stats = (
+@celeryapp.task(name="routers.upload.index_media_task", acks_late=True)
+def index_media_task(indexdata: dict, user_id: int, reindex: bool = False):
+    with Session(engine) as db:
+        try:
+            user = db.query(models.Users).filter(models.Users.id == user_id).first()
+            user_dashboard = (
                 db.query(models.Dashboard)
                 .filter(models.Dashboard.user_id == user_id)
                 .first()
             )
-            user_stats.video_processed += 1
-            user_stats.uploads += int(videoData.size)
-            user_stats.storage_used += int(videoData.size)
-            storage_json = ast.literal_eval(user_stats.storage_json)
-            storage_json["video"] = float(bytes_to_mb(videoData.size)) + float(
-                storage_json["video"]
-            )
-            user_stats.storage_json = json.dumps(storage_json)
-            db.add(user_stats)
-            db.add(videoData)
-            db.commit()
-            shutil.rmtree(f"thumbnail/{user_id}")
-            return {"detail": "Success", "data": "Video indexed"}
-        if indexdata["processtype"] == "image":
-            result = image_indexing(
-                response, thumbnail_path, db, indexdata, user.user_tier, reindex
-            )
-            if result["detail"] == "Failed":
-                return result
-            imageData = result["data"]
-            user_stats = (
-                db.query(models.Dashboard)
-                .filter(models.Dashboard.user_id == user_id)
-                .first()
-            )
-            user_stats.image_processed += 1
-            user_stats.uploads += int(imageData.size)
-            user_stats.storage_used += int(imageData.size)
-            storage_json = ast.literal_eval(user_stats.storage_json)
-            storage_json["image"] = float(bytes_to_mb(imageData.size)) + float(
-                storage_json["image"]
-            )
-            user_stats.storage_json = json.dumps(storage_json)
-            db.add(user_stats)
-            db.add(imageData)
-            db.commit()
-            shutil.rmtree(f"thumbnail/{user_id}")
-            return {"detail": "Success", "data": "Image indexed"}
-        if indexdata["processtype"] == "audio":
-            result = audio_indexing(
-                response, thumbnail_path, db, indexdata, user.user_tier, reindex
-            )
-            if result["detail"] == "Failed":
-                return result
-            audioData = result["data"]
-            user_stats = (
-                db.query(models.Dashboard)
-                .filter(models.Dashboard.user_id == user_id)
-                .first()
-            )
-            user_stats.audio_processed += 1
-            user_stats.uploads += int(audioData.size)
-            user_stats.storage_used += int(audioData.size)
-            storage_json = ast.literal_eval(user_stats.storage_json)
-            storage_json["audio"] = float(bytes_to_mb(audioData.size)) + float(
-                storage_json["audio"]
-            )
-            user_stats.storage_json = json.dumps(storage_json)
-            db.add(user_stats)
-            db.add(audioData)
-            db.commit()
-            shutil.rmtree(f"thumbnail/{user_id}")
-            return {"detail": "Success", "data": "Audio indexed"}
-        if indexdata["processtype"] == "subtitle":
-            subtitleData = (
-                db.query(models.Content)
-                .filter(models.Content.id == indexdata["config"]["id"])
-                .first()
-            )
+            if user.verified == False:
+                return {"detail": "Failed", "data": "User not verified"}
+            info = indexdata["config"]
+            indexfilename = info["indexfilename"]
+            pathlib.Path(f"thumbnail/{user_id}").mkdir(parents=True, exist_ok=True)
+            thumbnail_path = f"thumbnail/{user_id}/{os.path.splitext(indexfilename)[0]}.jpg"
             s3 = boto3.client(
                 "s3",
                 aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
@@ -431,39 +328,159 @@ def index_media_task(indexdata: dict, user_id: int, db: Session, reindex: bool =
                     retries=dict(max_attempts=3),
                 ),
             )
-            subtitleData.size = obj_data['ContentLength']
-            subtitleData.md5 = indexdata["md5"]
-            subtitleData.status = "completed"
-            subtitleData.updated_at = int(time.time())
-            db.add(subtitleData)
-            db.commit()
-            return {"detail": "Success", "data": "Subtitle indexed"}
-        if indexdata["processtype"] == "zip":
-            zipData = (
+            key_file = f"{user_id}/{indexfilename}"
+            obj_data = s3.head_object(Bucket=CLOUDFLARE_CONTENT, Key=key_file)
+            if user_dashboard is not None:
+                if int(user_dashboard.storage_limit) - int(
+                    user_dashboard.storage_used
+                ) < int(obj_data["ContentLength"]) and reindex == False:
+                    return {"detail": "Failed", "data": "Storage limit exceeded"}
+            response = s3.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": CLOUDFLARE_CONTENT, "Key": key_file},
+                ExpiresIn=3600,
+            )
+            s3.close()
+            if indexdata["processtype"] == "video":
+                result = video_indexing(
+                    response, thumbnail_path, db, indexdata, user.user_tier, reindex
+                )
+                if result["detail"] == "Failed":
+                    return result
+                videoData = result["data"]
+                user_stats = (
+                    db.query(models.Dashboard)
+                    .filter(models.Dashboard.user_id == user_id)
+                    .first()
+                )
+                user_stats.video_processed += 1
+                user_stats.uploads += int(videoData.size)
+                user_stats.storage_used += int(videoData.size)
+                storage_json = ast.literal_eval(user_stats.storage_json)
+                storage_json["video"] = float(bytes_to_mb(videoData.size)) + float(
+                    storage_json["video"]
+                )
+                user_stats.storage_json = json.dumps(storage_json)
+                db.add(user_stats)
+                db.add(videoData)
+                db.commit()
+                shutil.rmtree(f"thumbnail/{user_id}")
+                return {"detail": "Success", "data": "Video indexed"}
+            if indexdata["processtype"] == "image":
+                result = image_indexing(
+                    response, thumbnail_path, db, indexdata, user.user_tier, reindex
+                )
+                if result["detail"] == "Failed":
+                    return result
+                imageData = result["data"]
+                user_stats = (
+                    db.query(models.Dashboard)
+                    .filter(models.Dashboard.user_id == user_id)
+                    .first()
+                )
+                user_stats.image_processed += 1
+                user_stats.uploads += int(imageData.size)
+                user_stats.storage_used += int(imageData.size)
+                storage_json = ast.literal_eval(user_stats.storage_json)
+                storage_json["image"] = float(bytes_to_mb(imageData.size)) + float(
+                    storage_json["image"]
+                )
+                user_stats.storage_json = json.dumps(storage_json)
+                db.add(user_stats)
+                db.add(imageData)
+                db.commit()
+                shutil.rmtree(f"thumbnail/{user_id}")
+                return {"detail": "Success", "data": "Image indexed"}
+            if indexdata["processtype"] == "audio":
+                result = audio_indexing(
+                    response, thumbnail_path, db, indexdata, user.user_tier, reindex
+                )
+                if result["detail"] == "Failed":
+                    return result
+                audioData = result["data"]
+                user_stats = (
+                    db.query(models.Dashboard)
+                    .filter(models.Dashboard.user_id == user_id)
+                    .first()
+                )
+                user_stats.audio_processed += 1
+                user_stats.uploads += int(audioData.size)
+                user_stats.storage_used += int(audioData.size)
+                storage_json = ast.literal_eval(user_stats.storage_json)
+                storage_json["audio"] = float(bytes_to_mb(audioData.size)) + float(
+                    storage_json["audio"]
+                )
+                user_stats.storage_json = json.dumps(storage_json)
+                db.add(user_stats)
+                db.add(audioData)
+                db.commit()
+                shutil.rmtree(f"thumbnail/{user_id}")
+                return {"detail": "Success", "data": "Audio indexed"}
+            if indexdata["processtype"] == "subtitle":
+                subtitleData = (
+                    db.query(models.Content)
+                    .filter(models.Content.id == indexdata["config"]["id"])
+                    .first()
+                )
+                s3 = boto3.client(
+                    "s3",
+                    aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
+                    aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
+                    endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
+                    config=botocore.config.Config(
+                        s3={"addressing_style": "path"},
+                        signature_version="s3v4",
+                        retries=dict(max_attempts=3),
+                    ),
+                )
+                subtitleData.size = obj_data['ContentLength']
+                subtitleData.md5 = indexdata["md5"]
+                subtitleData.status = "completed"
+                subtitleData.updated_at = int(time.time())
+                db.add(subtitleData)
+                db.commit()
+                return {"detail": "Success", "data": "Subtitle indexed"}
+            if indexdata["processtype"] == "zip":
+                zipData = (
+                    db.query(models.Content)
+                    .filter(models.Content.id == indexdata["config"]["id"])
+                    .first()
+                )
+                s3 = boto3.client(
+                    "s3",
+                    aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
+                    aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
+                    endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
+                    config=botocore.config.Config(
+                        s3={"addressing_style": "path"},
+                        signature_version="s3v4",
+                        retries=dict(max_attempts=3),
+                    ),
+                )
+                zipData.size = obj_data['ContentLength']
+                zipData.md5 = indexdata["md5"]
+                zipData.status = "completed"
+                zipData.updated_at = int(time.time())
+                db.add(zipData)
+                db.commit()
+                return {"detail": "Success", "data": "Zip indexed"}
+        except Exception as e:
+            content_data = (
                 db.query(models.Content)
                 .filter(models.Content.id == indexdata["config"]["id"])
                 .first()
             )
-            s3 = boto3.client(
-                "s3",
-                aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
-                aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
-                endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
-                config=botocore.config.Config(
-                    s3={"addressing_style": "path"},
-                    signature_version="s3v4",
-                    retries=dict(max_attempts=3),
-                ),
+            delete_r2_file.delay(content_data.link, CLOUDFLARE_CONTENT)
+            all_tags = (
+                db.query(models.ContentTags)
+                .filter(models.ContentTags.content_id == content_data.id)
+                .all()
             )
-            zipData.size = obj_data['ContentLength']
-            zipData.md5 = indexdata["md5"]
-            zipData.status = "completed"
-            zipData.updated_at = int(time.time())
-            db.add(zipData)
+            for tag in all_tags:
+                db.delete(tag)
+            db.delete(content_data)
             db.commit()
-            return {"detail": "Success", "data": "Zip indexed"}
-    except Exception as e:
-        return {"detail": "Failed", "data": "Invalid processtype"}
+            return {"detail": "Failed", "data": "Invalid processtype"}
 
 
 @router.post(
@@ -499,19 +516,24 @@ async def file_index(
         db.commit()
         logger.error(f"Invalid processtype for {current_user.user_id}")
         raise HTTPException(status_code=400, detail="Invalid processtype")
-    result = index_media_task(indexdata.dict(), current_user.user_id, db)
-    if result["detail"] == "Failed":
-        delete_r2_file.delay(content_data.link, CLOUDFLARE_CONTENT)
-        all_tags = (
-            db.query(models.ContentTags)
-            .filter(models.ContentTags.content_id == content_data.id)
-            .all()
-        )
-        for tag in all_tags:
-            db.delete(tag)
-        db.delete(content_data)
-        db.commit()
-        logger.error(f"Failed to index file for {current_user.user_id}")
-        raise HTTPException(status_code=400, detail=result["data"])
-    logger.info(f"File indexed for {current_user.user_id}")
-    return HTTPException(status_code=201, detail="File indexed")
+    result = index_media_task.delay(indexdata.dict(), current_user.user_id)
+    content_data.status = "indexing"
+    content_data.content_type = indexdata.processtype
+    db.add(content_data)
+    db.commit()
+    logger.info(f"File indexed with celery id {result.id}")
+    return {"detail": "Success", "data": "Indexing file"}
+
+@router.post(
+    "/indexfile_status",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(RateLimiter(times=120, seconds=60))],
+)
+async def indexfile_status(task_id: str):
+    try:
+        if len(task_id) < 0 or task_id == None:
+            return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid Task ID")
+        task = AsyncResult(task_id, app=celeryapp)
+        return task.state
+    except:
+        return "ERROR"

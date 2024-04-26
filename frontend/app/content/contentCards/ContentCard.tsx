@@ -31,26 +31,31 @@ export default function ContentCard(props: any) {
   if (props.type === "image") {
     content_info = `${file_ext} - ${props.data["size"]} - ${props.data["resolution"]}`;
   }
+  if (props.data["status"] === "indexing") {
+    content_info = "Indexing in progress";
+  }
   const [isLoaded, setIsLoaded] = React.useState(false);
   return (
     <div key={props.data["title"]} className="w-full">
       <div className="w-full h-[312px] rounded-t-2xl aspect-auto">
         {!isLoaded && <Skeleton height={312} />}
-        <Link href={`/${pathname}/${props.data["id"]}`}>
-          <Image
-            src={props.data["thumbnail_link"]}
-            alt={props.data["title"]}
-            width={0}
-            height={0}
-            sizes="100vw"
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            className={`rounded-t-2xl transition-all duration-500 ease-in-out ${
-              isLoaded ? "opacity-100" : "opacity-0"
-            }`}
-            onLoad={() => setIsLoaded(true)}
-            priority={true}
-          />
-        </Link>
+        {props.data["status"] === "completed" && (
+          <Link href={`/${pathname}/${props.data["id"]}`}>
+            <Image
+              src={props.data["thumbnail_link"]}
+              alt={props.data["title"]}
+              width={0}
+              height={0}
+              sizes="100vw"
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              className={`rounded-t-2xl transition-all duration-500 ease-in-out ${
+                isLoaded ? "opacity-100" : "opacity-0"
+              }`}
+              onLoad={() => setIsLoaded(true)}
+              priority={true}
+            />
+          </Link>
+        )}
       </div>
       <div className="bg-gray-100 w-full pt-2 pb-3 pl-2 rounded-b-2xl flex">
         <div className="space-y-1 w-[100%]">
@@ -75,9 +80,11 @@ export default function ContentCard(props: any) {
             {content_info}
           </h1>
         </div>
-        <div className="flex px-3 items-center" id="dropdownButton">
-          <DropDown data={props.data} type={props.type} />
-        </div>
+        {props.data["status"] === "completed" && (
+          <div className="flex px-3 items-center" id="dropdownButton">
+            <DropDown data={props.data} type={props.type} />
+          </div>
+        )}
       </div>
     </div>
   );

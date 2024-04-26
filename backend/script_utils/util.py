@@ -37,25 +37,27 @@ def is_video_valid(file_path):
     except ffmpeg.Error:
         pass
     return False
-
-
-def create_thumbnail(video_file, output_file, time_offset):
+    
+def create_thumbnail(video_url, output_file, time_offset):
+    time_offset = min(float(time_offset), 60)
+    ffmpeg_command = [
+        'ffmpeg',
+        '-ss', str(time_offset),
+        '-i', video_url,
+        '-vframes', '1',
+        '-vf', 'scale=320:-1',
+        '-y',  
+        '-loglevel', 'error',  
+        '-f', 'image2', 
+        '-'
+    ]
     try:
-        ffmpeg.input(video_file, ss=time_offset).output(
-            output_file, vframes=1, y="-y", hide_banner=None, loglevel="quiet"
-        ).run()
-        img = Image.open(output_file)
-        width, height = img.size
-        aspect_ratio = width / height
-        if abs(aspect_ratio - 1.7777) > 0.5:
-            bg_blur = img.resize((960, 540))
-            blurred = bg_blur.filter(ImageFilter.GaussianBlur(52))
-            bg_blur.paste(blurred, (0, 0))
-            main_img = img.resize((int(540 * aspect_ratio), 540))
-            bg_blur.paste(main_img, (int((960 - (540 * aspect_ratio)) / 2), 0))
-            bg_blur.save(output_file, quality=50)
-    except ffmpeg.Error as e:
-        raise e
+        result = subprocess.run(ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+        with open(output_file, 'wb') as f:
+            f.write(result.stdout) 
+    except subprocess.CalledProcessError as e:
+        error_message = e.stderr.decode().strip()
+        raise Exception(f"FFmpeg error: {error_message}") from e
 
 
 def create_thumbnail_image(output_file):
@@ -237,7 +239,7 @@ def audio_image(url, file_ext, savepath):
     audio_data = response.content
     with tempfile.NamedTemporaryFile(suffix='.' + file_ext) as temp_file:
         temp_file.write(audio_data)
-        temp_file.flush()  # Ensure data is written to disk
+        temp_file.flush()
         desired_length = 1000
         audio, sr = librosa.load(temp_file.name, sr=None, duration=desired_length)
         start, end = find_loudest_section(audio, sr, desired_length)
@@ -247,18 +249,18 @@ def audio_image(url, file_ext, savepath):
         librosa.display.waveshow(y_harm, sr=sr, alpha=0.25, ax=ax)
         librosa.display.waveshow(y_perc, sr=sr, color="r", alpha=0.5, ax=ax)
         ax.axis("off")
-        fig.patch.set_facecolor("#E2E8F0")  # set the figure background color
-        ax.set_facecolor("#E2E8F0")  # set the axes element background color
+        fig.patch.set_facecolor("#E2E8F0")  
+        ax.set_facecolor("#E2E8F0")
         plt.savefig(
             savepath,
             bbox_inches="tight",
             pad_inches=0,
             facecolor=fig.get_facecolor(),
             edgecolor="none",
-            dpi=50
+            dpi=200
         )
         plt.close()
-    audio_data = is_audio_valid(temp_file.name)
+        audio_data = is_audio_valid(temp_file.name)
     return audio_data
 
 
