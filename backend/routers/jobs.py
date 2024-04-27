@@ -682,7 +682,7 @@ async def file_index(
     if indexdata.processtype not in ["video", "audio", "subtitle", "zip"]:
         logger.error(f"Invalid processtype for in job reindex")
         raise HTTPException(status_code=400, detail="Invalid processtype")
-    result = index_media_task(indexdata.dict(), job_info.user_id, db, True)
+    result = index_media_task(indexdata.dict(), job_info.user_id, True)
     if result["detail"] == "Failed":
         delete_r2_file.delay(content_data.link, CLOUDFLARE_CONTENT)
         content_data.status = "failed"
