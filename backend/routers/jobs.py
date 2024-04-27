@@ -682,20 +682,12 @@ async def file_index(
     if indexdata.processtype not in ["video", "audio", "subtitle", "zip"]:
         logger.error(f"Invalid processtype for in job reindex")
         raise HTTPException(status_code=400, detail="Invalid processtype")
-    result = index_media_task(indexdata.dict(), job_info.user_id, True)
-    if result["detail"] == "Failed":
-        delete_r2_file.delay(content_data.link, CLOUDFLARE_CONTENT)
-        content_data.status = "failed"
-        job_info.job_status = "Failed"
-        job_info.job_process = "failed"
-        job_info.updated_at = int(time.time())
-        job_info.job_key = False
-        db.add(job_info)
-        db.add(content_data)
-        db.commit()
-        logger.error(f"Failed to reindex file for {job_info.user_id}")
-        raise HTTPException(status_code=400, detail=result["data"])
-    logger.info(f"File indexed for {job_info.user_id}")
+    result = index_media_task.delay(indexdata.dict(), job_info.user_id, True)
+    content_data.status = "indexing"
+    content_data.content_type = indexdata.processtype
+    db.add(content_data)
+    db.commit()
+    logger.info(f"File indexed with celery id {result.id}")
     return HTTPException(status_code=201, detail="File indexed")
 
 @router.post(
