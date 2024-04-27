@@ -196,7 +196,7 @@ def video_indexing(response, thumbnail_path, db, indexdata, user_tier, reindex: 
         ):
             return {
                 "detail": "Failed",
-                "data": f"Resolution is too large for {user_tier} tier",
+                "data": f"Resolution exceeds {user_tier} tier length limit",
             }
         allowed_duration = allowed_config["duration"]
         if float(allowed_config["duration"]) == -1:
@@ -204,7 +204,7 @@ def video_indexing(response, thumbnail_path, db, indexdata, user_tier, reindex: 
         if float(vidData["duration"]) > allowed_duration and reindex == False:
             return {
                 "detail": "Failed",
-                "data": f"Video duration is too long for {user_tier} tier",
+                "data": f"Video exceeds {user_tier} tier length limit",
             }
         create_thumbnail(response, thumbnail_path, vidData["time_offset"])
         lower_resolution(thumbnail_path)
@@ -230,7 +230,8 @@ def video_indexing(response, thumbnail_path, db, indexdata, user_tier, reindex: 
         videoData.updated_at = int(time.time())
         return {"detail": "Success", "data": videoData}
     except Exception as e:
-        return {"detail": "Failed", "data": str(e)}
+        # return {"detail": "Failed", "data": str(e)}
+        return {"detail": "Failed", "data": "Error while indexing"}
 
 
 def image_indexing(response, thumbnail_path, db, indexdata, user_tier, reindex: bool = False):
@@ -240,7 +241,7 @@ def image_indexing(response, thumbnail_path, db, indexdata, user_tier, reindex: 
         if (width > allowed_config["width"] or height > allowed_config["height"]) and reindex == False:
             return {
                 "detail": "Failed",
-                "data": f"Image resolution is too large for {user_tier} tier",
+                "data": f"Resolution exceeds {user_tier} tier limit",
             }
         create_thumbnail_image(thumbnail_path)
         thumbnail_upload(thumbnail_path)
@@ -260,7 +261,8 @@ def image_indexing(response, thumbnail_path, db, indexdata, user_tier, reindex: 
         imageData.updated_at = int(time.time())
         return {"detail": "Success", "data": imageData}
     except Exception as e:
-        return {"detail": "Failed", "data": str(e)}
+        # return {"detail": "Failed", "data": str(e)}
+        return {"detail": "Failed", "data": "Error while indexing"}
 
 
 def audio_indexing(response, thumbnail_path, db, indexdata, user_tier, reindex: bool = False):
@@ -275,7 +277,7 @@ def audio_indexing(response, thumbnail_path, db, indexdata, user_tier, reindex: 
         if float(audio_data["format"]["duration"]) > float(allowed_duration) and reindex == False:
             return {
                 "detail": "Failed",
-                "data": f"Audio duration is too long for {user_tier} tier",
+                "data": f"Audio exceeds {user_tier} tier length limit",
             }
         if audio_data == False:
             return {"detail": "Failed", "data": f"Audio is not valid"}
@@ -299,7 +301,8 @@ def audio_indexing(response, thumbnail_path, db, indexdata, user_tier, reindex: 
         audioData.updated_at = int(time.time())
         return {"detail": "Success", "data": audioData}
     except Exception as e:
-        return {"detail": "Failed", "data": str(e)}
+        # return {"detail": "Failed", "data": str(e)}
+        return {"detail": "Failed", "data": "Error while indexing"}
 
 @celeryapp.task(name="routers.upload.index_media_task", acks_late=True)
 def index_media_task(indexdata: dict, user_id: int, reindex: bool = False):
@@ -346,6 +349,24 @@ def index_media_task(indexdata: dict, user_id: int, reindex: bool = False):
                     response, thumbnail_path, db, indexdata, user.user_tier, reindex
                 )
                 if result["detail"] == "Failed":
+                    delete_r2_file.delay(key_file, CLOUDFLARE_CONTENT)
+                    content_data = (
+                        db.query(models.Content)
+                        .filter(models.Content.id == indexdata["config"]["id"])
+                        .first()
+                    )
+                    all_tags = (
+                        db.query(models.ContentTags)
+                        .filter(models.ContentTags.content_id == content_data.id)
+                        .all()
+                    )
+                    for tag in all_tags:
+                        db.delete(tag)
+                    content_data.status = "cancelled"
+                    content_data.md5 = result["data"]
+                    content_data.updated_at = int(time.time())
+                    db.add(content_data)
+                    db.commit()
                     return result
                 videoData = result["data"]
                 user_stats = (
@@ -371,6 +392,23 @@ def index_media_task(indexdata: dict, user_id: int, reindex: bool = False):
                     response, thumbnail_path, db, indexdata, user.user_tier, reindex
                 )
                 if result["detail"] == "Failed":
+                    content_data = (
+                        db.query(models.Content)
+                        .filter(models.Content.id == indexdata["config"]["id"])
+                        .first()
+                    )
+                    delete_r2_file.delay(key_file, CLOUDFLARE_CONTENT)
+                    all_tags = (
+                        db.query(models.ContentTags)
+                        .filter(models.ContentTags.content_id == content_data.id)
+                        .all()
+                    )
+                    for tag in all_tags:
+                        db.delete(tag)
+                    content_data.status = "cancelled"
+                    content_data.md5 = result["data"]
+                    db.add(content_data)
+                    db.commit()
                     return result
                 imageData = result["data"]
                 user_stats = (
@@ -396,6 +434,23 @@ def index_media_task(indexdata: dict, user_id: int, reindex: bool = False):
                     response, thumbnail_path, db, indexdata, user.user_tier, reindex
                 )
                 if result["detail"] == "Failed":
+                    content_data = (
+                        db.query(models.Content)
+                        .filter(models.Content.id == indexdata["config"]["id"])
+                        .first()
+                    )
+                    delete_r2_file.delay(key_file, CLOUDFLARE_CONTENT)
+                    all_tags = (
+                        db.query(models.ContentTags)
+                        .filter(models.ContentTags.content_id == content_data.id)
+                        .all()
+                    )
+                    for tag in all_tags:
+                        db.delete(tag)
+                    content_data.status = "cancelled"
+                    content_data.md5 = result["data"]
+                    db.add(content_data)
+                    db.commit()
                     return result
                 audioData = result["data"]
                 user_stats = (
@@ -470,7 +525,10 @@ def index_media_task(indexdata: dict, user_id: int, reindex: bool = False):
                 .filter(models.Content.id == indexdata["config"]["id"])
                 .first()
             )
-            delete_r2_file.delay(content_data.link, CLOUDFLARE_CONTENT)
+            try:
+                delete_r2_file.delay(content_data.link, CLOUDFLARE_CONTENT)
+            except:
+                None
             all_tags = (
                 db.query(models.ContentTags)
                 .filter(models.ContentTags.content_id == content_data.id)

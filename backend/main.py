@@ -136,7 +136,7 @@ def init_db():
 @app.on_event("startup")
 async def startup():
     init_db()
-    if APP_ENV == "production":
+    if APP_ENV == "production" or APP_ENV == "development":
         os.environ["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
         try:
             r2_client.head_object(Bucket=CLOUDFLARE_METADATA, Key="srt_thumbnail.jpg")

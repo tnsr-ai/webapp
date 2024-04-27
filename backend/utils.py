@@ -138,13 +138,13 @@ USER_TIER = {
             "width": 1920,
             "height": 1080,
             "formats": ["mp4", "mov", "mkv", "webm"],
-            "duration": 180,
+            "duration": 600,
             "max_filters": 2,
         },
         "audio": {
             "size": STORAGE_LIMITS["free"],
             "formats": ["mp3", "wav", "m4v"],
-            "duration": 180,
+            "duration": 600,
             "max_filters": 2,
         },
         "image": {

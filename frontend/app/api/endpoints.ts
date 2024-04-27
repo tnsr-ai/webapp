@@ -47,6 +47,7 @@ const optionsEndpoints = {
   deleteProject: `${baseURL}/options/delete-project`,
   renameProject: `${baseURL}/options/rename-project`,
   resendEmail: `${baseURL}/options/resend-email`,
+  userTierConfig: `${baseURL}/options/user_tier`,
 };
 
 const billingEndpoints = {

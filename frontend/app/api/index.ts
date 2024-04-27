@@ -253,8 +253,6 @@ export const useGetSettings = () => {
 
 // Content Endpoints
 
-
-
 export const useListContent = (
   content_id: number,
   content_type: string,
@@ -362,6 +360,25 @@ export const useJobsConfig = () => {
     queryKey: [jobsEndpoints["filterConfig"]],
     queryFn: async () => {
       const url = jobsEndpoints["filterConfig"];
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${jwt}`,
+        },
+      });
+      const data = await response.json();
+      return data;
+    },
+  });
+};
+
+export const useGetUserConfig = () => {
+  const jwt = getCookie("access_token");
+  return useQuery({
+    queryKey: [optionsEndpoints["userTierConfig"]],
+    queryFn: async () => {
+      const url = optionsEndpoints["userTierConfig"];
       const response = await fetch(url, {
         method: "GET",
         headers: {

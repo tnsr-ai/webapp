@@ -16,6 +16,7 @@ import redis
 from celeryworker import celeryapp
 from routers.auth import get_current_user, TokenData
 import json
+import time
 import re
 from fastapi_limiter.depends import RateLimiter
 from utils import (
@@ -157,10 +158,7 @@ def filter_data(data):
     delete_keys = [
         "user_id",
         "thumbnail",
-        "md5",
-        "id_related",
-        "updated_at",
-        "created_at",
+        "id_related"
     ]
     for x in data:
         for key in delete_keys:
@@ -173,12 +171,13 @@ def filter_data(data):
 
 def get_content_table(user_id, table_name, limit, offset, db):
     try:
+        current_time = int(time.time()) - 60
         get_table = (
             db.query(models.Content)
             .filter(models.Content.user_id == user_id)
             .filter(models.Content.id_related == None)
             .filter(models.Content.content_type == table_name)
-            .filter(or_(models.Content.status == "completed", models.Content.status == "indexing"))
+            .filter(or_(models.Content.status == "completed", models.Content.status == "indexing", and_(models.Content.status == "cancelled", models.Content.created_at >= current_time )))
             .order_by(models.Content.created_at.desc())
             .limit(limit)
             .offset(offset)
@@ -189,6 +188,7 @@ def get_content_table(user_id, table_name, limit, offset, db):
             return {"detail": "Failed", "data": "User not verified"}
         all_result = [x.__dict__ for x in get_table]
         remove_key(all_result, "_sa_instance_state")
+
         get_counts = (
             db.query(models.Content)
             .filter(models.Content.user_id == user_id)

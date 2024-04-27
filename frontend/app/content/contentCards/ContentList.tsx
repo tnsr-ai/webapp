@@ -182,6 +182,7 @@ export default function ContentList(props: any) {
     offset,
     prevPage,
     nextPage,
+    data,
   ]);
 
   return (
