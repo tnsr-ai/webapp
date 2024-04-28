@@ -632,7 +632,6 @@ def generate_signed_url_task(uploaddict: dict, db: Session):
                 },
             }
     except Exception as e:
-        print(str(e))
         return {"detail": "Failed", "data": "Filetype not supported"}
 
 @router.post(
@@ -688,7 +687,7 @@ async def file_index(
     db.add(content_data)
     db.commit()
     logger.info(f"File indexed with celery id {result.id}")
-    return HTTPException(status_code=201, detail="File indexed")
+    return {"detail": "Success", "data": {result.id}}
 
 @router.post(
     "/job_status",
