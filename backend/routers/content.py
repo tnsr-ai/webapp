@@ -70,25 +70,45 @@ def allTags(id: bool = False):
         rd_key = "all_tags_id"
     if rd.exists(rd_key):
         return json.loads(rd.get(rd_key).decode("utf-8"))
-    db = SessionLocal()
-    tags = db.query(models.Tags).all()
-    db.close()
-    all_tags = {}
+    all_tags = {
+        "1": "Original",
+        "2": "Super Resolution",
+        "3": "Video Deblurring",
+        "4": "Video Denoising",
+        "5": "Face Restoration",
+        "6": "B/W To Color",
+        "7": "Slow Motion",
+        "8": "Video Interpolation",
+        "9": "Video Deinterlacing",
+        "10": "Image Deblurring",
+        "11": "Image Denoising",
+        "12": "Audio Separation",
+        "13": "Speech Enhancement",
+        "14": "Transcription",
+        "15": "Remove Background",
+    }
+    all_tags_id = {
+        "original": "Original",
+        "super_resolution": "Super Resolution",
+        "video_deblurring": "Video Deblurring",
+        "video_denoising": "Video Denoising",
+        "face_restoration": "Face Restoration",
+        "bw_to_color": "B/W To Color",
+        "slow_motion": "Slow Motion",
+        "video_interpolation": "Video Interpolation",
+        "video_deinterlacing": "Video Deinterlacing",
+        "image_deblurring": "Image Deblurring",
+        "image_denoising": "Image Denoising",
+        "stem_seperation": "Audio Separation",
+        "speech_enhancement": "Speech Enhancement",
+        "transcription": "Transcription",
+        "remove_background": "Remove Background",
+    }
     if id == False:
-        for tag in tags:
-            all_tags[tag.tag] = {
-                "id": int(tag.id),
-                "readable": tag.readable,
-            }
         rd.set(rd_key, json.dumps(all_tags))
         return all_tags
     else:
-        for tag in tags:
-            all_tags[int(tag.id)] = {
-                "tag": tag.tag,
-                "readable": tag.readable,
-            }
-        rd.set(rd_key, json.dumps(all_tags))
+        rd.set(rd_key, json.dumps(all_tags_id))
         return all_tags
 
 
