@@ -10,4 +10,3 @@ test.db
 *.ipynb
 Caddyfile
 logs
-alembic/version/
