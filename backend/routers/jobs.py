@@ -331,19 +331,17 @@ async def register_job(
         raise HTTPException(status_code=400, detail="Unable to register job")
 
 
-def fetch_content_data(content_id: int, table: str, db: Session):
+def fetch_content_data(content_id: int, db: Session):
     try:
         content_detail = (
             db.query(models.Content)
             .filter(models.Content.id == content_id)
-            .filter(models.Content.content_type == table)
             .first()
         )
         if content_detail is None:
             raise HTTPException(status_code=400, detail="Content not found")
         return content_detail
     except Exception as e:
-        print(str(e))
         raise HTTPException(status_code=400, detail="Unable to fetch content data")
 
 
@@ -497,7 +495,7 @@ async def past_jobs(
         final_data = []
         for job in job_details:
             content_detail = fetch_content_data(
-                job["content_id"], job["job_type"], db
+                job["content_id"], db
             ).__dict__
             content_detail.pop("_sa_instance_state")
             content_detail = {k: v for k, v in content_detail.items() if v is not None}
