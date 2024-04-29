@@ -363,10 +363,10 @@ async def fetch_jobs(
             raise HTTPException(status_code=400, detail="Job not found")
         job_config = {}
         content_detail = fetch_content_data(
-            job_detail.content_id, job_detail.job_type, db
+            job_detail.content_id, db
         )
         main_content = fetch_content_data(
-            content_detail.id_related, content_detail.content_type, db
+            content_detail.id_related, db
         ).__dict__
         job_config["content"] = add_presigned_single(
             main_content["link"], CLOUDFLARE_CONTENT, None
