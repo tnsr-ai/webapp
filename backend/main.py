@@ -116,7 +116,7 @@ def init_db():
             "video_deinterlacing": "Video Deinterlacing",
             "image_deblurring": "Image Deblurring",
             "image_denoising": "Image Denoising",
-            "stem_seperation": "Audio Seperation",
+            "stem_seperation": "Audio Separation",
             "speech_enhancement": "Speech Enhancement",
             "transcription": "Transcription",
             "remove_background": "Remove Background",

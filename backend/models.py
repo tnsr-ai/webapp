@@ -96,7 +96,7 @@ class Content(Base):
     job_id = Column(Integer, nullable=True)
     status = Column(Enum(ContentStatus, name="content_status_" + str(int(time.time())), create_type=False))
     content_type = Column(
-        Enum("video", "audio", "image", name="content_type_" + str(int(time.time())), create_type=False)
+        Enum("video", "audio", "image", "subtitle", "zip", name="content_type_" + str(int(time.time())), create_type=False)
     )
     duration = Column(String, nullable=True)
     resolution = Column(String, nullable=True)
