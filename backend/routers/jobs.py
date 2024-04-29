@@ -410,7 +410,7 @@ async def active_jobs(
         final_data = []
         for job in job_details:
             content_detail = fetch_content_data(
-                job["content_id"], job["job_type"], db
+                job["content_id"], db
             ).__dict__
             content_detail.pop("_sa_instance_state")
             content_detail = {k: v for k, v in content_detail.items() if v is not None}
