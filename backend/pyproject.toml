@@ -68,6 +68,7 @@ replicate = "^0.25.1"
 pandas = "2.0.0"
 runpod = "^1.6.2"
 vastai = "^0.2.2"
+humanfriendly = "^10.0"
 
 [tool.poetry.dev-dependencies]
 

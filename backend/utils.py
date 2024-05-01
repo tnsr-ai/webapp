@@ -663,7 +663,7 @@ MODEL_COMPUTE = {
         "super_resolution": {
             "SuperRes 2x v1 (Faster)": 1400000,
             "SuperRes 4x v1 (Faster)": 700000,
-            "SuperRes 2x v2 (Slower, better result)": 700000,
+            "SuperRes 2x v2 (Slower, better result)": 400000,
             "SuperRes 4x v2 (Slower, better result)": 200000,
             "SuperRes Anime (For Animated content)": 300000
         },

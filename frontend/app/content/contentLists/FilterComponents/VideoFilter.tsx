@@ -36,6 +36,7 @@ export function VideoFilter(props: any) {
   const tierConfig = props.filterConfig["model_tier"][userTier];
   const maxFilter = tierConfig["video"]["max_filters"] as number;
   const [userMsg, setUserMsg] = useState("");
+  const [eta, setETA] = useState("");
   const [estimate, setEstimate] = useState("");
   const [enabledFilters, setEnabledFilters] = useState<string[]>([]);
   const [disabledFilters, setDisabledFilters] = useState<string[]>([]);
@@ -149,10 +150,11 @@ export function VideoFilter(props: any) {
     (jobData) => getJobEstimate(props.content_data["id"], jobData),
     {
       onSuccess: async (data) => {
-        setEstimate(`Credit: ${data}`);
+        setEstimate(`${data["price"]}`);
+        setETA(`${data["eta"]}`);
       },
       onError: () => {
-        setEstimate(`Credit: 0`);
+        setEstimate(`Error`);
       },
     }
   );
@@ -196,7 +198,6 @@ export function VideoFilter(props: any) {
     }
     let jobCount = 0;
     const filtersData = createJSON()["filters"];
-    // getEstimate.mutate(filtersData as any);
     for (const [key, value] of Object.entries(filtersData)) {
       if (filtersData[key]["active"] === true) {
         getEstimate.mutate(filtersData as any);
@@ -382,7 +383,18 @@ export function VideoFilter(props: any) {
       </div>
       {showProcess === true && (
         <div className="ml-3">
-          <p>{estimate}</p>
+          <p>
+            Credit:{" "}
+            <span className="font-bold text-purple-500">{estimate}</span>
+          </p>
+        </div>
+      )}
+      {showProcess === true && (
+        <div className="ml-3 mt-1">
+          <p>
+            ETA:{" "}
+            <span className="font-bold text-purple-500 text-base">~{eta}</span>
+          </p>
         </div>
       )}
       {showProcess === true && (

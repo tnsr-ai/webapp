@@ -38,6 +38,7 @@ export function ImageFilter(props: any) {
   const maxFilter = tierConfig["image"]["max_filters"] as number;
   const [userMsg, setUserMsg] = useState("");
   const [estimate, setEstimate] = useState("");
+  const [eta, setETA] = useState("");
   const [enabledFilters, setEnabledFilters] = useState<string[]>([]);
   const [disabledFilters, setDisabledFilters] = useState<string[]>([]);
   const router = useRouter();
@@ -122,10 +123,11 @@ export function ImageFilter(props: any) {
     (jobData) => getJobEstimate(props.content_data["id"], jobData),
     {
       onSuccess: async (data) => {
-        setEstimate(`Credit: ${data}`);
+        setEstimate(`${data["price"]}`);
+        setETA(`${data["eta"]}`);
       },
       onError: () => {
-        setEstimate(`Credit: 0`);
+        setEstimate(`Error`);
       },
     }
   );
@@ -265,7 +267,18 @@ export function ImageFilter(props: any) {
       </div>
       {showProcess === true && (
         <div className="ml-3">
-          <p>{estimate}</p>
+          <p>
+            Credit:{" "}
+            <span className="font-bold text-purple-500">{estimate}</span>
+          </p>
+        </div>
+      )}
+      {showProcess === true && (
+        <div className="ml-3 mt-1">
+          <p>
+            ETA:{" "}
+            <span className="font-bold text-purple-500 text-base">~{eta}</span>
+          </p>
         </div>
       )}
       {showProcess === true && (

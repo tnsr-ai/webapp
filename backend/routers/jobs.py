@@ -21,11 +21,14 @@ from fastapi import (
     WebSocketDisconnect,
     status,
 )
+import math
+from sqlalchemy import or_, and_
 from fastapi_limiter.depends import RateLimiter
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 import copy
 from pathlib import Path
+from humanfriendly import format_timespan
 
 import models
 from database import SessionLocal, engine
@@ -394,7 +397,10 @@ async def active_jobs(
         job_details = (
             db.query(models.Jobs)
             .filter(models.Jobs.user_id == current_user.user_id)
-            .filter(models.Jobs.job_status == "Processing")
+            .filter(or_(
+                    models.Jobs.job_status == "Processing",
+                    models.Jobs.job_status == "Loading",
+                ))
             .all()
         )
         job_details = [x.__dict__ for x in job_details]
@@ -691,6 +697,9 @@ async def file_index(
     logger.info(f"File indexed with celery id {result.id}")
     return {"detail": "Success", "data": {result.id}}
 
+def roundup(x):
+    return int(math.ceil(x / 100.0)) * 100
+
 @router.post(
     "/job_status",
     status_code=status.HTTP_201_CREATED,
@@ -771,10 +780,11 @@ async def get_estimate(
                     pixels_per_second = MODEL_COMPUTE["video"][filter_name]
                 filter_time = total_pixels / pixels_per_second
                 total_time += filter_time 
-        total_time = np.ceil(total_time) + 300
+        total_time = roundup(np.ceil(total_time) + 300 + 600)
         per_second_cost = 0.0003
         estimate = total_time * per_second_cost
-        return format(max(round(estimate, 2), 0.05),".2f")
+        estimate = format(max(round(estimate, 2), 0.05),".2f")
+        return {"detail": "Success", "eta": format_timespan(total_time, max_units=2), "price": estimate}
     if content.content_type == "image":
         filters = dict(job_config.job_config)
         resolution = content.resolution
@@ -788,14 +798,15 @@ async def get_estimate(
                 if isinstance(MODEL_COMPUTE["image"][filter_name], dict):
                     if "model" in filter_config:
                         model_name = filter_config["model"]
-                    compute_time = MODEL_COMPUTE["image"][filter_name][model_name] * scale
+                    compute_time = MODEL_COMPUTE["image"][filter_name][model_name] * scale + 30
                 else:
-                    compute_time = MODEL_COMPUTE["image"][filter_name] * scale
+                    compute_time = MODEL_COMPUTE["image"][filter_name] * scale + 30
                 total_time += compute_time
-        total_time = np.ceil(total_time) + 5
+        total_time = roundup(np.ceil(total_time) + 5 + 30)
         per_second_cost = 0.000725
         estimate = total_time * per_second_cost
-        return format(max(round(estimate, 2), 0.05),".2f")
+        estimate = format(max(round(estimate, 2), 0.05),".2f")
+        return {"detail": "Success", "eta": format_timespan(total_time, max_units=2), "price": estimate}
     if content.content_type == "audio":
         filters = dict(job_config.job_config)
         duration = content.duration
@@ -806,10 +817,11 @@ async def get_estimate(
                 compute_per_seconds = MODEL_COMPUTE["audio"][filter_name]
                 filter_time = int(np.ceil(duration_seconds / compute_per_seconds))
                 total_time += filter_time
-        total_time = np.ceil(total_time) + 30
+        total_time = roundup(np.ceil(total_time) + 30 + 600)
         per_second_cost = 0.0003
         estimate = total_time * per_second_cost
-        return format(max(round(estimate, 2), 0.05),".2f")
+        estimate = format(max(round(estimate, 2), 0.05),".2f")
+        return {"detail": "Success", "eta": format_timespan(total_time, max_units=2), "price": estimate}
     return 0.00
 
     
