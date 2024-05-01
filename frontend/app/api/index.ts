@@ -308,6 +308,25 @@ export const registerJob = async (job_type: string, config_json: any) => {
   return data;
 };
 
+export const getJobEstimate = async (content_id: number, job_config: any) => {
+  const jwt = getCookie("access_token");
+  const url = jobsEndpoints["jobEstimate"];
+  const postData = {
+    content_id: content_id,
+    job_config: job_config,
+  };
+  const response = await fetch(url, {
+    method: "POST",
+    body: JSON.stringify(postData),
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${jwt}`,
+    },
+  });
+  const data = await response.json();
+  return data;
+};
+
 export const useActiveJobs = () => {
   const jwt = getCookie("access_token");
   return useQuery({

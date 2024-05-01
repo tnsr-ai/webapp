@@ -658,6 +658,49 @@ IMAGE_MODELS = {
     }
 }
 
+MODEL_COMPUTE = {
+    "video": {
+        "super_resolution": {
+            "SuperRes 2x v1 (Faster)": 1400000,
+            "SuperRes 4x v1 (Faster)": 700000,
+            "SuperRes 2x v2 (Slower, better result)": 700000,
+            "SuperRes 4x v2 (Slower, better result)": 200000,
+            "SuperRes Anime (For Animated content)": 300000
+        },
+        "video_deblurring": 800000,
+        "video_denoising": 800000,
+        "face_restoration": 2200000,
+        "bw_to_color": 5500000,
+        "slow_motion": {
+            "2x": 1200000,
+            "4x": 1000000
+        },
+        "video_interpolation": 10800000,
+        "video_deinterlacing": 3000000,
+        "speech_enhancement": 10800000,
+        "transcription": 10800000,
+    },
+    "image": {
+        "super_resolution": {
+            "SuperRes 2x v1 (Faster)": 15,
+            "SuperRes 4x v1 (Faster)": 15,
+            "SuperRes 2x v2 (Slower, better result)": 18,
+            "SuperRes 4x v2 (Slower, better result)": 20,
+            "SuperRes Anime (For Animated content)": 15
+        },
+        "image_deblurring": 15,
+        "image_denoising": 15,
+        "face_restoration": 15, 
+        "bw_to_color": 15,
+        "remove_background": 15
+    },
+    "audio": {
+        "stem_seperation": 3,
+        "speech_enhancement": 20,
+        "transcription": 5
+    }
+}
+
 r2_client = boto3.client(
     "s3",
     aws_access_key_id=CLOUDFLARE_ACCESS_KEY,

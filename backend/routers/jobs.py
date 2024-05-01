@@ -32,7 +32,7 @@ from database import SessionLocal, engine
 from routers.auth import TokenData, get_current_user
 from routers.content import add_presigned_single, allTags
 from script_utils.util import *
-from utils import CLOUDFLARE_METADATA, CLOUDFLARE_CONTENT, IMAGE_MODELS
+from utils import CLOUDFLARE_METADATA, CLOUDFLARE_CONTENT, IMAGE_MODELS, MODEL_COMPUTE
 from utils import remove_key, sql_dict, job_presigned_get
 import replicate
 from routers.reindex_job import reindex_image_job
@@ -90,6 +90,10 @@ class IndexContent(BaseModel):
 class JobStatus(BaseModel):
     job_id: int 
     job_key: str
+
+class JobEstimate(BaseModel):
+    content_id: int 
+    job_config: dict
     
 
 def create_content_entry(config: dict, db: Session, user_id: int, job_id: int):
@@ -728,3 +732,84 @@ async def job_status(
         logger.error(f"Error while job indexing - {job_status}")
         logger.error(f"Error - {str(e)}")
         return HTTPException(status_code=400, detail="Error in Job Indexing")
+    
+@router.post(
+    "/get_estimate",\
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(RateLimiter(times=240, seconds=60))],
+)
+async def get_estimate(
+    job_config: JobEstimate, 
+    db: Session = Depends(get_db), 
+    current_user: TokenData = Depends(get_current_user)):
+    content = (
+        db.query(models.Content)
+        .filter(models.Content.id == job_config.content_id)
+        .filter(models.Content.user_id == current_user.user_id)
+        .first()
+    )
+    if content is None:
+        raise HTTPException(status_code=400, detail="Content Not Found")
+    if content.content_type == "video":
+        filters = dict(job_config.job_config)
+        resolution = content.resolution
+        fps = np.ceil(float(content.fps))
+        duration = content.duration
+        width, height = map(int, resolution.split("x"))
+        duration_seconds = duration_to_seconds(duration)
+        total_pixels = width * height * fps * duration_seconds
+        total_time = 0
+        for filter_name, filter_config in filters.items():
+            if filter_config["active"]:
+                if isinstance(MODEL_COMPUTE["video"][filter_name], dict):
+                    if "model" in filter_config:
+                        model_name = filter_config["model"]
+                    if "factor" in filter_config:
+                        model_name = filter_config["factor"]["name"]
+                    pixels_per_second = MODEL_COMPUTE["video"][filter_name][model_name]
+                else:
+                    pixels_per_second = MODEL_COMPUTE["video"][filter_name]
+                filter_time = total_pixels / pixels_per_second
+                total_time += filter_time 
+        total_time = np.ceil(total_time) + 300
+        per_second_cost = 0.0003
+        estimate = total_time * per_second_cost
+        return format(max(round(estimate, 2), 0.05),".2f")
+    if content.content_type == "image":
+        filters = dict(job_config.job_config)
+        resolution = content.resolution
+        width, height = map(int, resolution.split("x"))
+        scale = 1
+        if width > 1080:
+            scale = 2
+        total_time = 0
+        for filter_name, filter_config in filters.items():
+            if filter_config["active"]:
+                if isinstance(MODEL_COMPUTE["image"][filter_name], dict):
+                    if "model" in filter_config:
+                        model_name = filter_config["model"]
+                    compute_time = MODEL_COMPUTE["image"][filter_name][model_name] * scale
+                else:
+                    compute_time = MODEL_COMPUTE["image"][filter_name] * scale
+                total_time += compute_time
+        total_time = np.ceil(total_time) + 5
+        per_second_cost = 0.000725
+        estimate = total_time * per_second_cost
+        return format(max(round(estimate, 2), 0.05),".2f")
+    if content.content_type == "audio":
+        filters = dict(job_config.job_config)
+        duration = content.duration
+        duration_seconds = duration_to_seconds(duration)
+        total_time = 0
+        for filter_name, filter_config in filters.items():
+            if filter_config["active"]:
+                compute_per_seconds = MODEL_COMPUTE["audio"][filter_name]
+                filter_time = int(np.ceil(duration_seconds / compute_per_seconds))
+                total_time += filter_time
+        total_time = np.ceil(total_time) + 30
+        per_second_cost = 0.0003
+        estimate = total_time * per_second_cost
+        return format(max(round(estimate, 2), 0.05),".2f")
+    return 0.00
+
+    

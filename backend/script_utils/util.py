@@ -240,7 +240,7 @@ def audio_image(url, file_ext, savepath):
     with tempfile.NamedTemporaryFile(suffix='.' + file_ext) as temp_file:
         temp_file.write(audio_data)
         temp_file.flush()
-        desired_length = 1000
+        desired_length = 5
         audio, sr = librosa.load(temp_file.name, sr=None, duration=desired_length)
         start, end = find_loudest_section(audio, sr, desired_length)
         extracted_audio = audio[start:end]
@@ -268,3 +268,8 @@ def bytes_to_mb(bytes_value):
     bytes_value = int(float(bytes_value))
     mb_value = bytes_value / (1024 * 1024)
     return round(mb_value, 2)
+
+def duration_to_seconds(duration):
+    hours, minutes, seconds = map(int, duration.split(':'))
+    total_seconds = hours * 3600 + minutes * 60 + seconds
+    return total_seconds

@@ -4,7 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { registerJob } from "../../../api/index";
+import { registerJob, getJobEstimate } from "../../../api/index";
 import { CustomDropdown, SwitchComponent } from "./UIComponents'";
 
 interface VideoModel {
@@ -36,6 +36,7 @@ export function VideoFilter(props: any) {
   const tierConfig = props.filterConfig["model_tier"][userTier];
   const maxFilter = tierConfig["video"]["max_filters"] as number;
   const [userMsg, setUserMsg] = useState("");
+  const [estimate, setEstimate] = useState("");
   const [enabledFilters, setEnabledFilters] = useState<string[]>([]);
   const [disabledFilters, setDisabledFilters] = useState<string[]>([]);
   const router = useRouter();
@@ -144,6 +145,18 @@ export function VideoFilter(props: any) {
     }
   );
 
+  const getEstimate = useMutation(
+    (jobData) => getJobEstimate(props.content_data["id"], jobData),
+    {
+      onSuccess: async (data) => {
+        setEstimate(`Credit: ${data}`);
+      },
+      onError: () => {
+        setEstimate(`Credit: 0`);
+      },
+    }
+  );
+
   const sendJob = async () => {
     const data = createJSON();
     const jobData = {
@@ -183,6 +196,13 @@ export function VideoFilter(props: any) {
     }
     let jobCount = 0;
     const filtersData = createJSON()["filters"];
+    // getEstimate.mutate(filtersData as any);
+    for (const [key, value] of Object.entries(filtersData)) {
+      if (filtersData[key]["active"] === true) {
+        getEstimate.mutate(filtersData as any);
+      }
+    }
+
     const newEnabledFilters = [];
     const newDisabledFilters = [];
 
@@ -214,7 +234,6 @@ export function VideoFilter(props: any) {
 
     setEnabledFilters(newEnabledFilters);
     setDisabledFilters(newDisabledFilters);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     slowmo,
     speech,
@@ -227,6 +246,8 @@ export function VideoFilter(props: any) {
     interpolation,
     deinterlace,
     maxFilter,
+    modelType,
+    slowmofactor,
   ]);
 
   return (
@@ -347,7 +368,7 @@ export function VideoFilter(props: any) {
         </div>
       </div>
       <div id="transcription">
-        <div className="m-3 flex-row">
+        <div className="ml-3 mr-3 mt-3 mb-2 flex-row">
           <SwitchComponent
             value={transcription}
             setValue={setTranscription}
@@ -360,8 +381,13 @@ export function VideoFilter(props: any) {
         </div>
       </div>
       {showProcess === true && (
+        <div className="ml-3">
+          <p>{estimate}</p>
+        </div>
+      )}
+      {showProcess === true && (
         <div>
-          <div className="ml-3 mb-4">
+          <div className="ml-3 mb-2">
             <p>{userMsg}</p>
           </div>
           <div
@@ -383,6 +409,7 @@ export function VideoFilter(props: any) {
           </div>
         </div>
       )}
+
       {showProcess === false && (
         <div className="ml-3 mb-4">
           <p>{userMsg}</p>

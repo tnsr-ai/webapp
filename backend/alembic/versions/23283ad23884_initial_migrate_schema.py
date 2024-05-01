@@ -1,8 +1,8 @@
 """Initial migrate schema
 
-Revision ID: af08ae48c3e9
+Revision ID: 23283ad23884
 Revises: 
-Create Date: 2024-04-29 08:31:28.212489
+Create Date: 2024-04-30 09:15:43.370476
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'af08ae48c3e9'
+revision = '23283ad23884'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -42,7 +42,7 @@ def upgrade() -> None:
     sa.Column('last_name', sa.String(), nullable=True),
     sa.Column('email', sa.String(), nullable=True),
     sa.Column('hashed_password', sa.String(), nullable=True),
-    sa.Column('user_tier', sa.Enum('free', 'standard', 'deluxe', name='user_tier_enum_1714359688'), nullable=True),
+    sa.Column('user_tier', sa.Enum('free', 'standard', 'deluxe', name='user_tier_enum_1714448743'), nullable=True),
     sa.Column('verified', sa.Boolean(), nullable=True),
     sa.Column('google_login', sa.Boolean(), nullable=True),
     sa.Column('refreshVersion', sa.Integer(), nullable=True),
@@ -77,8 +77,8 @@ def upgrade() -> None:
     sa.Column('updated_at', sa.Integer(), nullable=True),
     sa.Column('id_related', sa.Integer(), nullable=True),
     sa.Column('job_id', sa.Integer(), nullable=True),
-    sa.Column('status', sa.Enum('processing', 'completed', 'failed', 'cancelled', 'indexing', name='content_status_1714359688'), nullable=True),
-    sa.Column('content_type', sa.Enum('video', 'audio', 'image', 'subtitle', 'zip', name='content_type_1714359688'), nullable=True),
+    sa.Column('status', sa.Enum('processing', 'completed', 'failed', 'cancelled', 'indexing', name='content_status_1714448743'), nullable=True),
+    sa.Column('content_type', sa.Enum('video', 'audio', 'image', 'subtitle', 'zip', name='content_type_1714448743'), nullable=True),
     sa.Column('duration', sa.String(), nullable=True),
     sa.Column('resolution', sa.String(), nullable=True),
     sa.Column('fps', sa.String(), nullable=True),
@@ -113,7 +113,7 @@ def upgrade() -> None:
     sa.Column('amount', sa.Float(), nullable=True),
     sa.Column('currency', sa.String(), nullable=True),
     sa.Column('exchange_rate', sa.Float(), nullable=True),
-    sa.Column('status', sa.Enum('pending', 'completed', 'failed', name='invoice_status_1714359688'), nullable=True),
+    sa.Column('status', sa.Enum('pending', 'completed', 'failed', name='invoice_status_1714448743'), nullable=True),
     sa.Column('created_at', sa.Integer(), nullable=True),
     sa.Column('updated_at', sa.Integer(), nullable=True),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
@@ -164,10 +164,9 @@ def upgrade() -> None:
     op.create_index(op.f('ix_jobs_job_id'), 'jobs', ['job_id'], unique=False)
     op.create_table('machines',
     sa.Column('machine_id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('instance_id', sa.String(), nullable=True),
     sa.Column('user_id', sa.Integer(), nullable=True),
-    sa.Column('machine_ip', sa.String(), nullable=True),
-    sa.Column('machine_config', sa.String(), nullable=True),
-    sa.Column('machine_status', sa.Enum('available', 'busy', 'offline', name='machine_status_1714359688'), nullable=True),
+    sa.Column('machine_status', sa.Enum('LOADING', 'RUNNING', 'EXITED', 'CANCELLED', 'FAILED', name='machine_status_1714448743'), nullable=True),
     sa.Column('job_id', sa.Integer(), nullable=True),
     sa.Column('provider', sa.String(), nullable=True),
     sa.Column('created_at', sa.Integer(), nullable=True),

@@ -4,7 +4,7 @@ import { CustomDropdown, SwitchComponent } from "./UIComponents'";
 import { Button } from "@mantine/core";
 import { toast } from "sonner";
 import { useMutation } from "@tanstack/react-query";
-import { registerJob } from "../../../api/index";
+import { registerJob, getJobEstimate } from "../../../api/index";
 import { useRouter } from "next/navigation";
 
 interface ImageModel {
@@ -37,6 +37,7 @@ export function ImageFilter(props: any) {
     props.filterConfig["content_data"]["resolution"].split("x");
   const maxFilter = tierConfig["image"]["max_filters"] as number;
   const [userMsg, setUserMsg] = useState("");
+  const [estimate, setEstimate] = useState("");
   const [enabledFilters, setEnabledFilters] = useState<string[]>([]);
   const [disabledFilters, setDisabledFilters] = useState<string[]>([]);
   const router = useRouter();
@@ -117,6 +118,18 @@ export function ImageFilter(props: any) {
     }
   );
 
+  const getEstimate = useMutation(
+    (jobData) => getJobEstimate(props.content_data["id"], jobData),
+    {
+      onSuccess: async (data) => {
+        setEstimate(`Credit: ${data}`);
+      },
+      onError: () => {
+        setEstimate(`Credit: 0`);
+      },
+    }
+  );
+
   const sendJob = async () => {
     const data = createJSON();
     const jobData = {
@@ -130,6 +143,11 @@ export function ImageFilter(props: any) {
   useEffect(() => {
     let jobCount = 0;
     const filtersData = createJSON()["filters"];
+    for (const [key, value] of Object.entries(filtersData)) {
+      if (filtersData[key]["active"] === true) {
+        getEstimate.mutate(filtersData as any);
+      }
+    }
     const newEnabledFilters = [];
     const newDisabledFilters = [];
 
@@ -162,7 +180,16 @@ export function ImageFilter(props: any) {
     setEnabledFilters(newEnabledFilters);
     setDisabledFilters(newDisabledFilters);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [SRActive, deblur, denoise, facerestore, colorizer, removebg, maxFilter]);
+  }, [
+    SRActive,
+    deblur,
+    denoise,
+    facerestore,
+    colorizer,
+    removebg,
+    maxFilter,
+    modelType,
+  ]);
 
   return (
     <div>
@@ -227,7 +254,7 @@ export function ImageFilter(props: any) {
         </div>
       </div>
       <div id="remove_background">
-        <div className="m-3">
+        <div className="ml-3 mr-3 mt-3 mb-2 flex-row">
           <SwitchComponent
             value={removebg}
             setValue={setRemoveBG}
@@ -237,8 +264,13 @@ export function ImageFilter(props: any) {
         </div>
       </div>
       {showProcess === true && (
+        <div className="ml-3">
+          <p>{estimate}</p>
+        </div>
+      )}
+      {showProcess === true && (
         <div>
-          <div className="ml-3 mb-4">
+          <div className="ml-3 mb-2">
             <p>{userMsg}</p>
           </div>
           <div

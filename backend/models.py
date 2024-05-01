@@ -142,11 +142,10 @@ class Machines(Base):
     __tablename__ = "machines"
 
     machine_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    instance_id = Column(String)
     user_id = Column(Integer, ForeignKey("users.id"))
-    machine_ip = Column(String)
-    machine_config = Column(String)
     machine_status = Column(
-        Enum("available", "busy", "offline", name="machine_status_" + str(int(time.time())), create_type=False)
+        Enum("LOADING", "RUNNING", "EXITED", "CANCELLED", "FAILED", name="machine_status_" + str(int(time.time())), create_type=False)
     )
     job_id = Column(Integer, ForeignKey("jobs.job_id"))
     provider = Column(String)

@@ -8,6 +8,7 @@ import runpod
 import numpy as np
 import requests
 import json
+import time
 import os
 from dotenv import load_dotenv
 
@@ -108,15 +109,24 @@ def parse_env(envs):
     return result
     
 class VastAI():
-    def __init__(self, machine_id, run_name, image, disk_size, job_id, job_key, env = {}, api_key = VAST_KEY):
+    def __init__(self, 
+                 machine_id, 
+                 run_name, 
+                 image, 
+                 disk_size, 
+                 onstart,
+                 eta,
+                 env = {}, 
+                 api_key = VAST_KEY):
         self.machine_id = machine_id
         self.run_name = run_name
         self.image = image 
-        self.disk_size = disk_size
+        self.disk_size = float(disk_size)
+        self.onstart = onstart
         self.env = env
         self.api_key = api_key
-        self.job_id = job_id
-        self.job_key = job_key
+        self.eta = eta 
+        self.run_time = None
         self.instance_id = None
         self.redis_host = None
         self.redis_port = None
@@ -124,67 +134,90 @@ class VastAI():
     def launch_instance(self):
         self.url = f"https://console.vast.ai/api/v0/asks/{self.machine_id}/?api_key={self.api_key}"
         self.payload = {
-            'client_id': 'me', 
-            'image': 'amitalokbera/ackermann-pipeline:v0.0.4', 
-            'env': {
-                "BASEURL": "https://backend.tnsr.ai",
-                "FETCH_CONFIG": "/jobs/fetch_jobs",
-                "JOBID": self.job_id,
-                "KEY": self.job_key,
-                "ENCRYPTION_KEY": "aqerYK5L4hxmS3JN3qejb6x9FwZYDJgulk7ZoM8adqQ",
-                "PRESIGNED_URL": "/jobs/generate_presigned_post",
-                "REINDEX_URL": "/jobs/reindexfile",
-                "-p 6379:6379": "1"
-            }, 
-            'price': None, 
-            'disk': 16.0, 
-            'label': None, 
-            'extra': None, 
-            'onstart': 'bash -c "/app/entrypoint.sh"', 
-            'runtype': None, 
-            'image_login': None, 
-            'python_utf8': False, 
-            'lang_utf8': False, 
-            'use_jupyter_lab': False, 
-            'jupyter_dir': None, 
-            'force': False, 
-            'cancel_unavail': False, 
-            'template_hash_id': None}
+            "client_id": "me",
+            "image": self.image,
+            "env": self.env,
+            "price": None,
+            "disk": self.disk_size,
+            "label": self.run_name,
+            "extra": None,
+            "onstart": self.onstart,
+            "runtype": "ssh_proxy",
+            "image_login": None,
+            "python_utf8": False,
+            "lang_utf8": False,
+            "use_jupyter_lab": False,
+            "jupyter_dir": None,
+            "force": False,
+            "cancel_unavail": False,
+            "template_hash_id": None,
+        }
+
         self.r = requests.put(self.url, json = self.payload)
         self.r.raise_for_status()
         if self.r.status_code == 200:
             self.instance_id = self.r.json()["new_contract"]
             return True
-        return False 
+        return False
+
+    def current_status(self):
+        self.url = f"https://console.vast.ai/api/v0/instances/{self.instance_id}/?owner=me&api_key={self.api_key}"
+        self.r = requests.get(self.url)
+        if self.r.status_code != 200:
+            return {"detail": "Failed"}
+        self.data = self.r.json()
+        if self.data["instances"] is None:
+            return {"detail": "Success","data": "EXITED"}
+        if self.data["instances"]["status_msg"] != None and "error" in self.data["instances"]["status_msg"].lower():
+            self.terminate_instance()
+            return {"detail": "Failed"}
+        try:
+            if self.data["instances"]["ports"] != None:
+                return {"detail": "Success","data": "RUNNING"}
+        except:
+            return {"detail": "Success","data": "LOADING"}
     
     def redis_config(self):
-        self.cmd = f"vastai show instance {self.instance_id} --raw"
-        self.ls = subprocess.run([self.cmd], shell=True, capture_output=True, text=True)
-        self.instance_config = json.loads(self.ls.stdout)
+        self.url = f"https://console.vast.ai/api/v0/instances/{self.instance_id}/?owner=me&api_key={self.api_key}"
+        self.r = requests.get(self.url)
+        if self.r.status_code != 200:
+            return False
+        self.instance_config = self.r.json()
         try:
-            self.redis_host = self.instance_config["public_ipaddr"]
-            self.redis_port = int(self.instance_config["ports"]["6379/tcp"][0]["HostPort"])
+            self.redis_host = self.instance_config["instances"]["public_ipaddr"]
+            self.redis_port = int(self.instance_config["instances"]["ports"]["6379/tcp"][0]["HostPort"])
             return True 
         except:
             return False 
         
     def terminate_instance(self):
         try:
-            self.cmd = f"vastai destroy instance {self.instance_id}"
-            self.ls = subprocess.run([self.cmd], shell=True, capture_output=True, text=True)
-            self.ls.check_returncode()
+            self.url = f"https://console.vast.ai/api/v0/instances/{self.instance_id}/?api_key={self.api_key}"
+            self.r = requests.delete(self.url)
+            if self.r.status_code != 200:
+                return False
             return True
         except:
-            return False    
+            return False 
+           
 
 class RunpodIO():
-    def __init__(self, gpu_model, run_name, image, disk_size, env = {}, api_key = RUNPOD_KEY):
+    def __init__(self, 
+                 gpu_model, 
+                 run_name, 
+                 image, 
+                 disk_size, 
+                 eta, 
+                 env = {}, 
+                 api_key = RUNPOD_KEY):
         self.gpu_model = gpu_model
         self.run_name = run_name
         self.image = image 
         self.disk_size = disk_size
         self.env = env
+        self.eta = eta
         self.api_key = api_key
+        self.run_time = None
         self.instance_id = None
         self.redis_host = None
         self.redis_port = None
@@ -199,12 +232,23 @@ class RunpodIO():
                 gpu_type_id = self.gpu_model,
                 gpu_count = 1,
                 volume_in_gb = self.disk_size,
-                ports = "8888/http,666/tcp,6379/tcp"
+                ports = "8888/http,666/tcp,6379/tcp",
+                env=self.env
             )
             self.instance_id = self.pod['id']
             return True 
         except:
             return False
+        
+    def current_status(self):
+        self.data = runpod.get_pod(self.instance_id)
+        if self.data == None:
+            return {"detail": "Success","data": "EXITED"}
+        if self.data['runtime'] == None:
+            return {"detail": "Success","data": "LOADING"}
+        if self.data['runtime'] != None:
+            return {"detail": "Success","data": "RUNNING"}
+        
 
     def redis_config(self):
         try:

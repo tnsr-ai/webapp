@@ -4,7 +4,7 @@ import { SwitchComponent } from "./UIComponents'";
 import { Button } from "@mantine/core";
 import { toast } from "sonner";
 import { useMutation } from "@tanstack/react-query";
-import { registerJob } from "../../../api/index";
+import { registerJob, getJobEstimate } from "../../../api/index";
 import { useRouter } from "next/navigation";
 
 interface AudioModel {
@@ -35,6 +35,7 @@ export function AudioFilter(props: any) {
   const tierConfig = props.filterConfig["model_tier"][userTier];
   const maxFilter = tierConfig["audio"]["max_filters"] as number;
   const [userMsg, setUserMsg] = useState("");
+  const [estimate, setEstimate] = useState("");
   const [enabledFilters, setEnabledFilters] = useState<string[]>([]);
   const [disabledFilters, setDisabledFilters] = useState<string[]>([]);
   const router = useRouter();
@@ -93,6 +94,18 @@ export function AudioFilter(props: any) {
     }
   );
 
+  const getEstimate = useMutation(
+    (jobData) => getJobEstimate(props.content_data["id"], jobData),
+    {
+      onSuccess: async (data) => {
+        setEstimate(`Credit: ${data}`);
+      },
+      onError: () => {
+        setEstimate(`Credit: 0`);
+      },
+    }
+  );
+
   const sendJob = async () => {
     const data = createJSON();
     const jobData = {
@@ -106,6 +119,11 @@ export function AudioFilter(props: any) {
   useEffect(() => {
     let jobCount = 0;
     const filtersData = createJSON()["filters"];
+    for (const [key, value] of Object.entries(filtersData)) {
+      if (filtersData[key]["active"] === true) {
+        getEstimate.mutate(filtersData as any);
+      }
+    }
     const newEnabledFilters = [];
     const newDisabledFilters = [];
 
@@ -165,7 +183,7 @@ export function AudioFilter(props: any) {
           )}
         </div>
         <div id="stem_seperation" className="w-full">
-          <div className="m-3">
+          <div className="ml-3 mr-3 mt-3 mb-2 flex-row">
             <SwitchComponent
               value={musicsep}
               setValue={setMusicsep}
@@ -179,8 +197,13 @@ export function AudioFilter(props: any) {
         </div>
       </div>
       {showProcess === true && (
+        <div className="ml-3">
+          <p>{estimate}</p>
+        </div>
+      )}
+      {showProcess === true && (
         <div>
-          <div className="ml-3 mb-4">
+          <div className="ml-3 mb-2">
             <p>{userMsg}</p>
           </div>
           <div
