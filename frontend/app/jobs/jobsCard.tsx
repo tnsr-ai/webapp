@@ -130,6 +130,14 @@ export default function JobsCard(props: any) {
                 props.data.content_detail["created_at"]
               )}`}
             </p>
+
+            {props.data.content_detail["status"] === "completed" && (
+              <p className="font-light text-xs my-1">
+                {`Finished at - ${epochToDate(
+                  props.data.content_detail["updated_at"]
+                )}`}
+              </p>
+            )}
             <div className="justify-start items-center gap-1 flex-wrap h-auto w-fit rounded-lg hidden lg:flex">
               {tags.map((tags: string, index: any) => (
                 <span className={tagColor[tags]} key={index}>

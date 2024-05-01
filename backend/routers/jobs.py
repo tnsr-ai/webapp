@@ -496,8 +496,7 @@ async def past_jobs(
             "config_json",
             "key",
             "job_key",
-            "job_tier",
-            "updated_at",
+            "job_tier"
         ]
         for x in job_details:
             for y in remove_keys:

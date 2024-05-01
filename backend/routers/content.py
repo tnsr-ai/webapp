@@ -204,7 +204,7 @@ def get_content_table(user_id, table_name, limit, offset, db):
 @router.get(
     "/get_content",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(RateLimiter(times=60, seconds=60))],
+    dependencies=[Depends(RateLimiter(times=240, seconds=60))],
 )
 async def get_content(
     limit: int,
