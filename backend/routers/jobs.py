@@ -211,65 +211,70 @@ def create_content_entry(config: dict, db: Session, user_id: int, job_id: int):
 
 @celeryapp.task(name="routers.jobs.image_process")
 def image_process_task(job_config: dict):
-    try:
-        db = SessionLocal()
-        main_content = (
-            db.query(models.Content)
-            .filter(
-                models.Content.id == job_config["config_json"]["job_data"]["content_id"]
-            )
-            .filter(models.Content.user_id == job_config["user_id"])
-            .filter(models.Content.status == "completed")
-            .filter(models.Content.content_type == job_config["job_type"])
-            .first()
-        )
-        if main_content is None:
-            raise Exception("Content not found")
-        content_url = job_presigned_get(main_content.link, CLOUDFLARE_CONTENT)
-        copy_content_url = copy.copy(content_url)
-        for filter_ in job_config["config_json"]["job_data"]["filters"]:
-            model_config = job_config["config_json"]["job_data"]["filters"][filter_]
-            if model_config["active"]:
-                params = {
-                    "seed": 1999,
-                    "image": content_url
-                }
-                model_tag = IMAGE_MODELS[filter_]["model"]
-                if "params" in IMAGE_MODELS[filter_].keys():
-                    for x in IMAGE_MODELS[filter_]["params"]:
-                        params[x] = model_config[IMAGE_MODELS[filter_]["params"][x]]
-                content_url = replicate.run(
-                    model_tag ,
-                    input = params
+    with Session(engine) as db:
+        try:
+            main_content = (
+                db.query(models.Content)
+                .filter(
+                    models.Content.id == job_config["config_json"]["job_data"]["content_id"]
                 )
-        if copy_content_url != content_url:
-            result = reindex_image_job(job_config, content_url=content_url)
-        db.close()
-    except Exception as e:
-        db = SessionLocal()
-        content = (
-            db.query(models.Content)
-            .filter(
-                models.Content.id == job_config["content_id"]
+                .filter(models.Content.user_id == job_config["user_id"])
+                .filter(models.Content.status == "completed")
+                .filter(models.Content.content_type == job_config["job_type"])
+                .first()
             )
-            .filter(models.Content.user_id == job_config["user_id"])
-            .filter(models.Content.content_type == job_config["job_type"])
-            .first()
-        )
-        content.status = "failed"
-        content.updated_at = int(time.time())
-        job = (
-            db.query(models.Jobs)
-            .filter(models.Jobs.job_id == content.job_id)
-            .first()
-        )
-        job.job_status = "Failed"
-        job.job_process = "error"
-        db.add(job)
-        db.add(content)
-        db.commit()
-        db.close()
-        return {"detail": "Failed", "data": str(e)}
+            if main_content is None:
+                raise Exception("Content not found")
+            content_url = job_presigned_get(main_content.link, CLOUDFLARE_CONTENT)
+            copy_content_url = copy.copy(content_url)
+            for filter_ in job_config["config_json"]["job_data"]["filters"]:
+                model_config = job_config["config_json"]["job_data"]["filters"][filter_]
+                if model_config["active"]:
+                    params = {
+                        "seed": 1999,
+                        "image": content_url
+                    }
+                    model_tag = IMAGE_MODELS[filter_]["model"]
+                    if "params" in IMAGE_MODELS[filter_].keys():
+                        for x in IMAGE_MODELS[filter_]["params"]:
+                            params[x] = model_config[IMAGE_MODELS[filter_]["params"][x]]
+                    content_url = replicate.run(
+                        model_tag ,
+                        input = params
+                    )
+            if copy_content_url != content_url:
+                result = reindex_image_job(job_config, content_url=content_url)
+        except Exception as e:
+            content = (
+                db.query(models.Content)
+                .filter(
+                    models.Content.id == job_config["content_id"]
+                )
+                .filter(models.Content.user_id == job_config["user_id"])
+                .filter(models.Content.content_type == job_config["job_type"])
+                .first()
+            )
+            content.status = "failed"
+            content.updated_at = int(time.time())
+            job = (
+                db.query(models.Jobs)
+                .filter(models.Jobs.job_id == content.job_id)
+                .first()
+            )
+            job.job_status = "Failed"
+            job.job_process = "error"
+            db.add(job)
+            db.add(content)
+            db.commit()
+            return {"detail": "Failed", "data": str(e)}
+    
+@celeryapp.task(name="routers.jobs.video_process")
+def video_process_task(job_config: dict):
+    pass
+
+@celeryapp.task(name="routers.jobs.audio_process")
+def audio_process_task(job_config: dict):
+    pass
 
 
 @router.post(
@@ -382,7 +387,6 @@ async def fetch_jobs(
         job_config["job"] = json.loads(job_detail.config_json)
         return {"detail": "Success", "data": job_config}
     except Exception as e:
-        print(str(e))
         raise HTTPException(status_code=400, detail="Unable to fetch job details")
 
 

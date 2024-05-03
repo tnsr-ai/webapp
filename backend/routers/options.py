@@ -203,26 +203,25 @@ async def rename_project(
 
 @celeryapp.task(name="routers.options.resend_email_task", acks_late=True)
 def resend_email_task(user_id: int):
-    db = SessionLocal()
-    email_token = {
-        "token": secrets.token_urlsafe(32),
-        "expires": int(time.time()) + 172800,
-    }
-    user_data = db.query(models.Users).filter(models.Users.id == user_id).first()
-    if not user_data:
-        return {"detail": "Failed", "data": "User not found"}
-    if user_data.verified == True:
-        return {"detail": "Failed", "data": "Email already verified"}
-    user_data.email_token = json.dumps(email_token)
-    db.commit()
-    verification_link = f"{TNSR_DOMAIN}/verifyemail/?user_id={user_id}&email_token={email_token['token']}"
-    email_status = registration_email(
-        user_data.first_name, verification_link, user_data.email
-    )
-    db.close()
-    if email_status != True:
-        return {"detail": "Failed", "data": "Failed to send email"}
-    return {"detail": "Success", "data": "Email sent successfully"}
+    with Session(engine) as db:
+        email_token = {
+            "token": secrets.token_urlsafe(32),
+            "expires": int(time.time()) + 172800,
+        }
+        user_data = db.query(models.Users).filter(models.Users.id == user_id).first()
+        if not user_data:
+            return {"detail": "Failed", "data": "User not found"}
+        if user_data.verified == True:
+            return {"detail": "Failed", "data": "Email already verified"}
+        user_data.email_token = json.dumps(email_token)
+        db.commit()
+        verification_link = f"{TNSR_DOMAIN}/verifyemail/?user_id={user_id}&email_token={email_token['token']}"
+        email_status = registration_email(
+            user_data.first_name, verification_link, user_data.email
+        )
+        if email_status != True:
+            return {"detail": "Failed", "data": "Failed to send email"}
+        return {"detail": "Success", "data": "Email sent successfully"}
 
 
 @router.post(

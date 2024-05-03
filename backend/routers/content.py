@@ -70,26 +70,25 @@ def allTags(id: bool = False):
         rd_key = "all_tags_id"
     if rd.exists(rd_key):
         return json.loads(rd.get(rd_key).decode("utf-8"))
-    db = SessionLocal()
-    tags = db.query(models.Tags).all()
-    db.close()
-    all_tags = {}
-    if id == False:
-        for tag in tags:
-            all_tags[tag.tag] = {
-                "id": int(tag.id),
-                "readable": tag.readable,
-            }
-        rd.set(rd_key, json.dumps(all_tags))
-        return all_tags
-    else:
-        for tag in tags:
-            all_tags[int(tag.id)] = {
-                "tag": tag.tag,
-                "readable": tag.readable,
-            }
-        rd.set(rd_key, json.dumps(all_tags))
-        return all_tags
+    with Session(engine) as db:
+        tags = db.query(models.Tags).all()
+        all_tags = {}
+        if id == False:
+            for tag in tags:
+                all_tags[tag.tag] = {
+                    "id": int(tag.id),
+                    "readable": tag.readable,
+                }
+            rd.set(rd_key, json.dumps(all_tags))
+            return all_tags
+        else:
+            for tag in tags:
+                all_tags[int(tag.id)] = {
+                    "tag": tag.tag,
+                    "readable": tag.readable,
+                }
+            rd.set(rd_key, json.dumps(all_tags))
+            return all_tags
 
 
 def add_presigned(data, key, result_key, bucket, rd):
