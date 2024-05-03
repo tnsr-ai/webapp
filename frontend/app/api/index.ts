@@ -323,6 +323,9 @@ export const getJobEstimate = async (content_id: number, job_config: any) => {
       Authorization: `Bearer ${jwt}`,
     },
   });
+  if (!response.ok) {
+    throw new Error("Network response was not ok");
+  }
   const data = await response.json();
   return data;
 };

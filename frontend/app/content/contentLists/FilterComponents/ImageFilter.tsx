@@ -128,6 +128,7 @@ export function ImageFilter(props: any) {
       },
       onError: () => {
         setEstimate(`Error`);
+        setShowProcess(false);
       },
     }
   );

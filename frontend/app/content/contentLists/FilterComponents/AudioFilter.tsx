@@ -104,6 +104,7 @@ export function AudioFilter(props: any) {
       },
       onError: () => {
         setEstimate(`Error`);
+        setShowProcess(false);
       },
     }
   );

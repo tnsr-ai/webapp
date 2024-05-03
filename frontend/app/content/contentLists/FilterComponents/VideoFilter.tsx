@@ -154,6 +154,7 @@ export function VideoFilter(props: any) {
         setETA(`${data["eta"]}`);
       },
       onError: () => {
+        setShowProcess(false);
         setEstimate(`Error`);
       },
     }
@@ -170,6 +171,9 @@ export function VideoFilter(props: any) {
   };
 
   useEffect(() => {
+    if (getEstimate.isError) {
+      setShowProcess(false);
+    }
     if (slowmo) {
       if (speech) {
         setSpeech(false);
@@ -395,6 +399,11 @@ export function VideoFilter(props: any) {
             ETA:{" "}
             <span className="font-bold text-purple-500 text-base">~{eta}</span>
           </p>
+        </div>
+      )}
+      {showProcess === false && estimate === "Error" && (
+        <div className="ml-3 mt-1">
+          <p className="font-bold text-red-500 text-base">Error occured</p>
         </div>
       )}
       {showProcess === true && (

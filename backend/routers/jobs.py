@@ -40,6 +40,15 @@ from utils import remove_key, sql_dict, job_presigned_get
 import replicate
 from routers.reindex_job import reindex_image_job
 from routers.upload import generate_new_filename, index_media_task
+from database import SessionLocal, engine
+import models 
+import numpy as np
+from script_utils.util import duration_to_seconds
+from script_utils.vast import get_listing
+from script_utils.gpu_workers import get_gpu_listing, VastAI, RunpodIO
+import pandas as pd
+from humanfriendly import parse_timespan
+
 
 load_dotenv()
 
@@ -209,7 +218,7 @@ def create_content_entry(config: dict, db: Session, user_id: int, job_id: int):
         raise HTTPException(status_code=400, detail="Unable to create content entry")
 
 
-@celeryapp.task(name="routers.jobs.image_process")
+@celeryapp.task(name="routers.jobs.image_process", acks_late=True)
 def image_process_task(job_config: dict):
     with Session(engine) as db:
         try:
@@ -243,7 +252,7 @@ def image_process_task(job_config: dict):
                         input = params
                     )
             if copy_content_url != content_url:
-                result = reindex_image_job(job_config, content_url=content_url)
+                reindex_image_job(job_config, content_url=content_url)
         except Exception as e:
             content = (
                 db.query(models.Content)
@@ -267,14 +276,348 @@ def image_process_task(job_config: dict):
             db.add(content)
             db.commit()
             return {"detail": "Failed", "data": str(e)}
+        
     
-@celeryapp.task(name="routers.jobs.video_process")
+@celeryapp.task(name="routers.jobs.video_process", acks_late=True)
 def video_process_task(job_config: dict):
-    pass
+    with Session(engine) as db:
+        try:
+            main_content = (
+                db.query(models.Content)
+                .filter(
+                    models.Content.id == job_config["config_json"]["job_data"]["content_id"]
+                )
+                .filter(models.Content.user_id == job_config["user_id"])
+                .filter(models.Content.status == "completed")
+                .filter(models.Content.content_type == job_config["job_type"])
+                .first()
+            )
+            job = (
+                db.query(models.Jobs)
+                .filter(models.Jobs.job_id == job_config["job_id"])
+                .filter(models.Jobs.user_id == job_config["user_id"])
+                .first()
+            )
+            if job is None:
+                raise Exception("Job not found")
+            if main_content is None:
+                raise Exception("Content not found")
+            size_mb = np.ceil(round(eval(main_content.size),2) / (1024 * 1024))
+            size_needed_in_gb = size_mb * 2
+            if job_config["config_json"]["job_data"]["filters"]["super_resolution"]["active"]:
+                size_needed_in_gb *= 2
+            size_needed_in_gb = min(size_needed_in_gb, 512)
+            eta, price = get_content_estimate(main_content.__dict__, job_config["config_json"]["job_data"]["filters"], raw = True)
+            price = float(price)
+            # find machine instance
+            RAM = 16
+            VRAM = 20
+            CPU = 6
+            df = get_gpu_listing()
+            df[["RAM", "VRAM", "vCPUs"]] = df[["RAM", "VRAM", "vCPUs"]].apply(pd.to_numeric)
+            DISK = size_needed_in_gb + 20
+            max_price = 0.7
+            df = df[(df["RAM"] >= RAM) & (df["VRAM"] >= VRAM) & (df["vCPUs"] >= CPU) & (df["N"] == 1) & (df["Price"] <= 0.7)].sort_values(by=["Price"], ascending=True)
+            if len(df) == 0:
+                job.job_key = False
+                job.job_status = "Failed"
+                job.job_process = "No machine found"
+                job.updated_at = int(time.time())
+                db.add(job)
+                db.commit()
+                return None
+            for index, row in df.iterrows():
+                if row["Cloud"] == "vast":
+                    max_time = parse_timespan(f"{row['Max_Days']}Days")
+                    if max_time <= eta + 3600:
+                        continue
+                    if float(row["ports"]) < 10:
+                        continue
+                    if float(row["Net_down"]) < 250 and float(row["Net_up"]) < 100:
+                        continue
+                    if float(row["CUDA"] < 12):
+                        continue
+                    env = {
+                            "BASEURL": "https://backend.tnsr.ai",
+                            "FETCH_CONFIG": "/jobs/fetch_jobs",
+                            "JOBID": job_config["job_id"],
+                            "KEY": job_config["key"],
+                            "ENCRYPTION_KEY": "aqerYK5L4hxmS3JN3qejb6x9FwZYDJgulk7ZoM8adqQ",
+                            "PRESIGNED_URL": "/jobs/generate_presigned_post",
+                            "REINDEX_URL": "/jobs/reindexfile",
+                            "JOB_REINDEX_URL": "/jobs/job_status",
+                            "CELERY_URL": "/upload/indexfile_status",
+                            "-p 6379:6379": "1",
+                        }
+
+                    va = VastAI(
+                        machine_id=row["ID"],
+                        run_name="jaeger-pipeline",
+                        image="amitalokbera/jaeger-pipeline:latest",
+                        disk_size=DISK,
+                        onstart='bash -c "/app/backendml/entrypoint.sh"',
+                        eta = eta + eta + 1200,
+                        env = env
+                    )
+                    if va.launch_instance() == False:
+                        try:
+                            va.terminate_instance()
+                        except:
+                            pass
+                        continue
+                    create_machine_row = models.Machines(
+                        instance_id = str(va.instance_id),
+                        user_id = job_config["user_id"],
+                        machine_status = "LOADING",
+                        job_id = job_config["job_id"],
+                        provider = row["Cloud"],
+                        created_at = int(time.time())
+                    )
+                    db.add(create_machine_row)
+                    db.commit()
+                    db.refresh(create_machine_row)
+                    break
+                
+                if row["Cloud"] == "runpod":
+                    env = {
+                            "BASEURL": "https://backend.tnsr.ai",
+                            "FETCH_CONFIG": "/jobs/fetch_jobs",
+                            "JOBID": job_config["job_id"],
+                            "KEY": job_config["key"],
+                            "ENCRYPTION_KEY": "aqerYK5L4hxmS3JN3qejb6x9FwZYDJgulk7ZoM8adqQ",
+                            "PRESIGNED_URL": "/jobs/generate_presigned_post",
+                            "REINDEX_URL": "/jobs/reindexfile",
+                            "JOB_REINDEX_URL": "/jobs/job_status",
+                            "CELERY_URL": "/upload/indexfile_status"
+                        }
+                    rp = RunpodIO(
+                        gpu_model = row["Model"],
+                        run_name = "jaeger-pipeline",
+                        image = "amitalokbera/jaeger-pipeline:latest",
+                        disk_size = DISK,
+                        eta = eta + eta + 1200,
+                        env = env
+                    )
+                    if rp.launch_instance() == False:
+                        try:
+                            rp.terminate_instance()
+                        except:
+                            pass
+                        continue
+                    create_machine_row = models.Machines(
+                        instance_id = str(rp.instance_id),
+                        user_id = job_config["user_id"],
+                        machine_status = "LOADING",
+                        job_id = job_config["job_id"],
+                        provider = row["Cloud"],
+                        created_at = int(time.time())
+                    )
+                    db.add(create_machine_row)
+                    db.commit()
+                    db.refresh(create_machine_row)
+                    break  
+            process_status.delay(int(job_config["job_id"]), int(job_config["user_id"]))
+        except Exception as e:
+            pass
 
 @celeryapp.task(name="routers.jobs.audio_process")
 def audio_process_task(job_config: dict):
     pass
+
+@celeryapp.task(name="routers.jobs.process_status", acks_late=True)
+def process_status(job_id: int, user_id: int):
+    with Session(engine) as db:
+        try:
+            job = (
+                db.query(models.Jobs)
+                .filter(models.Jobs.job_id == int(job_id))
+                .filter(models.Jobs.user_id == int(user_id))
+                .first()
+            ) 
+            if job is None:
+                raise Exception("Job not found")
+            machine = (
+                db.query(models.Machines)
+                .filter(models.Machines.job_id == job.job_id)
+                .first()
+            )
+            if machine is None:
+                raise Exception("Machine not found")
+            job_content = (
+                db.query(models.Content)
+                .filter(models.Content.job_id == job_id)
+                .filter(models.Content.user_id == user_id)
+                .all()
+            )
+            if len(job_content) < 0:
+                raise Exception("Content job not found")
+            count = 0
+            while True:
+                db.refresh(machine)
+                if machine.instance_id is not None:
+                    break
+                count +=1 
+                if count >= 10:
+                    return None
+                time.sleep(30)
+            if machine.provider == "vast":
+                va = VastAI(
+                        machine_id=123,
+                        run_name="",
+                        image="",
+                        disk_size=0,
+                        onstart='',
+                        eta = 0,
+                        env = {}
+                    )
+                va.instance_id = int(machine.instance_id)
+                while True:
+                    time.sleep(60)
+                    status = va.current_status()
+                    if status["detail"] == "Failed":
+                        try:
+                            va.terminate_instance()
+                        except:
+                            pass
+                        machine.machine_status = "FAILED"
+                        machine.updated_at = int(time.time())
+                        db.add(machine)
+                        job.job_key = False
+                        job.job_status = "Failed"
+                        job.job_process = "Failed"
+                        job.updated_at = int(time.time())
+                        db.add(job)
+                        for x in job_content:
+                            x.status = "failed"
+                            x.updated_at = int(time.time())
+                            db.add(x)
+                        db.commit()
+                        break 
+                    if status["data"] == "LOADING" and (int(time.time()) - int(machine.created_at) >= 1200):
+                        try:
+                            va.terminate_instance()
+                        except:
+                            pass
+                        machine.machine_status = "FAILED"
+                        machine.updated_at = int(time.time())
+                        db.add(machine)
+                        job.job_key = False
+                        job.job_status = "Failed"
+                        job.job_process = "Failed"
+                        job.updated_at = int(time.time())
+                        db.add(job)
+                        for x in job_content:
+                            x.status = "failed"
+                            x.updated_at = int(time.time())
+                            db.add(x)
+                        db.commit()
+                        break 
+                    if status["data"] == "EXITED":
+                        try:
+                            va.terminate_instance()
+                        except:
+                            pass
+                        machine.machine_status = "EXITED"
+                        machine.updated_at = int(time.time())
+                        db.add(machine)
+                        job.job_key = False
+                        job.job_status = "Completed"
+                        job.job_process = "completed"
+                        job.updated_at = int(time.time())
+                        db.add(job)
+                        db.commit()
+                        db.refresh(machine)
+                        break
+                    if status["data"] != str(machine.machine_status):
+                        machine.machine_status = status["data"]
+                        machine.updated_at = int(time.time())
+                        db.add(machine)
+                        job.job_status = "Processing"
+                        job.job_process = "processing"
+                        job.updated_at = int(time.time())
+                        db.add(job)
+                        db.commit()
+                        db.refresh(machine)
+            if machine.provider == "runpod":
+                rp = RunpodIO(
+                        gpu_model = "",
+                        run_name = "",
+                        image = "",
+                        disk_size = 0,
+                        eta = 0,
+                        env = {}
+                    )
+                rp.instance_id = int(machine.instance_id)
+                while True:
+                    time.sleep(60)
+                    status = rp.current_status()
+                    if status["detail"] == "Failed":
+                        try:
+                            rp.terminate_instance()
+                        except:
+                            pass
+                        machine.machine_status = "FAILED"
+                        machine.updated_at = int(time.time())
+                        db.add(machine)
+                        job.job_key = False
+                        job.job_status = "Failed"
+                        job.job_process = "Failed"
+                        job.updated_at = int(time.time())
+                        db.add(job)
+                        for x in job_content:
+                            x.status = "failed"
+                            x.updated_at = int(time.time())
+                            db.add(x)
+                        db.commit()
+                        break 
+                    if status["data"] == "LOADING" and (int(time.time()) - int(machine.created_at) >= 1200):
+                        try:
+                            rp.terminate_instance()
+                        except:
+                            pass
+                        machine.machine_status = "FAILED"
+                        machine.updated_at = int(time.time())
+                        db.add(machine)
+                        job.job_key = False
+                        job.job_status = "Failed"
+                        job.job_process = "Failed"
+                        job.updated_at = int(time.time())
+                        db.add(job)
+                        for x in job_content:
+                            x.status = "failed"
+                            x.updated_at = int(time.time())
+                            db.add(x)
+                        db.commit()
+                        break 
+                    if status["data"] == "EXITED":
+                        try:
+                            rp.terminate_instance()
+                        except:
+                            pass
+                        machine.machine_status = "EXITED"
+                        machine.updated_at = int(time.time())
+                        db.add(machine)
+                        job.job_key = False
+                        job.job_status = "Completed"
+                        job.job_process = "completed"
+                        job.updated_at = int(time.time())
+                        db.add(job)
+                        db.commit()
+                        db.refresh(machine)
+                        break
+                    if status["data"] != str(machine.machine_status):
+                        machine.machine_status = status["data"]
+                        machine.updated_at = int(time.time())
+                        db.add(machine)
+                        job.job_status = "Processing"
+                        job.job_process = "processing"
+                        job.updated_at = int(time.time())
+                        db.add(job)
+                        db.commit()
+                        db.refresh(machine)
+        except Exception as e:
+            print(str(e))
+            pass
 
 
 @router.post(
@@ -327,8 +670,9 @@ async def register_job(
         remove_key(job_config, "_sa_instance_state")
         job_config['config_json'] = json.loads(job_config['config_json'])
         if job_dict.job_type == "video":
-            # To Do
-            pass
+            celery_process = video_process_task.delay(job_config)
+            create_job_model.celery_id = celery_process.id
+            db.commit()
         if job_dict.job_type == "image":
             celery_process = image_process_task.delay(job_config)
             create_job_model.celery_id = celery_process.id
@@ -745,28 +1089,12 @@ async def job_status(
         logger.error(f"Error - {str(e)}")
         return HTTPException(status_code=400, detail="Error in Job Indexing")
     
-@router.post(
-    "/get_estimate",\
-    status_code=status.HTTP_200_OK,
-    dependencies=[Depends(RateLimiter(times=240, seconds=60))],
-)
-async def get_estimate(
-    job_config: JobEstimate, 
-    db: Session = Depends(get_db), 
-    current_user: TokenData = Depends(get_current_user)):
-    content = (
-        db.query(models.Content)
-        .filter(models.Content.id == job_config.content_id)
-        .filter(models.Content.user_id == current_user.user_id)
-        .first()
-    )
-    if content is None:
-        raise HTTPException(status_code=400, detail="Content Not Found")
-    if content.content_type == "video":
-        filters = dict(job_config.job_config)
-        resolution = content.resolution
-        fps = np.ceil(float(content.fps))
-        duration = content.duration
+def get_content_estimate(content: dict, job_config: dict, raw: bool = False):
+    if content["content_type"] == "video":
+        filters = dict(job_config)
+        resolution = content["resolution"]
+        fps = np.ceil(float(content["fps"]))
+        duration = content["duration"]
         width, height = map(int, resolution.split("x"))
         duration_seconds = duration_to_seconds(duration)
         total_pixels = width * height * fps * duration_seconds
@@ -787,10 +1115,12 @@ async def get_estimate(
         per_second_cost = 0.0003
         estimate = total_time * per_second_cost
         estimate = format(max(round(estimate, 2), 0.05),".2f")
+        if raw:
+            return total_time, estimate
         return {"detail": "Success", "eta": format_timespan(total_time, max_units=2), "price": estimate}
-    if content.content_type == "image":
-        filters = dict(job_config.job_config)
-        resolution = content.resolution
+    if content["content_type"] == "image":
+        filters = dict(job_config)
+        resolution = content["resolution"]
         width, height = map(int, resolution.split("x"))
         scale = 1
         if width > 1080:
@@ -809,10 +1139,12 @@ async def get_estimate(
         per_second_cost = 0.000725
         estimate = total_time * per_second_cost
         estimate = format(max(round(estimate, 2), 0.05),".2f")
+        if raw:
+            return total_time, estimate
         return {"detail": "Success", "eta": format_timespan(total_time, max_units=2), "price": estimate}
-    if content.content_type == "audio":
-        filters = dict(job_config.job_config)
-        duration = content.duration
+    if content["content_type"] == "audio":
+        filters = dict(job_config)
+        duration = content["duration"]
         duration_seconds = duration_to_seconds(duration)
         total_time = 0
         for filter_name, filter_config in filters.items():
@@ -824,7 +1156,38 @@ async def get_estimate(
         per_second_cost = 0.0003
         estimate = total_time * per_second_cost
         estimate = format(max(round(estimate, 2), 0.05),".2f")
+        if raw:
+            return total_time, estimate
         return {"detail": "Success", "eta": format_timespan(total_time, max_units=2), "price": estimate}
-    return 0.00
+    
+@router.post(
+    "/get_estimate",\
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(RateLimiter(times=240, seconds=60))],
+)
+async def get_estimate(
+    job_config: JobEstimate, 
+    db: Session = Depends(get_db), 
+    rd: redis.Redis = Depends(get_redis),
+    current_user: TokenData = Depends(get_current_user)):
+    key = f"{current_user.user_id}_{job_config.content_id}"
+    try:
+        if rd.exists(key):
+            content = json.loads(rd.get(key).decode("utf-8"))
+        else:
+            content = (
+                db.query(models.Content)
+                .filter(models.Content.id == job_config.content_id)
+                .filter(models.Content.user_id == current_user.user_id)
+                .first()
+            )
+            print("DB Hit")
+            if content is None:
+                raise HTTPException(status_code=400, detail="Content Not Found")
+            content = content.__dict__
+            rd.set(key, json.dumps(content, default=str))
+        return get_content_estimate(content, job_config.job_config)
+    except Exception as e:
+        raise HTTPException(400)
 
     

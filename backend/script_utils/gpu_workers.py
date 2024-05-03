@@ -154,7 +154,6 @@ class VastAI():
         }
 
         self.r = requests.put(self.url, json = self.payload)
-        self.r.raise_for_status()
         if self.r.status_code == 200:
             self.instance_id = self.r.json()["new_contract"]
             return True
