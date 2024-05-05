@@ -236,6 +236,12 @@ def image_process_task(job_config: dict):
                 raise Exception("Content not found")
             content_url = job_presigned_get(main_content.link, CLOUDFLARE_CONTENT)
             copy_content_url = copy.copy(content_url)
+            start_time = int(time.time())
+            dashboard = (
+                db.query(models.Dashboard)
+                .filter(models.Dashboard.user_id == job_config["user_id"])
+                .first()
+            )
             for filter_ in job_config["config_json"]["job_data"]["filters"]:
                 model_config = job_config["config_json"]["job_data"]["filters"][filter_]
                 if model_config["active"]:
@@ -251,6 +257,10 @@ def image_process_task(job_config: dict):
                         model_tag ,
                         input = params
                     )
+            gpu_usage = abs(int(time.time()) - start_time)
+            dashboard.gpu_usage += gpu_usage
+            db.add(dashboard)
+            db.commit()
             if copy_content_url != content_url:
                 reindex_image_job(job_config, content_url=content_url)
         except Exception as e:
@@ -1119,6 +1129,21 @@ async def job_status(
             .filter(models.Content.job_id == job_status.job_id)
             .all()
         )
+        dashboard = (
+            db.query(models.Dashboard)
+            .filter(models.Dashboard.user_id == job.user_id)
+            .first()
+        )
+        machine = (
+            db.query(models.Machines)
+            .filter(models.Machines.job_id == job.job_id)
+            .first()
+        )
+        if dashboard is None:
+            raise HTTPException(status_code=400, detail="Job not found")
+        gpu_usage = abs(int(machine.updated_at) - int(machine.created_at))
+        dashboard.gpu_usage += gpu_usage
+        db.add(dashboard)
         status = "completed"
         for x in content_data:
             if str(x.status) == "completed":
