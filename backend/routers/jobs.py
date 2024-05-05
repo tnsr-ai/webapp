@@ -314,7 +314,7 @@ def video_process_task(job_config: dict):
             VRAM = 20
             CPU = 6
             df = get_gpu_listing()
-            df[["RAM", "VRAM", "vCPUs"]] = df[["RAM", "VRAM", "vCPUs"]].apply(pd.to_numeric)
+            df[["RAM", "VRAM", "vCPUs", "Price"]] = df[["RAM", "VRAM", "vCPUs", "Price"]].apply(pd.to_numeric)
             DISK = size_needed_in_gb + 20
             max_price = 0.7
             df = df[(df["RAM"] >= RAM) & (df["VRAM"] >= VRAM) & (df["vCPUs"] >= CPU) & (df["N"] == 1) & (df["Price"] <= max_price)].sort_values(by=["Price"], ascending=True)
@@ -327,7 +327,7 @@ def video_process_task(job_config: dict):
                 db.add(job)
                 db.commit()
                 return None
-            supported_cuda = CUDA
+            supported_cuda = [float(x) for x in CUDA]
             job_eta = eta + (eta * 0.5) + 1200
             for index, row in df.iterrows():
                 if row["Cloud"] not in GPU_PROVIDER:
