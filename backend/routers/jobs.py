@@ -35,7 +35,7 @@ from database import SessionLocal, engine
 from routers.auth import TokenData, get_current_user
 from routers.content import add_presigned_single, allTags
 from script_utils.util import *
-from utils import CLOUDFLARE_METADATA, CLOUDFLARE_CONTENT, IMAGE_MODELS, MODEL_COMPUTE
+from utils import CLOUDFLARE_METADATA, CLOUDFLARE_CONTENT, IMAGE_MODELS, MODEL_COMPUTE, GPU_PROVIDER, CUDA
 from utils import remove_key, sql_dict, job_presigned_get
 import replicate
 from routers.reindex_job import reindex_image_job
@@ -317,8 +317,9 @@ def video_process_task(job_config: dict):
             df[["RAM", "VRAM", "vCPUs"]] = df[["RAM", "VRAM", "vCPUs"]].apply(pd.to_numeric)
             DISK = size_needed_in_gb + 20
             max_price = 0.7
-            df = df[(df["RAM"] >= RAM) & (df["VRAM"] >= VRAM) & (df["vCPUs"] >= CPU) & (df["N"] == 1) & (df["Price"] <= 0.7)].sort_values(by=["Price"], ascending=True)
+            df = df[(df["RAM"] >= RAM) & (df["VRAM"] >= VRAM) & (df["vCPUs"] >= CPU) & (df["N"] == 1) & (df["Price"] <= max_price)].sort_values(by=["Price"], ascending=True)
             if len(df) == 0:
+                # To Do - Send No Machine Found Email
                 job.job_key = False
                 job.job_status = "Failed"
                 job.job_process = "No machine found"
@@ -326,7 +327,11 @@ def video_process_task(job_config: dict):
                 db.add(job)
                 db.commit()
                 return None
+            supported_cuda = CUDA
+            job_eta = eta + (eta * 0.5) + 1200
             for index, row in df.iterrows():
+                if row["Cloud"] not in GPU_PROVIDER:
+                    continue
                 if row["Cloud"] == "vast":
                     max_time = parse_timespan(f"{row['Max_Days']}Days")
                     if max_time <= eta + 3600:
@@ -335,7 +340,7 @@ def video_process_task(job_config: dict):
                         continue
                     if float(row["Net_down"]) < 250 and float(row["Net_up"]) < 100:
                         continue
-                    if float(row["CUDA"] < 12):
+                    if round(float(row["CUDA"]),1) not in supported_cuda:
                         continue
                     env = {
                             "BASEURL": "https://backend.tnsr.ai",
@@ -353,10 +358,10 @@ def video_process_task(job_config: dict):
                     va = VastAI(
                         machine_id=row["ID"],
                         run_name="jaeger-pipeline",
-                        image="amitalokbera/jaeger-pipeline:latest",
+                        image=f"amitalokbera/jaeger-pipeline:cuda-{round(float(row['CUDA']),1)}",
                         disk_size=DISK,
                         onstart='bash -c "/app/backendml/entrypoint.sh"',
-                        eta = eta + eta + 1200,
+                        eta = job_eta,
                         env = env
                     )
                     if va.launch_instance() == False:
@@ -390,20 +395,25 @@ def video_process_task(job_config: dict):
                             "JOB_REINDEX_URL": "/jobs/job_status",
                             "CELERY_URL": "/upload/indexfile_status"
                         }
-                    rp = RunpodIO(
-                        gpu_model = row["Model"],
-                        run_name = "jaeger-pipeline",
-                        image = "amitalokbera/jaeger-pipeline:latest",
-                        disk_size = DISK,
-                        eta = eta + eta + 1200,
-                        env = env
-                    )
-                    if rp.launch_instance() == False:
-                        try:
-                            rp.terminate_instance()
-                        except:
-                            pass
-                        continue
+                    for cuda in supported_cuda:
+                        rp = RunpodIO(
+                            gpu_model = row["Model"],
+                            run_name = "jaeger-pipeline",
+                            image = f"amitalokbera/jaeger-pipeline:cuda-{cuda}",
+                            disk_size = DISK,
+                            eta = job_eta,
+                            cuda = str(cuda),
+                            env = env
+                        )
+                        launch_status = rp.launch_instance()
+                        if launch_status == False:
+                            try:
+                                rp.terminate_instance()
+                            except:
+                                pass
+                            continue
+                        if launch_status == True:
+                            break
                     create_machine_row = models.Machines(
                         instance_id = str(rp.instance_id),
                         user_id = job_config["user_id"],
@@ -416,8 +426,9 @@ def video_process_task(job_config: dict):
                     db.commit()
                     db.refresh(create_machine_row)
                     break  
-            process_status.delay(int(job_config["job_id"]), int(job_config["user_id"]))
+            process_status.delay(int(job_config["job_id"]), int(job_config["user_id"]), int(job_eta))
         except Exception as e:
+            # To Do - Send Job Initiate Failed Email
             pass
 
 @celeryapp.task(name="routers.jobs.audio_process")
@@ -425,7 +436,7 @@ def audio_process_task(job_config: dict):
     pass
 
 @celeryapp.task(name="routers.jobs.process_status", acks_late=True)
-def process_status(job_id: int, user_id: int):
+def process_status(job_id: int, user_id: int, eta: int):
     with Session(engine) as db:
         try:
             job = (
@@ -467,13 +478,32 @@ def process_status(job_id: int, user_id: int):
                         image="",
                         disk_size=0,
                         onstart='',
-                        eta = 0,
+                        eta = eta,
                         env = {}
                     )
                 va.instance_id = int(machine.instance_id)
                 while True:
                     time.sleep(60)
                     status = va.current_status()
+                    if int(time.time()) - int(machine.created_at) > eta:
+                        try:
+                            va.terminate_instance()
+                        except:
+                            pass
+                        machine.machine_status = "FAILED"
+                        machine.updated_at = int(time.time())
+                        db.add(machine)
+                        job.job_key = False
+                        job.job_status = "Failed"
+                        job.job_process = "Failed"
+                        job.updated_at = int(time.time())
+                        db.add(job)
+                        for x in job_content:
+                            x.status = "failed"
+                            x.updated_at = int(time.time())
+                            db.add(x)
+                        db.commit()
+                        break 
                     if status["detail"] == "Failed":
                         try:
                             va.terminate_instance()
@@ -544,13 +574,32 @@ def process_status(job_id: int, user_id: int):
                         run_name = "",
                         image = "",
                         disk_size = 0,
-                        eta = 0,
+                        eta = eta,
                         env = {}
                     )
                 rp.instance_id = int(machine.instance_id)
                 while True:
                     time.sleep(60)
                     status = rp.current_status()
+                    if int(time.time()) - int(machine.created_at) > eta:
+                        try:
+                            va.terminate_instance()
+                        except:
+                            pass
+                        machine.machine_status = "FAILED"
+                        machine.updated_at = int(time.time())
+                        db.add(machine)
+                        job.job_key = False
+                        job.job_status = "Failed"
+                        job.job_process = "Failed"
+                        job.updated_at = int(time.time())
+                        db.add(job)
+                        for x in job_content:
+                            x.status = "failed"
+                            x.updated_at = int(time.time())
+                            db.add(x)
+                        db.commit()
+                        break 
                     if status["detail"] == "Failed":
                         try:
                             rp.terminate_instance()

@@ -207,6 +207,7 @@ class RunpodIO():
                  image, 
                  disk_size, 
                  eta, 
+                 cuda = "12.0",
                  env = {}, 
                  api_key = RUNPOD_KEY):
         self.gpu_model = gpu_model
@@ -221,6 +222,7 @@ class RunpodIO():
         self.redis_host = None
         self.redis_port = None
         self.pod = None
+        self.cuda = cuda
         runpod.api_key = api_key
 
     def launch_instance(self):
@@ -232,6 +234,7 @@ class RunpodIO():
                 gpu_count = 1,
                 volume_in_gb = self.disk_size,
                 ports = "8888/http,666/tcp,6379/tcp",
+                allowed_cuda_versions=[self.cuda],
                 env=self.env
             )
             self.instance_id = self.pod['id']

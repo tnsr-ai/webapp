@@ -122,8 +122,16 @@ API_KEY = os.getenv("METRICS_API_KEY")
 # Replicate
 try:
     REPLICATE_API_TOKEN = os.getenv("REPLICATE_API_TOKEN")
+    GPU_PROVIDER = os.getenv("GPU_PROVIDER")
+    CUDA = os.getenv("CUDA")
 except:
     REPLICATE_API_TOKEN = "REPLICATE_API_TOKEN"
+    GPU_PROVIDER = "vast,runpod"
+    CUDA = "12.0,12.1,12.2,12.3,12.4"
+
+GPU_PROVIDER = GPU_PROVIDER.split(",")
+CUDA = CUDA.split(",")
+    
 
 STORAGE_LIMITS = {
     "free": 2 * 1024**3,
