@@ -884,8 +884,9 @@ async def register_job(
             create_job_model.celery_id = celery_process.id
             db.commit()
         if job_dict.job_type == "audio":
-            # To Do
-            pass
+            celery_process = audio_process_task.delay(job_config)
+            create_job_model.celery_id = celery_process.id
+            db.commit()
         return {"detail": "Success", "data": "Job registered successfully"}
     except HTTPException as e:
         raise e
