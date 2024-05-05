@@ -443,7 +443,154 @@ def video_process_task(job_config: dict):
 
 @celeryapp.task(name="routers.jobs.audio_process")
 def audio_process_task(job_config: dict):
-    pass
+    with Session(engine) as db:
+        try:
+            main_content = (
+                db.query(models.Content)
+                .filter(
+                    models.Content.id == job_config["config_json"]["job_data"]["content_id"]
+                )
+                .filter(models.Content.user_id == job_config["user_id"])
+                .filter(models.Content.status == "completed")
+                .filter(models.Content.content_type == job_config["job_type"])
+                .first()
+            )
+            job = (
+                db.query(models.Jobs)
+                .filter(models.Jobs.job_id == job_config["job_id"])
+                .filter(models.Jobs.user_id == job_config["user_id"])
+                .first()
+            )
+            if job is None:
+                raise Exception("Job not found")
+            if main_content is None:
+                raise Exception("Content not found")
+            size_mb = np.ceil(round(eval(main_content.size),2) / (1024 * 1024))
+            size_needed_in_gb = size_mb * 5
+            size_needed_in_gb = max(size_needed_in_gb, 5)
+            size_needed_in_gb = min(size_needed_in_gb, 512)
+            eta, price = get_content_estimate(main_content.__dict__, job_config["config_json"]["job_data"]["filters"], raw = True)
+            price = float(price)
+            # find machine instance
+            RAM = 16
+            VRAM = 20
+            CPU = 6
+            df = get_gpu_listing()
+            df[["RAM", "VRAM", "vCPUs", "Price"]] = df[["RAM", "VRAM", "vCPUs", "Price"]].apply(pd.to_numeric)
+            DISK = size_needed_in_gb + 20
+            max_price = 0.7
+            df = df[(df["RAM"] >= RAM) & (df["VRAM"] >= VRAM) & (df["vCPUs"] >= CPU) & (df["N"] == 1) & (df["Price"] <= max_price)].sort_values(by=["Price"], ascending=True)
+            if len(df) == 0:
+                # To Do - Send No Machine Found Email
+                job.job_key = False
+                job.job_status = "Failed"
+                job.job_process = "No machine found"
+                job.updated_at = int(time.time())
+                db.add(job)
+                db.commit()
+                return None
+            supported_cuda = [float(x) for x in CUDA]
+            job_eta = eta + (eta * 0.5) + 1200
+            for index, row in df.iterrows():
+                if row["Cloud"] not in GPU_PROVIDER:
+                    continue
+                if row["Cloud"] == "vast":
+                    max_time = parse_timespan(f"{row['Max_Days']}Days")
+                    if max_time <= eta + 3600:
+                        continue
+                    if float(row["ports"]) < 10:
+                        continue
+                    if float(row["Net_down"]) < 250 and float(row["Net_up"]) < 100:
+                        continue
+                    if round(float(row["CUDA"]),1) not in supported_cuda:
+                        continue
+                    env = {
+                            "BASEURL": "https://backend.tnsr.ai",
+                            "FETCH_CONFIG": "/jobs/fetch_jobs",
+                            "JOBID": job_config["job_id"],
+                            "KEY": job_config["key"],
+                            "ENCRYPTION_KEY": "aqerYK5L4hxmS3JN3qejb6x9FwZYDJgulk7ZoM8adqQ",
+                            "PRESIGNED_URL": "/jobs/generate_presigned_post",
+                            "REINDEX_URL": "/jobs/reindexfile",
+                            "JOB_REINDEX_URL": "/jobs/job_status",
+                            "CELERY_URL": "/upload/indexfile_status",
+                            "-p 6379:6379": "1",
+                        }
+
+                    va = VastAI(
+                        machine_id=row["ID"],
+                        run_name="ackermann-pipeline",
+                        image=f"amitalokbera/ackermann-pipeline:cuda-{round(float(row['CUDA']),1)}",
+                        disk_size=DISK,
+                        onstart='bash -c "/app/entrypoint.sh"',
+                        eta = job_eta,
+                        env = env
+                    )
+                    if va.launch_instance() == False:
+                        try:
+                            va.terminate_instance()
+                        except:
+                            pass
+                        continue
+                    create_machine_row = models.Machines(
+                        instance_id = str(va.instance_id),
+                        user_id = job_config["user_id"],
+                        machine_status = "LOADING",
+                        job_id = job_config["job_id"],
+                        provider = row["Cloud"],
+                        created_at = int(time.time())
+                    )
+                    db.add(create_machine_row)
+                    db.commit()
+                    db.refresh(create_machine_row)
+                    break
+                
+                if row["Cloud"] == "runpod":
+                    env = {
+                            "BASEURL": "https://backend.tnsr.ai",
+                            "FETCH_CONFIG": "/jobs/fetch_jobs",
+                            "JOBID": job_config["job_id"],
+                            "KEY": job_config["key"],
+                            "ENCRYPTION_KEY": "aqerYK5L4hxmS3JN3qejb6x9FwZYDJgulk7ZoM8adqQ",
+                            "PRESIGNED_URL": "/jobs/generate_presigned_post",
+                            "REINDEX_URL": "/jobs/reindexfile",
+                            "JOB_REINDEX_URL": "/jobs/job_status",
+                            "CELERY_URL": "/upload/indexfile_status"
+                        }
+                    for cuda in supported_cuda:
+                        rp = RunpodIO(
+                            gpu_model = row["Model"],
+                            run_name = "ackermann-pipeline",
+                            image = f"amitalokbera/ackermann-pipeline:cuda-{cuda}",
+                            disk_size = DISK,
+                            eta = job_eta,
+                            cuda = str(cuda),
+                            env = env
+                        )
+                        launch_status = rp.launch_instance()
+                        if launch_status == False:
+                            try:
+                                rp.terminate_instance()
+                            except:
+                                pass
+                            continue
+                        if launch_status == True:
+                            break
+                    create_machine_row = models.Machines(
+                        instance_id = str(rp.instance_id),
+                        user_id = job_config["user_id"],
+                        machine_status = "LOADING",
+                        job_id = job_config["job_id"],
+                        provider = row["Cloud"],
+                        created_at = int(time.time())
+                    )
+                    db.add(create_machine_row)
+                    db.commit()
+                    db.refresh(create_machine_row)
+                    break  
+            process_status.delay(int(job_config["job_id"]), int(job_config["user_id"]), int(job_eta)) 
+        except Exception as e:
+            pass
 
 @celeryapp.task(name="routers.jobs.process_status", acks_late=True)
 def process_status(job_id: int, user_id: int, eta: int):
