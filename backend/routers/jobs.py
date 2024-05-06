@@ -42,6 +42,7 @@ from routers.reindex_job import reindex_image_job
 from routers.upload import generate_new_filename, index_media_task
 from database import SessionLocal, engine
 import models 
+import asyncio
 import numpy as np
 from script_utils.util import duration_to_seconds
 from script_utils.vast import get_listing
@@ -1094,30 +1095,20 @@ async def past_jobs(
 async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)):
     await websocket.accept()
     data = await websocket.receive_json()
+    token = data["token"]
     current_user = get_current_user(db, data["token"])
-    if "id" not in data:
-        await websocket.send_json({"detail": "Failed", "data": "Invalid request"})
-        return
+    if current_user is None:
+        await websocket.close()
     try:
         while True:
-            result = {}
-            for id in data["id"]:
-                job_status = (
-                    db.query(models.Jobs)
-                    .filter(models.Jobs.job_id == id)
-                    .filter(models.Jobs.user_id == current_user.user_id)
-                    .first()
-                )
-                if job_status is None:
-                    result[id] = "Not found"
-                    continue
-                result[id] = job_status.job_status
-            await websocket.send_json({"detail": "Success", "data": result})
-            await asyncio.sleep(30)
-    except WebSocketDisconnect:
-        await websocket.close()
-        return
-    except Exception:
+            data = {
+                1 : int(time.time()),
+                2: int(time.time())
+            }
+            await websocket.send_json(data)
+            await asyncio.sleep(5)
+    except Exception as e:
+        print(str(e))
         await websocket.close()
         return
 
