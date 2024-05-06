@@ -254,16 +254,32 @@ def image_process_task(job_config: dict):
                     if "params" in IMAGE_MODELS[filter_].keys():
                         for x in IMAGE_MODELS[filter_]["params"]:
                             params[x] = model_config[IMAGE_MODELS[filter_]["params"][x]]
-                    content_url = replicate.run(
-                        model_tag ,
-                        input = params
-                    )
+                    model_name, tag = model_tag.split(':')
+                    model = replicate.models.get(model_name)
+                    version = model.versions.get(tag)
+                    prediction = replicate.predictions.create(
+                                version=version,
+                                input = params)
+                    start_time = int(time.time())
+                    while True:
+                        time.sleep(5)
+                        prediction.reload()
+                        if prediction.status == "succeeded":
+                            break
+                        if prediction.status == "failed":
+                            raise Exception
+                        if int(time.time()) - start_time > 400:
+                            prediction.cancel()
+                            raise Exception
+                    content_url = prediction.output
             gpu_usage = abs(int(time.time()) - start_time)
             dashboard.gpu_usage += gpu_usage
             db.add(dashboard)
             db.commit()
             if copy_content_url != content_url:
                 reindex_image_job(job_config, content_url=content_url)
+            else:
+                raise Exception
         except Exception as e:
             content = (
                 db.query(models.Content)
