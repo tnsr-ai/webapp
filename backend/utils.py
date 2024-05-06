@@ -129,9 +129,9 @@ except:
     GPU_PROVIDER = "vast,runpod"
     CUDA = "12.0,12.1,12.2,12.3,12.4"
 
-if len(GPU_PROVIDER) == 0:
+if GPU_PROVIDER == None:
     GPU_PROVIDER = "vast,runpod"
-if len(CUDA) == 0:
+if CUDA == None:
     CUDA = "12.0,12.1,12.2,12.3,12.4"
 
 GPU_PROVIDER = GPU_PROVIDER.split(",")
