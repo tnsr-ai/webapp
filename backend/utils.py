@@ -129,6 +129,11 @@ except:
     GPU_PROVIDER = "vast,runpod"
     CUDA = "12.0,12.1,12.2,12.3,12.4"
 
+if len(GPU_PROVIDER) == 0:
+    GPU_PROVIDER = "vast,runpod"
+if len(CUDA) == 0:
+    CUDA = "12.0,12.1,12.2,12.3,12.4"
+
 GPU_PROVIDER = GPU_PROVIDER.split(",")
 CUDA = [float(x) for x in CUDA.split(",")]
     
