@@ -269,49 +269,46 @@ def checkout_task(user_id: int, token: int, currency_code: str, db: Session):
 def send_paymentInitiated_email_task(
     user_id: int, payment_status: str, credits: int, amount: str, invoice_id: int
 ):
-    db = SessionLocal()
-    user_data = db.query(models.Users).filter(models.Users.id == user_id).first()
-    if user_data is None:
-        return {"detail": "Failed", "data": "User not found"}
-    name = user_data.first_name
-    receiver_email = user_data.email
-    email_status = paymentinitiated_email(
-        name, payment_status, credits, amount, receiver_email, invoice_id
-    )
-    db.close()
-    if email_status == False:
-        return {"detail": "Failed", "data": "Failed to send email"}
-    return {"detail": "Success", "data": "Email sent successfully"}
+    with Session(engine) as db:
+        user_data = db.query(models.Users).filter(models.Users.id == user_id).first()
+        if user_data is None:
+            return {"detail": "Failed", "data": "User not found"}
+        name = user_data.first_name
+        receiver_email = user_data.email
+        email_status = paymentinitiated_email(
+            name, payment_status, credits, amount, receiver_email, invoice_id
+        )
+        if email_status == False:
+            return {"detail": "Failed", "data": "Failed to send email"}
+        return {"detail": "Success", "data": "Email sent successfully"}
 
 
 @celeryapp.task(name="routers.billing.send_paymentSuccessfull_email_task", acks_late=True)
 def send_paymentSuccessfull_email_task(user_id: int, credits: int, amount: str):
-    db = SessionLocal()
-    user_data = db.query(models.Users).filter(models.Users.id == user_id).first()
-    if user_data is None:
-        return {"detail": "Failed", "data": "User not found"}
-    name = user_data.first_name
-    receiver_email = user_data.email
-    email_status = paymentsuccessfull_email(name, credits, amount, receiver_email)
-    db.close()
-    if email_status == False:
-        return {"detail": "Failed", "data": "Failed to send email"}
-    return {"detail": "Success", "data": "Email sent successfully"}
+    with Session(engine) as db:
+        user_data = db.query(models.Users).filter(models.Users.id == user_id).first()
+        if user_data is None:
+            return {"detail": "Failed", "data": "User not found"}
+        name = user_data.first_name
+        receiver_email = user_data.email
+        email_status = paymentsuccessfull_email(name, credits, amount, receiver_email)
+        if email_status == False:
+            return {"detail": "Failed", "data": "Failed to send email"}
+        return {"detail": "Success", "data": "Email sent successfully"}
 
 
 @celeryapp.task(name="routers.billing.send_paymentFailed_email_task", acks_late=True)
 def send_paymentFailed_email_task(user_id: int, credits: int, amount: str):
-    db = SessionLocal()
-    user_data = db.query(models.Users).filter(models.Users.id == user_id).first()
-    if user_data is None:
-        return {"detail": "Failed", "data": "User not found"}
-    name = user_data.first_name
-    receiver_email = user_data.email
-    email_status = paymentfailed_email(name, credits, amount, receiver_email)
-    db.close()
-    if email_status == False:
-        return {"detail": "Failed", "data": "Failed to send email"}
-    return {"detail": "Success", "data": "Email sent successfully"}
+    with Session(engine) as db:
+        user_data = db.query(models.Users).filter(models.Users.id == user_id).first()
+        if user_data is None:
+            return {"detail": "Failed", "data": "User not found"}
+        name = user_data.first_name
+        receiver_email = user_data.email
+        email_status = paymentfailed_email(name, credits, amount, receiver_email)
+        if email_status == False:
+            return {"detail": "Failed", "data": "Failed to send email"}
+        return {"detail": "Success", "data": "Email sent successfully"}
 
 
 @router.post("/checkout", dependencies=[Depends(RateLimiter(times=10, seconds=60))])

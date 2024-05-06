@@ -268,7 +268,7 @@ export function ContentComponent(props: any) {
             if (
               props.data.tags != "Transcription" &&
               props.data.status === "completed" &&
-              notContent === true
+              notContent === false
             ) {
               setVideoPlayer(true);
             }
@@ -276,7 +276,7 @@ export function ContentComponent(props: any) {
         />
         {props.data.status === "completed" &&
           props.data.tags != "Transcription" &&
-          notContent === true && (
+          notContent === false && (
             <PlayIcon
               className="w-10 lg:w-12 fill-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
               onClick={() => {

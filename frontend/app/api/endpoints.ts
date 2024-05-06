@@ -41,12 +41,14 @@ const jobsEndpoints = {
   activeJobs: `${baseURL}/jobs/active_jobs`,
   pastJobs: `${baseURL}/jobs/past_jobs`,
   filterConfig: `${baseURL}/jobs/filter_config`,
+  jobEstimate: `${baseURL}/jobs/get_estimate`,
 };
 
 const optionsEndpoints = {
   deleteProject: `${baseURL}/options/delete-project`,
   renameProject: `${baseURL}/options/rename-project`,
   resendEmail: `${baseURL}/options/resend-email`,
+  userTierConfig: `${baseURL}/options/user_tier`,
 };
 
 const billingEndpoints = {

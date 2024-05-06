@@ -17,7 +17,7 @@ import os
 import redis.asyncio as redis
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from utils import GOOGLE_SECRET, HOST, PORT, REDIS_HOST, APP_ENV, REPLICATE_API_TOKEN, CLOUDFLARE_METADATA
+from utils import GOOGLE_SECRET, HOST, PORT, REDIS_HOST, APP_ENV, REPLICATE_API_TOKEN, CLOUDFLARE_METADATA, REDIS_PORT
 from fastapi_limiter import FastAPILimiter
 from fastapi_limiter.depends import RateLimiter
 import time
@@ -33,7 +33,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from prometheus_client import multiprocess
 from prometheus_client import generate_latest, CollectorRegistry, CONTENT_TYPE_LATEST, Gauge, Counter, make_asgi_app
 import logging
-import boto3
+from sqlalchemy.orm import Session
 from botocore.exceptions import ClientError
 
 load_dotenv()
@@ -102,41 +102,40 @@ app.include_router(dev.router)
 
 
 def init_db():
-    db = SessionLocal()
-    if db.query(models.Tags).first() is None:
-        all_tags = {
-            "original": "Original",
-            "super_resolution": "Super Resolution",
-            "video_deblurring": "Video Deblurring",
-            "video_denoising": "Video Denoising",
-            "face_restoration": "Face Restoration",
-            "bw_to_color": "B/W To Color",
-            "slow_motion": "Slow Motion",
-            "video_interpolation": "Video Interpolation",
-            "video_deinterlacing": "Video Deinterlacing",
-            "image_deblurring": "Image Deblurring",
-            "image_denoising": "Image Denoising",
-            "stem_seperation": "Audio Seperation",
-            "speech_enhancement": "Speech Enhancement",
-            "transcription": "Transcription",
-            "remove_background": "Remove Background",
-        }
-        counter = 1
-        for tag in all_tags:
-            db.add(
-                models.Tags(
-                    id = counter, tag=tag, readable=all_tags[tag], created_at=int(time.time())
+    with Session(engine) as db:
+        if db.query(models.Tags).first() is None:
+            all_tags = {
+                "original": "Original",
+                "super_resolution": "Super Resolution",
+                "video_deblurring": "Video Deblurring",
+                "video_denoising": "Video Denoising",
+                "face_restoration": "Face Restoration",
+                "bw_to_color": "B/W To Color",
+                "slow_motion": "Slow Motion",
+                "video_interpolation": "Video Interpolation",
+                "video_deinterlacing": "Video Deinterlacing",
+                "image_deblurring": "Image Deblurring",
+                "image_denoising": "Image Denoising",
+                "stem_seperation": "Audio Separation",
+                "speech_enhancement": "Speech Enhancement",
+                "transcription": "Transcription",
+                "remove_background": "Remove Background",
+            }
+            counter = 1
+            for tag in all_tags:
+                db.add(
+                    models.Tags(
+                        id = counter, tag=tag, readable=all_tags[tag], created_at=int(time.time())
+                    )
                 )
-            )
-            counter += 1
-        db.commit()
-    db.close()
+                counter += 1
+            db.commit()
 
 
 @app.on_event("startup")
 async def startup():
     init_db()
-    if APP_ENV == "production":
+    if APP_ENV == "production" or APP_ENV == "development":
         os.environ["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
         try:
             r2_client.head_object(Bucket=CLOUDFLARE_METADATA, Key="srt_thumbnail.jpg")
@@ -145,7 +144,7 @@ async def startup():
             r2_client.upload_file("./script_utils/srt_thumbnail.jpg", CLOUDFLARE_METADATA, "srt_thumbnail.jpg")
             r2_client.upload_file("./script_utils/stem.jpg", CLOUDFLARE_METADATA, "stem.jpg")
     redis_connection = redis.from_url(
-        f"redis://{REDIS_HOST}", encoding="utf-8", decode_responses=True
+        f"redis://{REDIS_HOST}:{REDIS_PORT}", encoding="utf-8", decode_responses=True
     )
     await FastAPILimiter.init(redis_connection)
 

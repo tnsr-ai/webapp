@@ -55,7 +55,7 @@ export const userPlans = [
       "Max 1 filters per job",
       "Process one job at a time",
       "Files deleted after 1 week",
-      "Max duration on Video / Audio 3 minutes",
+      "Max duration on Video / Audio 10 minutes",
       "Max resolution on Video / Image - 1080p",
     ],
   },

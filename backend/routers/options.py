@@ -15,7 +15,7 @@ from routers.auth import get_current_user, TokenData
 import models
 from script_utils.util import *
 from dotenv import load_dotenv
-from utils import TNSR_DOMAIN, CLOUDFLARE_CONTENT, CLOUDFLARE_METADATA
+from utils import TNSR_DOMAIN, CLOUDFLARE_CONTENT, CLOUDFLARE_METADATA, USER_TIER
 from celeryworker import celeryapp
 from fastapi_limiter.depends import RateLimiter
 
@@ -203,26 +203,25 @@ async def rename_project(
 
 @celeryapp.task(name="routers.options.resend_email_task", acks_late=True)
 def resend_email_task(user_id: int):
-    db = SessionLocal()
-    email_token = {
-        "token": secrets.token_urlsafe(32),
-        "expires": int(time.time()) + 172800,
-    }
-    user_data = db.query(models.Users).filter(models.Users.id == user_id).first()
-    if not user_data:
-        return {"detail": "Failed", "data": "User not found"}
-    if user_data.verified == True:
-        return {"detail": "Failed", "data": "Email already verified"}
-    user_data.email_token = json.dumps(email_token)
-    db.commit()
-    verification_link = f"{TNSR_DOMAIN}/verifyemail/?user_id={user_id}&email_token={email_token['token']}"
-    email_status = registration_email(
-        user_data.first_name, verification_link, user_data.email
-    )
-    db.close()
-    if email_status != True:
-        return {"detail": "Failed", "data": "Failed to send email"}
-    return {"detail": "Success", "data": "Email sent successfully"}
+    with Session(engine) as db:
+        email_token = {
+            "token": secrets.token_urlsafe(32),
+            "expires": int(time.time()) + 172800,
+        }
+        user_data = db.query(models.Users).filter(models.Users.id == user_id).first()
+        if not user_data:
+            return {"detail": "Failed", "data": "User not found"}
+        if user_data.verified == True:
+            return {"detail": "Failed", "data": "Email already verified"}
+        user_data.email_token = json.dumps(email_token)
+        db.commit()
+        verification_link = f"{TNSR_DOMAIN}/verifyemail/?user_id={user_id}&email_token={email_token['token']}"
+        email_status = registration_email(
+            user_data.first_name, verification_link, user_data.email
+        )
+        if email_status != True:
+            return {"detail": "Failed", "data": "Failed to send email"}
+        return {"detail": "Success", "data": "Email sent successfully"}
 
 
 @router.post(
@@ -247,3 +246,22 @@ async def resend_email(
     resend_email_task.delay(current_user.user_id)
     logger.info(f"Resend email {current_user.user_id}")
     return {"detail": "Success", "data": "Email sent successfully"}
+
+@router.get(
+    "/user_tier",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(RateLimiter(times=60, seconds=60))]
+)
+async def user_tier(
+    current_user: TokenData = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    user = (
+        db.query(models.Users).filter(models.Users.id == current_user.user_id).first()
+    )
+    if not user:
+        logger.error(f"User not found {current_user.user_id}")
+        raise HTTPException(status_code=400, detail="User not found")
+    user_tier = str(user.user_tier)
+    return USER_TIER[user_tier]
+

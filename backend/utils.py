@@ -122,8 +122,16 @@ API_KEY = os.getenv("METRICS_API_KEY")
 # Replicate
 try:
     REPLICATE_API_TOKEN = os.getenv("REPLICATE_API_TOKEN")
+    GPU_PROVIDER = os.getenv("GPU_PROVIDER")
+    CUDA = os.getenv("CUDA")
 except:
     REPLICATE_API_TOKEN = "REPLICATE_API_TOKEN"
+    GPU_PROVIDER = "vast,runpod"
+    CUDA = "12.0,12.1,12.2,12.3,12.4"
+
+GPU_PROVIDER = GPU_PROVIDER.split(",")
+CUDA = [float(x) for x in CUDA.split(",")]
+    
 
 STORAGE_LIMITS = {
     "free": 2 * 1024**3,
@@ -138,13 +146,13 @@ USER_TIER = {
             "width": 1920,
             "height": 1080,
             "formats": ["mp4", "mov", "mkv", "webm"],
-            "duration": 180,
+            "duration": 600,
             "max_filters": 2,
         },
         "audio": {
             "size": STORAGE_LIMITS["free"],
             "formats": ["mp3", "wav", "m4v"],
-            "duration": 180,
+            "duration": 600,
             "max_filters": 2,
         },
         "image": {
@@ -655,6 +663,49 @@ IMAGE_MODELS = {
     },
     "remove_background": {
         "model": "amitalokbera/removebg:b0e5380f3d45f7f6b424557f3feb69f0eaa57bc42ac6643fd2b399118b2f7bb5"
+    }
+}
+
+MODEL_COMPUTE = {
+    "video": {
+        "super_resolution": {
+            "SuperRes 2x v1 (Faster)": 1400000,
+            "SuperRes 4x v1 (Faster)": 700000,
+            "SuperRes 2x v2 (Slower, better result)": 400000,
+            "SuperRes 4x v2 (Slower, better result)": 200000,
+            "SuperRes Anime (For Animated content)": 300000
+        },
+        "video_deblurring": 800000,
+        "video_denoising": 800000,
+        "face_restoration": 2200000,
+        "bw_to_color": 5500000,
+        "slow_motion": {
+            "2x": 1200000,
+            "4x": 1000000
+        },
+        "video_interpolation": 10800000,
+        "video_deinterlacing": 3000000,
+        "speech_enhancement": 10800000,
+        "transcription": 10800000,
+    },
+    "image": {
+        "super_resolution": {
+            "SuperRes 2x v1 (Faster)": 15,
+            "SuperRes 4x v1 (Faster)": 15,
+            "SuperRes 2x v2 (Slower, better result)": 18,
+            "SuperRes 4x v2 (Slower, better result)": 20,
+            "SuperRes Anime (For Animated content)": 15
+        },
+        "image_deblurring": 15,
+        "image_denoising": 15,
+        "face_restoration": 15, 
+        "bw_to_color": 15,
+        "remove_background": 15
+    },
+    "audio": {
+        "stem_seperation": 3,
+        "speech_enhancement": 20,
+        "transcription": 5
     }
 }
 

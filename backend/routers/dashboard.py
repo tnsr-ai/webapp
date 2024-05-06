@@ -14,6 +14,7 @@ from utils import sql_dict, logger
 from utils import STORAGE_LIMITS
 from fastapi_limiter.depends import RateLimiter
 from script_utils.util import *
+from humanfriendly import format_timespan
 
 
 router = APIRouter(
@@ -107,7 +108,7 @@ async def get_stats(
         logger.info(f"Dashboard stats for {current_user.user_id}")
         result["data"]["downloads"] = nice_unit(niceBytes(result["data"]["downloads"]))
         result["data"]["uploads"] = nice_unit(niceBytes(result["data"]["uploads"]))
-        result["data"]["gpu_usage"] = str(result["data"]["gpu_usage"]) + " Min"
+        result["data"]["gpu_usage"] = format_timespan(result["data"]["gpu_usage"], max_units=1)
         result["data"][
             "storage"
         ] = f"{nice_unit(niceBytes(result['data']['storage_used']))} / {nice_unit(niceBytes(result['data']['storage_limit']))}"
