@@ -1029,7 +1029,7 @@ async def past_jobs(
             )
         query = (
             db.query(models.Jobs)
-            .join(models.Content, models.Jobs.content_id == models.Content.id)
+            .join(models.Content, models.Jobs.job_id == models.Content.job_id)
             .filter(models.Content.status != "processing")
             .filter(models.Jobs.user_id == current_user.user_id)
             .order_by(models.Jobs.created_at.asc())
@@ -1067,9 +1067,14 @@ async def past_jobs(
                 content_detail["thumbnail"], CLOUDFLARE_METADATA, rd
             )
             job["content_detail"] = content_detail
+            all_content = (
+                db.query(models.Content)
+                .filter(models.Content.job_id == job["job_id"])
+                .all()
+            )
             tags_query = (
                 db.query(models.ContentTags)
-                .filter(models.ContentTags.content_id == int(job["content_id"]))
+                .filter(models.ContentTags.content_id.in_([x.id for x in all_content]))
                 .all()
             )
             all_content_tags = []
