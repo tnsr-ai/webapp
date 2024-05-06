@@ -38,6 +38,8 @@ from script_utils.util import *
 from utils import CLOUDFLARE_METADATA, CLOUDFLARE_CONTENT, IMAGE_MODELS, MODEL_COMPUTE, GPU_PROVIDER, CUDA
 from utils import remove_key, sql_dict, job_presigned_get
 import replicate
+from celery.exceptions import TaskRevokedError
+from celery.contrib.abortable import AbortableTask
 from routers.reindex_job import reindex_image_job
 from routers.upload import generate_new_filename, index_media_task
 from database import SessionLocal, engine
@@ -46,8 +48,9 @@ import asyncio
 import numpy as np
 from script_utils.util import duration_to_seconds
 from script_utils.vast import get_listing
-from script_utils.gpu_workers import get_gpu_listing, VastAI, RunpodIO
+from script_utils.gpu_workers import get_gpu_listing, VastAI, RunpodIO, VAST_KEY, RUNPOD_KEY
 import pandas as pd
+import runpod
 from humanfriendly import parse_timespan
 
 
@@ -219,9 +222,10 @@ def create_content_entry(config: dict, db: Session, user_id: int, job_id: int):
         raise HTTPException(status_code=400, detail="Unable to create content entry")
 
 
-@celeryapp.task(name="routers.jobs.image_process", acks_late=True)
-def image_process_task(job_config: dict):
+@celeryapp.task(name="routers.jobs.image_process", acks_late=True, bind=True, base=AbortableTask)
+def image_process_task(self, job_config: dict):
     with Session(engine) as db:
+        prediction = None
         try:
             main_content = (
                 db.query(models.Content)
@@ -262,6 +266,9 @@ def image_process_task(job_config: dict):
                                 input = params)
                     start_time = int(time.time())
                     while True:
+                        if self.is_aborted():
+                            prediction.cancel()
+                            return None
                         time.sleep(5)
                         prediction.reload()
                         if prediction.status == "succeeded":
@@ -280,6 +287,10 @@ def image_process_task(job_config: dict):
                 reindex_image_job(job_config, content_url=content_url)
             else:
                 raise Exception
+        except TaskRevokedError:
+            if prediction != None:
+                prediction.reload()
+                prediction.cancel()
         except Exception as e:
             content = (
                 db.query(models.Content)
@@ -839,7 +850,6 @@ def process_status(job_id: int, user_id: int, eta: int):
                         db.commit()
                         db.refresh(machine)
         except Exception as e:
-            print(str(e))
             pass
 
 
@@ -1124,7 +1134,6 @@ async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)
             await websocket.send_json(data)
             await asyncio.sleep(5)
     except Exception as e:
-        print(str(e))
         await websocket.close()
         return
 
@@ -1415,7 +1424,6 @@ async def get_estimate(
                 .filter(models.Content.user_id == current_user.user_id)
                 .first()
             )
-            print("DB Hit")
             if content is None:
                 raise HTTPException(status_code=400, detail="Content Not Found")
             content = content.__dict__
@@ -1424,4 +1432,53 @@ async def get_estimate(
     except Exception as e:
         raise HTTPException(400)
 
+@router.get("/cancel_job", status_code=status.HTTP_200_OK, dependencies=[Depends(RateLimiter(times=10, seconds=60))])
+async def cancel_job(job_id: int, db: Session = Depends(get_db), rd: redis.Redis = Depends(get_redis), current_user: TokenData = Depends(get_current_user)):
+    try:
+        job = (
+            db.query(models.Jobs)
+            .filter(models.Jobs.job_id == job_id)
+            .first()
+        )
+        machine = (
+            db.query(models.Machines)
+            .filter(models.Machines.job_id == job_id)
+            .first()
+        )
+        all_content = (
+            db.query(models.Content)
+            .filter(models.Content.job_id == job_id)
+            .all()
+        )
+        job.job_status = "Cancelled"
+        job.job_key = False
+        job.job_process = "cancelled"
+        db.add(job)
+        if machine is not None:
+            if machine.provider == "vast":
+                url = f"https://console.vast.ai/api/v0/instances/{machine.instance_id}/?api_key={VAST_KEY}"
+                r = requests.delete(url)
+            if machine.provider == "runpod":
+                runpod.api_key = RUNPOD_KEY
+                runpod.terminate_pod(machine.instance_id)
+            machine.machine_status = "CANCELLED"
+            machine.updated_at = int(time.time())
+            db.add(machine)
+        for content in all_content:
+            content.status = "cancelled"
+            content.updated_at = int(time.time())
+            db.add(content)
+        if job.celery_id != None:
+            if job.job_type == "video":
+                task = video_process_task.AsyncResult(job.celery_id)
+                task.abort()
+            elif job.job_type == "audio":
+                task = audio_process_task.AsyncResult(job.celery_id)
+                task.abort()
+            else:
+                task = image_process_task.AsyncResult(job.celery_id)
+                task.abort()
+        db.commit()
+    except Exception as e:
+        raise HTTPException(400, "Error while cancelling the job")
     
