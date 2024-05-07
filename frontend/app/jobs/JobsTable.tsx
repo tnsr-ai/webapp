@@ -7,6 +7,8 @@ import { Loader } from "@mantine/core";
 import Error from "../components/ErrorTab";
 import Image from "next/image";
 import { getCookie, setCookie } from "cookies-next";
+import useWebSocket, { ReadyState } from "react-use-websocket";
+import { List } from "cypress/types/lodash";
 
 interface Jobs {
   detail: string;
@@ -20,6 +22,7 @@ export default function JobsTable() {
     getCookie(cookieKey) ||
     '{"key": -1, "startPage": 1, "endPage": 1, "totalPage": 0, "offset": 0, "prevPage": true, "nextPage": true}';
   const pageJSON = JSON.parse(browserData as string);
+  const [call, setCall] = useState("");
   const [activeBtn, setActiveBtn] = useState(true);
   const [allBtn, setAllBtn] = useState(false);
   const [jobsData, setJobsData] = useState<Jobs | null>(null);
@@ -45,6 +48,15 @@ export default function JobsTable() {
   const disabled = true;
   const enabled = false;
   const [btnClicked, setBtnClicked] = useState(false);
+
+  const ws_url = `${process.env.BASEURL}/jobs/ws`
+    .replace("http", "ws")
+    .replace("https", "wss");
+  const [update, setUpdate] = useState();
+  const { sendJsonMessage, lastJsonMessage, readyState } = useWebSocket(
+    ws_url,
+    { share: false, shouldReconnect: () => true }
+  );
 
   const nextData = () => {
     setOffset(offset + limit);
@@ -80,17 +92,38 @@ export default function JobsTable() {
   const pastJobs = usePastJobs(limit, offset);
 
   useEffect(() => {
-    if (activeBtn) {
+    if (readyState === ReadyState.OPEN) {
+      if (activeJobs.isSuccess) {
+        var jobID: any[] = [];
+        activeJobs.data.data.forEach((data: any) => {
+          jobID.push(data.job_id as number);
+        });
+        if (jobID.length > 1) {
+          sendJsonMessage({
+            token: getCookie("access_token"),
+            job_id: jobID,
+          });
+          console.log(lastJsonMessage);
+          setUpdate(lastJsonMessage as any);
+        }
+      }
+    }
+  }, [readyState, lastJsonMessage]);
+
+  useEffect(() => {
+    if (activeBtn && call != "active") {
       activeJobs.refetch();
       if (activeJobs.isSuccess) {
+        setCall("active");
         setJobsData(activeJobs.data);
       } else {
         setJobsData(null);
       }
     }
-    if (allBtn) {
+    if (allBtn && call != "past") {
       pastJobs.refetch();
       if (pastJobs.isSuccess) {
+        setCall("past");
         setJobsData(pastJobs.data);
         setTotalPage(jobsData?.total);
         if ((jobsData?.total as number) <= limit) {

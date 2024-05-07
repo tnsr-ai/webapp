@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import { tagColor } from "../content/contentLists/TagsClass";
 import { VideoCamera, Photo, SpeakerWave } from "styled-icons/heroicons-solid";
+import { Progress, Loader } from "@mantine/core";
 
 function capitalizeWords(input: string): string[] {
   if (input.includes(",") === false) {
@@ -96,7 +97,6 @@ function statusBadge(status: string) {
 }
 
 export default function JobsCard(props: any) {
-  console.log(props);
   const tags = capitalizeWords(props.data.content_detail["tags"]);
   const colorTag = tagColor[capitalizeFirstChar(props.data.job_status)];
   return (
@@ -144,6 +144,15 @@ export default function JobsCard(props: any) {
                   {tags}
                 </span>
               ))}
+            </div>
+            <div className="mt-1">
+              <p className="font-light text-xs my-1">
+                Running -{" "}
+                <span className="font-semibold text-purple-500">
+                  Super Resolution
+                </span>
+              </p>
+              <Progress color="grape" value={100} striped animate />
             </div>
           </div>
         </div>

@@ -120,6 +120,8 @@ def init_db():
                 "speech_enhancement": "Speech Enhancement",
                 "transcription": "Transcription",
                 "remove_background": "Remove Background",
+                "job_initiated": "Job Initiated",
+                "content_upload": "Uploading Content"
             }
             counter = 1
             for tag in all_tags:

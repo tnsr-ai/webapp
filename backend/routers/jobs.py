@@ -747,8 +747,8 @@ def process_status(job_id: int, user_id: int, eta: int):
                         machine.machine_status = status["data"]
                         machine.updated_at = int(time.time())
                         db.add(machine)
-                        job.job_status = "Processing"
-                        job.job_process = "processing"
+                        job.job_status = status["data"].lower().capitalize()
+                        job.job_process = status["data"].lower()
                         job.updated_at = int(time.time())
                         db.add(job)
                         db.commit()
@@ -843,8 +843,8 @@ def process_status(job_id: int, user_id: int, eta: int):
                         machine.machine_status = status["data"]
                         machine.updated_at = int(time.time())
                         db.add(machine)
-                        job.job_status = "Processing"
-                        job.job_process = "processing"
+                        job.job_status = status["data"].lower().capitalize()
+                        job.job_process = status["data"].lower()
                         job.updated_at = int(time.time())
                         db.add(job)
                         db.commit()
@@ -1115,27 +1115,130 @@ async def past_jobs(
         return {"detail": "Success", "data": final_data, "total": total_count}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+    
+def fetch_instance_status(instance_id, provider):
+    if provider == "vast":
+        va = VastAI(
+                machine_id=123,
+                run_name="",
+                image="",
+                disk_size=0,
+                onstart='',
+                eta = 0,
+                env = {}
+            )
+        va.instance_id = int(instance_id)
+        redis_config = {}
+        if va.redis_config() == True:
+            redis_config["host"] = va.redis_host
+            redis_config["port"] = va.redis_port
+            return redis_config 
+        return None 
+    if provider == "runpod":
+        rp = RunpodIO(
+                gpu_model = "",
+                run_name = "",
+                image = "",
+                disk_size = 0,
+                eta = 0,
+                env = {}
+            )
+        rp.instance_id = int(instance_id)
+        redis_config = {}
+        if rp.redis_config() == True:
+            redis_config["host"] = rp.redis_host
+            redis_config["port"] = rp.redis_port
+            return redis_config 
+        return None 
 
 
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)):
     await websocket.accept()
     data = await websocket.receive_json()
-    token = data["token"]
-    current_user = get_current_user(db, data["token"])
-    if current_user is None:
-        await websocket.close()
-    try:
-        while True:
-            data = {
-                1 : int(time.time()),
-                2: int(time.time())
-            }
-            await websocket.send_json(data)
-            await asyncio.sleep(5)
-    except Exception as e:
-        await websocket.close()
-        return
+    if "token" in data and "job_id" in data:
+        current_user = get_current_user(db, data["token"])
+        if current_user is None:
+            await websocket.close()
+        await websocket.send_json({"detail" : "Success"})
+        redis_conn = {}
+        job_id = data["job_id"]
+        try:
+            while True:
+                all_job = (
+                    db.query(models.Jobs)
+                    .filter(models.Jobs.job_id.in_(job_id))
+                    .all()
+                )
+                result = {}
+                for x in all_job:
+                    if x.job_type == "image":
+                        result[x.job_id] = {
+                            "job_type": x.job_type,
+                            "status": x.job_status
+                        }
+                    if x.job_type == "video" or x.job_type == "audio":
+                        if x.job_status.lower() == "failed":
+                            result[x.job_id] = {
+                                "job_type": x.job_type,
+                                "status": "Failed"
+                            }
+                            continue
+                        if x.job_status.lower() in ["loading", "processing"]:
+                            result[x.job_id] = {
+                                "job_type": x.job_type,
+                                "status": "Loading"
+                            }
+                            continue
+                        if x.job_status.lower() == "running":
+                            conn_key = f"{x.job_id}"
+                            if conn_key in redis_conn:
+                                rd = redis_conn[conn_key]
+                            else:
+                                machine = (
+                                    db.query(models.Machines)
+                                    .filter(models.Machines.job_id == x.job_id)
+                                    .first()
+                                )
+                                if machine is None:
+                                    result[x.job_id] = {
+                                        "job_type": x.job_type,
+                                        "status": "Loading"
+                                    }
+                                    continue
+                                redis_config = fetch_instance_status(machine.instance_id, machine.provider)
+                                rd = redis.Redis(
+                                    host=redis_config["host"], 
+                                    port=redis_config["port"], 
+                                    db=0, 
+                                    password="vB<K1Z5>8=K7",
+                                    socket_timeout=5)
+                                try:
+                                    rd.ping()
+                                    redis_conn[conn_key] = rd
+                                except:
+                                    result[x.job_id] = {
+                                        "job_type": x.job_type,
+                                        "status": "Loading"
+                                    }
+                                    continue
+                            model = rd.get("model")
+                            status = rd.get("status")
+                            progress = rd.get("progress")
+                            result[x.job_id] = {
+                                "job_type": x.job_type,
+                                "status": "Running",
+                                "model": model,
+                                "status": status,
+                                "progress": progress
+                            }
+                            continue          
+                await websocket.send_json(result)
+                await asyncio.sleep(10)
+        except Exception as e:
+            print(str(e))
+            await websocket.close()
+            return
 
 
 @router.get("/filter_config")
