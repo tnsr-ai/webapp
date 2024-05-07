@@ -92,13 +92,13 @@ export default function JobsTable() {
   const pastJobs = usePastJobs(limit, offset);
 
   useEffect(() => {
-    if (readyState === ReadyState.OPEN) {
-      if (activeJobs.isSuccess) {
-        var jobID: any[] = [];
-        activeJobs.data.data.forEach((data: any) => {
-          jobID.push(data.job_id as number);
-        });
-        if (jobID.length > 1) {
+    if (activeJobs.isSuccess) {
+      var jobID: any[] = [];
+      activeJobs.data.data.forEach((data: any) => {
+        jobID.push(data.job_id as number);
+      });
+      if (jobID.length >= 1) {
+        if (readyState === ReadyState.OPEN) {
           sendJsonMessage({
             token: getCookie("access_token"),
             job_id: jobID,
