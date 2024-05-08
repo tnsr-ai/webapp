@@ -1195,7 +1195,7 @@ async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)
                         if x.job_status.lower() in ["loading", "processing"]:
                             result[x.job_id] = {
                                 "job_type": x.job_type,
-                                "status": "Loading"
+                                "status": x.job_status.lower().capitalize()
                             }
                         if x.job_status.lower() == "running":
                             conn_key = f"{x.job_id}"
@@ -1210,7 +1210,7 @@ async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)
                                 if machine is None:
                                     result[x.job_id] = {
                                         "job_type": x.job_type,
-                                        "status": "Loading"
+                                        "status": x.job_status.lower().capitalize()
                                     }
                                     continue
                                 redis_config = fetch_instance_status(machine.instance_id, machine.provider)
@@ -1220,15 +1220,15 @@ async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)
                                     db=0, 
                                     password="vB<K1Z5>8=K7",
                                     socket_timeout=60)
-                                try:
-                                    rd.ping()
-                                    redis_conn[conn_key] = rd
-                                except:
-                                    result[x.job_id] = {
-                                        "job_type": x.job_type,
-                                        "status": "Loading"
-                                    }
-                                    continue
+                                redis_conn[conn_key] = rd
+                            try:
+                                rd.ping()
+                            except:
+                                result[x.job_id] = {
+                                    "job_type": x.job_type,
+                                    "status": x.job_status.lower().capitalize()
+                                }
+                                continue
                             model = rd.get("model")
                             status = rd.get("status")
                             progress = rd.get("progress")
@@ -1243,7 +1243,6 @@ async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)
                 await websocket.send_json(result)
                 await asyncio.sleep(10)
         except Exception as e:
-            print(str(e))
             await websocket.close()
             return
 
