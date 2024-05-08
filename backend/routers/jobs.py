@@ -1181,6 +1181,7 @@ async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)
                 )
                 result = {}
                 for x in all_job:
+                    db.refresh(x)
                     if x.job_type == "image":
                         result[x.job_id] = {
                             "job_type": x.job_type,
@@ -1192,13 +1193,11 @@ async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)
                                 "job_type": x.job_type,
                                 "status": "Failed"
                             }
-                            continue
                         if x.job_status.lower() in ["loading", "processing"]:
                             result[x.job_id] = {
                                 "job_type": x.job_type,
                                 "status": "Loading"
                             }
-                            continue
                         if x.job_status.lower() == "running":
                             conn_key = f"{x.job_id}"
                             if conn_key in redis_conn:
