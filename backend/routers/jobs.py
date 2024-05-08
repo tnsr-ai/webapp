@@ -832,9 +832,17 @@ def process_status(job_id: int, user_id: int, eta: int):
                         machine.updated_at = int(time.time())
                         db.add(machine)
                         job.job_key = False
-                        job.job_status = "Completed"
-                        job.job_process = "completed"
                         job.updated_at = int(time.time())
+                        for x in job_content:
+                            if x.status != "completed":
+                                job.job_status = "Failed"
+                                job.job_process = "failed"
+                                x.status = "failed"
+                            else:
+                                job.job_status = "Completed"
+                                job.job_process = "completed"
+                                x.status = "completed"
+                            db.add(x)
                         db.add(job)
                         db.commit()
                         db.refresh(machine)
