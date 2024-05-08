@@ -1169,7 +1169,6 @@ async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)
         current_user = get_current_user(db, data["token"])
         if current_user is None:
             await websocket.close()
-        await websocket.send_json({"detail" : "Success"})
         redis_conn = {}
         job_id = data["job_id"]
         try:
