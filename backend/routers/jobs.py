@@ -1160,6 +1160,13 @@ def fetch_instance_status(instance_id, provider):
             return redis_config 
         return None 
 
+def calculate_total_progress(current_chunk, total_chunks, current_chunk_progress):
+    if current_chunk > total_chunks or current_chunk_progress > 100:
+        raise ValueError("Invalid chunk number or progress percentage")
+    completed_chunks_progress = (current_chunk - 1) / total_chunks * 100
+    current_chunk_contribution = (current_chunk_progress / 100) / total_chunks * 100
+    total_progress = completed_chunks_progress + current_chunk_contribution
+    return total_progress
 
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)):
@@ -1212,13 +1219,21 @@ async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)
                         result = {"job_type": job.job_type, "status": "Job not Found", "job_id": int(job.job_id)}
                     model = rd.get("model").decode("utf-8")
                     status = rd.get("status").decode("utf-8")
-                    progress = int(rd.get("progress").decode("utf-8"))
+                    try:
+                        chunk = rd.get("chunk").decode("utf-8")
+                        progress = int(rd.get("progress").decode("utf-8"))
+                    except:
+                        chunk = "1/1"
+                        progress = 100
+                    start_chunk = int(chunk.split("/")[0])
+                    end_chunk = int(chunk.split("/")[1])
+                    total_progress = int(calculate_total_progress(start_chunk, end_chunk, progress))
                     result = {
                                 "job_type": job.job_type,
                                 "status": job.job_status.lower().capitalize(),
-                                "model": all_tags[model.decode("utf-8")],
-                                "status": status.decode("utf-8"),
-                                "progress": int(progress.decode("utf-8"))
+                                "model": all_tags[model]["readable"],
+                                "status": status,
+                                "progress": total_progress
                             }
             await websocket.send_json(result)
         except Exception as e:
