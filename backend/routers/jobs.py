@@ -982,6 +982,7 @@ async def active_jobs(
             .filter(or_(
                     models.Jobs.job_status == "Processing",
                     models.Jobs.job_status == "Loading",
+                    models.Jobs.job_status == "Running"
                 ))
             .all()
         )
@@ -1212,7 +1213,7 @@ async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)
                                     port=redis_config["port"], 
                                     db=0, 
                                     password="vB<K1Z5>8=K7",
-                                    socket_timeout=5)
+                                    socket_timeout=60)
                                 try:
                                     rd.ping()
                                     redis_conn[conn_key] = rd
@@ -1228,9 +1229,9 @@ async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)
                             result[x.job_id] = {
                                 "job_type": x.job_type,
                                 "status": "Running",
-                                "model": model,
-                                "status": status,
-                                "progress": progress
+                                "model": model.decode("utf-8"),
+                                "status": status.decode("utf-8"),
+                                "progress": int(progress.decode("utf-8"))
                             }
                             continue          
                 await websocket.send_json(result)
