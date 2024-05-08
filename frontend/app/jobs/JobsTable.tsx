@@ -52,11 +52,11 @@ export default function JobsTable() {
   const ws_url = `${process.env.BASEURL}/jobs/ws`
     .replace("http", "ws")
     .replace("https", "wss");
-  const [update, setUpdate] = useState();
-  const { sendJsonMessage, lastJsonMessage, readyState } = useWebSocket(
-    ws_url,
-    { share: false, shouldReconnect: () => true }
-  );
+  const [wsConnected, setWSConnected] = useState(false);
+  const ws = useWebSocket(ws_url, {
+    share: false,
+    shouldReconnect: () => true,
+  });
 
   const nextData = () => {
     setOffset(offset + limit);
@@ -98,17 +98,12 @@ export default function JobsTable() {
         jobID.push(data.job_id as number);
       });
       if (jobID.length >= 1) {
-        if (readyState === ReadyState.OPEN) {
-          sendJsonMessage({
-            token: getCookie("access_token"),
-            job_id: jobID,
-          });
-          console.log(lastJsonMessage);
-          setUpdate(lastJsonMessage as any);
+        if (ws.readyState === ReadyState.OPEN) {
+          setWSConnected(true);
         }
       }
     }
-  }, [readyState, lastJsonMessage]);
+  }, [ws.readyState, wsConnected]);
 
   useEffect(() => {
     if (activeBtn && call != "active") {
@@ -220,7 +215,7 @@ export default function JobsTable() {
                 <div className="">
                   <div className="flex flex-col space-y-5">
                     {jobsData?.data.map((job: any, index: any) => (
-                      <JobsCard data={job} key={index} />
+                      <JobsCard data={job} key={index} ws={ws} />
                     ))}
                   </div>
                 </div>

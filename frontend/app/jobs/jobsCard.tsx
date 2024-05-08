@@ -147,12 +147,12 @@ export default function JobsCard(props: any) {
             </div>
             <div className="mt-1">
               <p className="font-light text-xs my-1">
-                Running -{" "}
+                {capitalizeFirstChar(status)} -{" "}
                 <span className="font-semibold text-purple-500">
-                  Super Resolution
+                  {"Super Resolution"}
                 </span>
               </p>
-              <Progress color="grape" value={100} striped animate />
+              <Progress color="grape" value={25} striped animate />
             </div>
           </div>
         </div>

@@ -1165,86 +1165,66 @@ def fetch_instance_status(instance_id, provider):
 async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)):
     await websocket.accept()
     data = await websocket.receive_json()
+    all_tags = allTags()
+    redis_conn = {}
     if "token" in data and "job_id" in data:
-        current_user = get_current_user(db, data["token"])
-        if current_user is None:
-            await websocket.close()
-        redis_conn = {}
-        job_id = data["job_id"]
         try:
-            while True:
-                all_job = (
-                    db.query(models.Jobs)
-                    .filter(models.Jobs.job_id.in_(job_id))
-                    .all()
+            current_user = get_current_user(db, data["token"])
+            if current_user is None:
+                await websocket.close()
+            job = (
+                db.query(models.Jobs)
+                .filter(models.Jobs.job_id == int(data["job_id"]))
+                .first()
                 )
-                result = {}
-                for x in all_job:
-                    db.refresh(x)
-                    if x.job_type == "image":
-                        result[x.job_id] = {
-                            "job_type": x.job_type,
-                            "status": x.job_status
-                        }
-                    if x.job_type == "video" or x.job_type == "audio":
-                        if x.job_status.lower() == "failed":
-                            result[x.job_id] = {
-                                "job_type": x.job_type,
-                                "status": "Failed"
-                            }
-                        if x.job_status.lower() in ["loading", "processing"]:
-                            result[x.job_id] = {
-                                "job_type": x.job_type,
-                                "status": x.job_status.lower().capitalize()
-                            }
-                        if x.job_status.lower() == "running":
-                            conn_key = f"{x.job_id}"
-                            if conn_key in redis_conn:
-                                rd = redis_conn[conn_key]
-                            else:
-                                machine = (
-                                    db.query(models.Machines)
-                                    .filter(models.Machines.job_id == x.job_id)
-                                    .first()
-                                )
-                                if machine is None:
-                                    result[x.job_id] = {
-                                        "job_type": x.job_type,
-                                        "status": x.job_status.lower().capitalize()
-                                    }
-                                    continue
-                                redis_config = fetch_instance_status(machine.instance_id, machine.provider)
-                                rd = redis.Redis(
-                                    host=redis_config["host"], 
-                                    port=redis_config["port"], 
-                                    db=0, 
-                                    password="vB<K1Z5>8=K7",
-                                    socket_timeout=60)
-                                redis_conn[conn_key] = rd
-                            try:
-                                rd.ping()
-                            except:
-                                result[x.job_id] = {
-                                    "job_type": x.job_type,
-                                    "status": x.job_status.lower().capitalize()
-                                }
-                                continue
-                            model = rd.get("model")
-                            status = rd.get("status")
-                            progress = rd.get("progress")
-                            result[x.job_id] = {
-                                "job_type": x.job_type,
-                                "status": "Running",
-                                "model": model.decode("utf-8"),
+            if job is None:
+                result = {"job_type": job.job_type, "status": "Job not Found", "job_id": int(job.job_id)}
+            if job.job_type == "image":
+                result = {"job_type": job.job_type, "status": job.job_status, "job_id": int(job.job_id)}
+            else:
+                if job.job_status.lower() == "failed":
+                    result = {"job_type": job.job_type, "status": job.job_status.lower().capitalize(), "job_id": int(job.job_id)}
+                if job.job_status.lower() == ["loading", "processing"]:
+                    result = {"job_type": job.job_type, "status": job.job_status.lower().capitalize(), "job_id": int(job.job_id)}
+                if job.job_status.lower() == "running":
+                    conn_key = f"{job.job_id}"
+                    if conn_key in redis_conn:
+                        rd = redis_conn[conn_key]
+                    else:
+                        machine = (
+                            db.query(models.Machines)
+                            .filter(models.Machines.job_id == job.job_id)
+                            .first()
+                        )
+                        if machine is None:
+                            result = {"job_type": job.job_type, "status": "Job not Found", "job_id": int(job.job_id)}
+                        redis_config = fetch_instance_status(machine.instance_id, machine.provider)
+                        rd = redis.Redis(
+                                host=redis_config["host"], 
+                                port=redis_config["port"], 
+                                db=0, 
+                                password="vB<K1Z5>8=K7",
+                                socket_timeout=60)
+                        redis_conn[conn_key] = rd
+                    try:
+                        rd.ping()
+                    except:
+                        result = {"job_type": job.job_type, "status": "Job not Found", "job_id": int(job.job_id)}
+                    model = rd.get("model").decode("utf-8")
+                    status = rd.get("status").decode("utf-8")
+                    progress = int(rd.get("progress").decode("utf-8"))
+                    result = {
+                                "job_type": job.job_type,
+                                "status": job.job_status.lower().capitalize(),
+                                "model": all_tags[model.decode("utf-8")],
                                 "status": status.decode("utf-8"),
                                 "progress": int(progress.decode("utf-8"))
                             }
-                            continue          
-                await websocket.send_json(result)
-                await asyncio.sleep(10)
+            await websocket.send_json(result)
         except Exception as e:
+            print(str(e))
             await websocket.close()
-            return
+                    
 
 
 @router.get("/filter_config")
