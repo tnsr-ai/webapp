@@ -48,7 +48,7 @@ from utils import (
     logger,
     registration_email,
     verify_password,
-    logger
+    logger,
 )
 
 load_dotenv()
@@ -88,6 +88,7 @@ class CreateUser(BaseModel):
 
 class ForgotPassword(BaseModel):
     email: str
+
 
 class ResetPassword(BaseModel):
     user_id: int
@@ -144,6 +145,7 @@ def minutes_to_delta(minutes: int):
 
 
 oauth2_bearer = OAuth2PasswordBearer(tokenUrl="auth/login", auto_error=False)
+
 
 def get_current_user(db: db_dependency, token: str = Depends(oauth2_bearer)):
     try:
@@ -401,7 +403,7 @@ async def create_user(
             domain=".tnsr.ai",
             secure=True,
             httponly=False,
-            samesite="None"
+            samesite="None",
         )
         response.set_cookie(
             key="refreshToken",
@@ -411,7 +413,7 @@ async def create_user(
             domain=".tnsr.ai",
             secure=True,
             httponly=False,
-            samesite="None"
+            samesite="None",
         )
     else:
         response.set_cookie(
@@ -515,7 +517,7 @@ async def login_user(
             domain=".tnsr.ai",
             secure=True,
             httponly=False,
-            samesite="None"
+            samesite="None",
         )
         response.set_cookie(
             key="refreshToken",
@@ -525,7 +527,7 @@ async def login_user(
             domain=".tnsr.ai",
             secure=True,
             httponly=False,
-            samesite="None"
+            samesite="None",
         )
     else:
         response.set_cookie(
@@ -720,7 +722,7 @@ async def check_user_refresh(
             domain=".tnsr.ai",
             secure=True,
             httponly=False,
-            samesite="None"
+            samesite="None",
         )
         response.set_cookie(
             key="refreshToken",
@@ -730,7 +732,7 @@ async def check_user_refresh(
             domain=".tnsr.ai",
             secure=True,
             httponly=False,
-            samesite="None"
+            samesite="None",
         )
     else:
         response.set_cookie(
@@ -875,7 +877,7 @@ async def google_callback(
             domain=".tnsr.ai",
             secure=True,
             httponly=False,
-            samesite="None"
+            samesite="None",
         )
         response.set_cookie(
             key="refreshToken",
@@ -885,7 +887,7 @@ async def google_callback(
             domain=".tnsr.ai",
             secure=True,
             httponly=False,
-            samesite="None"
+            samesite="None",
         )
     else:
         response.set_cookie(
@@ -922,7 +924,7 @@ async def google_callback(
     return HTMLResponse(
         content=f"""
       <script>
-          window.opener.postMessage({content_str}, "{os.getenv("DOMAIN")}");
+          window.opener.postMessage({content_str}, "{TNSR_DOMAIN}");
           window.close();
       </script>
       """
@@ -961,7 +963,10 @@ async def forgot_password(
     db.commit()
     result = forgot_password_task(
         user.first_name,
-        TNSR_DOMAIN + "/reset-password/" + f"?user_id={user.id}&password_token={forgotpassword_token['token']}", user.email
+        TNSR_DOMAIN
+        + "/reset-password/"
+        + f"?user_id={user.id}&password_token={forgotpassword_token['token']}",
+        user.email,
     )
     if result["detail"] == "Failed":
         logger.error(
@@ -1014,7 +1019,12 @@ async def verify_email(
     logger.info(f"Email verified - {user_id}")
     return {"detail": "Success", "data": result["data"]}
 
-@router.post("/resetpassword", status_code=status.HTTP_200_OK, dependencies=[Depends(RateLimiter(times=5, seconds=60))])
+
+@router.post(
+    "/resetpassword",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+)
 async def reset_password(reset_model: ResetPassword, db: Session = Depends(get_db)):
     user = db.query(models.Users).filter(models.Users.id == reset_model.user_id).first()
     if not user:
@@ -1025,14 +1035,18 @@ async def reset_password(reset_model: ResetPassword, db: Session = Depends(get_d
     original_password_token = json.loads(user.forgotpassword_token)
     if len(original_password_token) < 1:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Password token is invalid or has expired"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password token is invalid or has expired",
         )
-    if original_password_token['token'] != reset_model.password_token or int(original_password_token['expires']) < int(time.time()):
+    if original_password_token["token"] != reset_model.password_token or int(
+        original_password_token["expires"]
+    ) < int(time.time()):
         logger.error("Invalid or Expired Password Token")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Password token is invalid or has expired"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password token is invalid or has expired",
         )
-    
+
     if len(reset_model.password) < 8:
         logger.error(f"Password too short")
         raise HTTPException(
