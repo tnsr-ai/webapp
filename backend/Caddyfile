@@ -1,0 +1,14 @@
+{
+  servers {
+    metrics
+    }
+    admin :2019
+}
+
+http://localhost:3000 {
+  reverse_proxy nextjs-frontend:3000 
+}
+
+http://localhost {
+  reverse_proxy fastapi-backend:8000
+}
