@@ -15,4 +15,4 @@ https://backend.tnsr.ai {
 
 https://dashboard.tnsr.ai {
     reverse_proxy grafana:5000
-  }
+} 
