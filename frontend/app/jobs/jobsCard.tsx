@@ -102,28 +102,30 @@ export default function JobsCard(props: any) {
   const tags = capitalizeWords(props.data.content_detail["tags"]);
   const colorTag = tagColor[capitalizeFirstChar(props.data.job_status)];
   const [lastJson, setLastJson] = useState();
-  const [model, setModel] = useState("")
-  const [filterStatus, setStatus] = useState("")
-  const [progress, setProgress] = useState(0)
+  const [model, setModel] = useState("");
+  const [filterStatus, setStatus] = useState("");
+  const [progress, setProgress] = useState(0);
   useEffect(() => {
     const data = {
-      "token": getCookie("access_token"),
-      "job_id": props.data.job_id
-    }
-    ws.sendJsonMessage(data);
-    setLastJson(ws.lastJsonMessage)
-    if (lastJson != null || lastJson != undefined){
-      if ("model" in lastJson){
-        setModel(lastJson["model"])
-        setStatus(capitalizeFirstChar(lastJson["status"]))
-        setProgress(lastJson["progress"])
-      } else {
-        setModel("")
-        setStatus(capitalizeFirstChar(lastJson["status"]))
-        setProgress(100)
+      token: getCookie("access_token"),
+      job_id: props.data.job_id,
+    };
+    if (props.allBtn === false) {
+      ws.sendJsonMessage(data);
+      setLastJson(ws.lastJsonMessage);
+      if (lastJson != null || lastJson != undefined) {
+        if ("model" in lastJson) {
+          setModel(lastJson["model"]);
+          setStatus(capitalizeFirstChar(lastJson["status"]));
+          setProgress(lastJson["progress"]);
+        } else {
+          setModel("");
+          setStatus(capitalizeFirstChar(lastJson["status"]));
+          setProgress(100);
+        }
       }
     }
-  }, [ws.lastJsonMessage, lastJson, model, filterStatus, progress])
+  }, [ws.lastJsonMessage, lastJson, model, filterStatus, progress]);
   return (
     <div className="ml-2 md:ml-0 mr-2 md:mr-0">
       <div className="mt-4 border border-dashed border-black h-full  rounded-lg grid grid-cols-6">
@@ -170,17 +172,25 @@ export default function JobsCard(props: any) {
                 </span>
               ))}
             </div>
-            <div className="mt-1">
-              <p className="font-light text-xs my-1">
-                {capitalizeFirstChar(filterStatus)} -{" "}
-                <span className="font-semibold text-purple-500">
-                  {model}
-                </span>
-              </p>
-              {progress < 100 && (
-                <Progress color="grape" value={progress} striped animate />
-              )}
-            </div>
+            {progress === 0 && props.allBtn === false && (
+              <div className="mt-1">
+                <p className="font-light text-xs my-1">
+                  The system is initiating the job
+                </p>
+                <Progress color="grape" value={100} striped animate />
+              </div>
+            )}
+            {props.allBtn === false && progress != 0 && (
+              <div className="mt-1">
+                <p className="font-light text-xs my-1">
+                  {capitalizeFirstChar(filterStatus)} -{" "}
+                  <span className="font-semibold text-purple-500">{model}</span>
+                </p>
+                {progress < 100 && (
+                  <Progress color="grape" value={progress} striped animate />
+                )}
+              </div>
+            )}
           </div>
         </div>
         <div className="col-span-1 h-full w-full flex flex-col ">

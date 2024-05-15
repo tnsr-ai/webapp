@@ -183,7 +183,9 @@ async def generate_url(
     return result
 
 
-def video_indexing(response, thumbnail_path, db, indexdata, user_tier, reindex: bool = False):
+def video_indexing(
+    response, thumbnail_path, db, indexdata, user_tier, reindex: bool = False
+):
     try:
         video_data = is_video_valid(response)
         if video_data == False:
@@ -191,9 +193,9 @@ def video_indexing(response, thumbnail_path, db, indexdata, user_tier, reindex: 
         vidData = video_fetch_data(video_data)
         allowed_config = USER_TIER[user_tier]["video"]
         if (
-            (vidData["width"] > allowed_config["width"]
-            or vidData["height"] > allowed_config["height"]) and reindex == False
-        ):
+            vidData["width"] > allowed_config["width"]
+            or vidData["height"] > allowed_config["height"]
+        ) and reindex == False:
             return {
                 "detail": "Failed",
                 "data": f"Resolution exceeds {user_tier} tier length limit",
@@ -225,7 +227,11 @@ def video_indexing(response, thumbnail_path, db, indexdata, user_tier, reindex: 
         videoData.thumbnail = thumbnail_path
         videoData.md5 = indexdata["md5"]
         videoData.status = "completed"
-        if "id_related" in indexdata and indexdata["id_related"] is not None and reindex == False:
+        if (
+            "id_related" in indexdata
+            and indexdata["id_related"] is not None
+            and reindex == False
+        ):
             videoData.id_related = indexdata["id_related"]
         videoData.updated_at = int(time.time())
         return {"detail": "Success", "data": videoData}
@@ -234,11 +240,15 @@ def video_indexing(response, thumbnail_path, db, indexdata, user_tier, reindex: 
         return {"detail": "Failed", "data": "Error while indexing"}
 
 
-def image_indexing(response, thumbnail_path, db, indexdata, user_tier, reindex: bool = False):
+def image_indexing(
+    response, thumbnail_path, db, indexdata, user_tier, reindex: bool = False
+):
     try:
         img_size, width, height = lower_resolution_image(response, thumbnail_path)
         allowed_config = USER_TIER[user_tier]["image"]
-        if (width > allowed_config["width"] or height > allowed_config["height"]) and reindex == False:
+        if (
+            width > allowed_config["width"] or height > allowed_config["height"]
+        ) and reindex == False:
             return {
                 "detail": "Failed",
                 "data": f"Resolution exceeds {user_tier} tier limit",
@@ -256,7 +266,11 @@ def image_indexing(response, thumbnail_path, db, indexdata, user_tier, reindex: 
         imageData.thumbnail = thumbnail_path
         imageData.md5 = indexdata["md5"]
         imageData.status = "completed"
-        if "id_related" in indexdata and indexdata["id_related"] is not None and reindex == False:
+        if (
+            "id_related" in indexdata
+            and indexdata["id_related"] is not None
+            and reindex == False
+        ):
             imageData.id_related = indexdata["id_related"]
         imageData.updated_at = int(time.time())
         return {"detail": "Success", "data": imageData}
@@ -265,7 +279,9 @@ def image_indexing(response, thumbnail_path, db, indexdata, user_tier, reindex: 
         return {"detail": "Failed", "data": "Error while indexing"}
 
 
-def audio_indexing(response, thumbnail_path, db, indexdata, user_tier, reindex: bool = False):
+def audio_indexing(
+    response, thumbnail_path, db, indexdata, user_tier, reindex: bool = False
+):
     try:
         audio_data = audio_image(
             response, indexdata["config"]["filename"].split(".")[-1], thumbnail_path
@@ -274,7 +290,10 @@ def audio_indexing(response, thumbnail_path, db, indexdata, user_tier, reindex: 
         allowed_duration = allowed_config["duration"]
         if float(allowed_config["duration"]) == -1:
             allowed_duration = float("inf")
-        if float(audio_data["format"]["duration"]) > float(allowed_duration) and reindex == False:
+        if (
+            float(audio_data["format"]["duration"]) > float(allowed_duration)
+            and reindex == False
+        ):
             return {
                 "detail": "Failed",
                 "data": f"Audio exceeds {user_tier} tier length limit",
@@ -295,7 +314,11 @@ def audio_indexing(response, thumbnail_path, db, indexdata, user_tier, reindex: 
         audioData.hz = audio_data["streams"][0]["sample_rate"]
         audioData.thumbnail = thumbnail_path
         audioData.md5 = indexdata["md5"]
-        if "id_related" in indexdata and indexdata["id_related"] is not None and reindex == False:
+        if (
+            "id_related" in indexdata
+            and indexdata["id_related"] is not None
+            and reindex == False
+        ):
             audioData.id_related = indexdata["id_related"]
         audioData.status = "completed"
         audioData.updated_at = int(time.time())
@@ -303,6 +326,7 @@ def audio_indexing(response, thumbnail_path, db, indexdata, user_tier, reindex: 
     except Exception as e:
         # return {"detail": "Failed", "data": str(e)}
         return {"detail": "Failed", "data": "Error while indexing"}
+
 
 @celeryapp.task(name="routers.upload.index_media_task", acks_late=True)
 def index_media_task(indexdata: dict, user_id: int, reindex: bool = False):
@@ -319,7 +343,9 @@ def index_media_task(indexdata: dict, user_id: int, reindex: bool = False):
             info = indexdata["config"]
             indexfilename = info["indexfilename"]
             pathlib.Path(f"thumbnail/{user_id}").mkdir(parents=True, exist_ok=True)
-            thumbnail_path = f"thumbnail/{user_id}/{os.path.splitext(indexfilename)[0]}.jpg"
+            thumbnail_path = (
+                f"thumbnail/{user_id}/{os.path.splitext(indexfilename)[0]}.jpg"
+            )
             s3 = boto3.client(
                 "s3",
                 aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
@@ -334,9 +360,11 @@ def index_media_task(indexdata: dict, user_id: int, reindex: bool = False):
             key_file = f"{user_id}/{indexfilename}"
             obj_data = s3.head_object(Bucket=CLOUDFLARE_CONTENT, Key=key_file)
             if user_dashboard is not None:
-                if int(user_dashboard.storage_limit) - int(
-                    user_dashboard.storage_used
-                ) < int(obj_data["ContentLength"]) and reindex == False:
+                if (
+                    int(user_dashboard.storage_limit) - int(user_dashboard.storage_used)
+                    < int(obj_data["ContentLength"])
+                    and reindex == False
+                ):
                     return {"detail": "Failed", "data": "Storage limit exceeded"}
             response = s3.generate_presigned_url(
                 "get_object",
@@ -488,7 +516,7 @@ def index_media_task(indexdata: dict, user_id: int, reindex: bool = False):
                         retries=dict(max_attempts=3),
                     ),
                 )
-                subtitleData.size = obj_data['ContentLength']
+                subtitleData.size = obj_data["ContentLength"]
                 subtitleData.md5 = indexdata["md5"]
                 subtitleData.status = "completed"
                 subtitleData.updated_at = int(time.time())
@@ -512,7 +540,7 @@ def index_media_task(indexdata: dict, user_id: int, reindex: bool = False):
                         retries=dict(max_attempts=3),
                     ),
                 )
-                zipData.size = obj_data['ContentLength']
+                zipData.size = obj_data["ContentLength"]
                 zipData.md5 = indexdata["md5"]
                 zipData.status = "completed"
                 zipData.updated_at = int(time.time())
@@ -582,6 +610,7 @@ async def file_index(
     logger.info(f"File indexed with celery id {result.id}")
     return {"detail": "Success", "data": "Indexing file"}
 
+
 @router.post(
     "/indexfile_status",
     status_code=status.HTTP_200_OK,
@@ -590,7 +619,9 @@ async def file_index(
 async def indexfile_status(task_id: str):
     try:
         if len(task_id) < 0 or task_id == None:
-            return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid Task ID")
+            return HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid Task ID"
+            )
         task = AsyncResult(task_id, app=celeryapp)
         return task.state
     except:

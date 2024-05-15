@@ -215,7 +215,12 @@ export default function JobsTable() {
                 <div className="">
                   <div className="flex flex-col space-y-5">
                     {jobsData?.data.map((job: any, index: any) => (
-                      <JobsCard data={job} key={index} ws={ws} />
+                      <JobsCard
+                        data={job}
+                        key={index}
+                        ws={ws}
+                        allBtn={allBtn}
+                      />
                     ))}
                   </div>
                 </div>
