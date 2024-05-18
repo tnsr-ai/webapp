@@ -428,8 +428,7 @@ def video_process_task(job_config: dict):
                         run_name="jaeger-pipeline",
                         image=f"amitalokbera/jaeger-pipeline:cuda-{round(float(row['CUDA']),1)}",
                         disk_size=DISK,
-                        # onstart='bash -c "/app/backendml/entrypoint.sh"',
-                        onstart='bash -c "sleep 3600"',
+                        onstart='bash -c "/app/backendml/entrypoint.sh"',
                         eta=job_eta,
                         env=env,
                     )
@@ -759,7 +758,7 @@ def process_status(job_id: int, user_id: int, eta: int):
                         db.commit()
                         break
                     if status["data"] == "LOADING" and (
-                        int(time.time()) - int(machine.created_at) >= 1200
+                        int(time.time()) - int(machine.created_at) >= 600
                     ):
                         try:
                             va.terminate_instance()
@@ -1021,17 +1020,12 @@ async def fetch_jobs(
         raise HTTPException(status_code=400, detail="Unable to fetch job details")
 
 
-@router.get("/active_jobs", dependencies=[Depends(RateLimiter(times=120, seconds=60))])
-async def active_jobs(
-    db: Session = Depends(get_db),
-    current_user: TokenData = Depends(get_current_user),
-    rd: redis.Redis = Depends(get_redis),
-):
+def get_active_jobs(user_id, db, rd):
     try:
         all_tags = allTags(id=True)
         job_details = (
             db.query(models.Jobs)
-            .filter(models.Jobs.user_id == current_user.user_id)
+            .filter(models.Jobs.user_id == user_id)
             .filter(
                 or_(
                     models.Jobs.job_status == "Processing",
@@ -1090,18 +1084,7 @@ async def active_jobs(
         raise HTTPException(status_code=400, detail="Unable to fetch jobs")
 
 
-@router.get(
-    "/past_jobs",
-    dependencies=[Depends(RateLimiter(times=120, seconds=60))],
-    status_code=status.HTTP_200_OK,
-)
-async def past_jobs(
-    limit: int,
-    offset: int,
-    db: Session = Depends(get_db),
-    current_user: TokenData = Depends(get_current_user),
-    rd: redis.Redis = Depends(get_redis),
-):
+def get_past_jobs(user_id, limit, offset, db, rd):
     try:
         all_tags = allTags(id=True)
         if limit > 5:
@@ -1112,7 +1095,7 @@ async def past_jobs(
             db.query(models.Jobs)
             .join(models.Content, models.Jobs.job_id == models.Content.job_id)
             .filter(models.Content.status != "processing")
-            .filter(models.Jobs.user_id == current_user.user_id)
+            .filter(models.Jobs.user_id == user_id)
             .order_by(models.Jobs.created_at.desc())
             .limit(limit)
             .offset(offset)
@@ -1122,7 +1105,7 @@ async def past_jobs(
             db.query(models.Jobs)
             .join(models.Content, models.Jobs.content_id == models.Content.id)
             .filter(models.Content.status != "processing")
-            .filter(models.Jobs.user_id == current_user.user_id)
+            .filter(models.Jobs.user_id == user_id)
             .count()
         )
         job_details = [x.__dict__ for x in query]
@@ -1169,6 +1152,174 @@ async def past_jobs(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.get("/get_jobs", dependencies=[Depends(RateLimiter(times=240, seconds=60))])
+async def get_jobs(
+    job_type: str,
+    limit: int = 5,
+    offset: int = 0,
+    db: Session = Depends(get_db),
+    current_user: TokenData = Depends(get_current_user),
+    rd: redis.Redis = Depends(get_redis),
+):
+    try:
+        if job_type == "active":
+            return get_active_jobs(current_user.user_id, db, rd)
+        elif job_type == "past":
+            return get_past_jobs(current_user.user_id, limit, offset, db, rd)
+        else:
+            raise Exception
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="Unable to fetch jobs")
+
+
+# @router.get("/active_jobs", dependencies=[Depends(RateLimiter(times=240, seconds=60))])
+# async def active_jobs(
+#     db: Session = Depends(get_db),
+#     current_user: TokenData = Depends(get_current_user),
+#     rd: redis.Redis = Depends(get_redis),
+# ):
+#     try:
+#         all_tags = allTags(id=True)
+#         job_details = (
+#             db.query(models.Jobs)
+#             .filter(models.Jobs.user_id == current_user.user_id)
+#             .filter(
+#                 or_(
+#                     models.Jobs.job_status == "Processing",
+#                     models.Jobs.job_status == "Loading",
+#                     models.Jobs.job_status == "Running",
+#                 )
+#             )
+#             .all()
+#         )
+#         job_details = [x.__dict__ for x in job_details]
+#         remove_keys = [
+#             "celery_id",
+#             "_sa_instance_state",
+#             "user_id",
+#             "config_json",
+#             "key",
+#             "job_key",
+#             "job_tier",
+#             "updated_at",
+#         ]
+#         for x in job_details:
+#             for y in remove_keys:
+#                 x.pop(y)
+#         final_data = []
+#         for job in job_details:
+#             content_detail = fetch_content_data(job["content_id"], db).__dict__
+#             content_detail.pop("_sa_instance_state")
+#             content_detail = {k: v for k, v in content_detail.items() if v is not None}
+#             content_detail["thumbnail"] = add_presigned_single(
+#                 content_detail["thumbnail"], CLOUDFLARE_METADATA, rd
+#             )
+#             if content_detail["status"].value != "processing":
+#                 continue
+#             job["content_detail"] = content_detail
+#             all_content_tags = []
+#             related_content = (
+#                 db.query(models.Content)
+#                 .filter(models.Content.job_id == job["job_id"])
+#                 .all()
+#             )
+#             all_content_id = [x.id for x in related_content]
+#             tags_query = (
+#                 db.query(models.ContentTags)
+#                 .filter(models.ContentTags.content_id.in_(all_content_id))
+#                 .all()
+#             )
+#             for y in tags_query:
+#                 all_content_tags.append(y.tag_id)
+#             job["content_detail"]["tags"] = []
+#             for tag in all_content_tags:
+#                 job["content_detail"]["tags"].append((all_tags[str(tag)]["readable"]))
+#             job["content_detail"]["tags"] = ",".join(job["content_detail"]["tags"])
+#             final_data.append(job)
+#         return {"detail": "Success", "data": final_data}
+#     except Exception as e:
+#         raise HTTPException(status_code=400, detail="Unable to fetch jobs")
+
+
+# @router.get(
+#     "/past_jobs",
+#     dependencies=[Depends(RateLimiter(times=120, seconds=60))],
+#     status_code=status.HTTP_200_OK,
+# )
+# async def past_jobs(
+#     limit: int,
+#     offset: int,
+#     db: Session = Depends(get_db),
+#     current_user: TokenData = Depends(get_current_user),
+#     rd: redis.Redis = Depends(get_redis),
+# ):
+#     try:
+#         all_tags = allTags(id=True)
+#         if limit > 5:
+#             raise HTTPException(
+#                 status_code=400, detail="Limit cannot be greater than 5"
+#             )
+#         query = (
+#             db.query(models.Jobs)
+#             .join(models.Content, models.Jobs.job_id == models.Content.job_id)
+#             .filter(models.Content.status != "processing")
+#             .filter(models.Jobs.user_id == current_user.user_id)
+#             .order_by(models.Jobs.created_at.desc())
+#             .limit(limit)
+#             .offset(offset)
+#             .all()
+#         )
+#         total_count = (
+#             db.query(models.Jobs)
+#             .join(models.Content, models.Jobs.content_id == models.Content.id)
+#             .filter(models.Content.status != "processing")
+#             .filter(models.Jobs.user_id == current_user.user_id)
+#             .count()
+#         )
+#         job_details = [x.__dict__ for x in query]
+#         remove_keys = [
+#             "_sa_instance_state",
+#             "user_id",
+#             "config_json",
+#             "key",
+#             "job_key",
+#             "job_tier",
+#         ]
+#         for x in job_details:
+#             for y in remove_keys:
+#                 x.pop(y)
+#         final_data = []
+#         for job in job_details:
+#             content_detail = fetch_content_data(job["content_id"], db).__dict__
+#             content_detail.pop("_sa_instance_state")
+#             content_detail = {k: v for k, v in content_detail.items() if v is not None}
+#             content_detail["thumbnail"] = add_presigned_single(
+#                 content_detail["thumbnail"], CLOUDFLARE_METADATA, rd
+#             )
+#             job["content_detail"] = content_detail
+#             all_content = (
+#                 db.query(models.Content)
+#                 .filter(models.Content.job_id == job["job_id"])
+#                 .all()
+#             )
+#             tags_query = (
+#                 db.query(models.ContentTags)
+#                 .filter(models.ContentTags.content_id.in_([x.id for x in all_content]))
+#                 .all()
+#             )
+#             all_content_tags = []
+#             for y in tags_query:
+#                 all_content_tags.append(y.tag_id)
+#             job["content_detail"]["tags"] = []
+#             for tag in all_content_tags:
+#                 job["content_detail"]["tags"].append((all_tags[str(tag)]["readable"]))
+#             job["content_detail"]["tags"] = ",".join(job["content_detail"]["tags"])
+#             final_data.append(job)
+#         return {"detail": "Success", "data": final_data, "total": total_count}
+#     except Exception as e:
+#         raise HTTPException(status_code=400, detail=str(e))
+
+
 def fetch_instance_status(instance_id, provider):
     if provider == "vast":
         va = VastAI(
@@ -1210,103 +1361,132 @@ def calculate_total_progress(current_chunk, total_chunks, current_chunk_progress
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)):
     await websocket.accept()
-    data = await websocket.receive_json()
     all_tags = allTags()
     redis_conn = {}
-    if "token" in data and "job_id" in data:
-        try:
-            current_user = get_current_user(db, data["token"])
+    job_ids = []
+    token = None
+
+    async def receive_messages():
+        nonlocal token
+        nonlocal job_ids
+        while True:
+            data = await websocket.receive_json()
+            if "token" in data and "job_id" in data:
+                if not token:
+                    token = data["token"]
+                job_ids.append(int(data["job_id"]))
+
+    receive_task = asyncio.create_task(receive_messages())
+
+    try:
+        await asyncio.sleep(5)
+        while True:
+            if not job_ids:
+                raise Exception
+            current_user = get_current_user(db, token)
             if current_user is None:
                 await websocket.close()
-            job = (
-                db.query(models.Jobs)
-                .filter(models.Jobs.job_id == int(data["job_id"]))
-                .first()
-            )
-            if job is None:
+                break
+            jobs = db.query(models.Jobs).filter(models.Jobs.job_id.in_(job_ids)).all()
+            if not jobs:
+                result = {"job_type": "Unknown", "status": "Job not Found"}
+                await websocket.send_json(result)
+                await websocket.close()
+            for job in jobs:
+                db.refresh(job)
                 result = {
                     "job_type": job.job_type,
-                    "status": "Job not Found",
+                    "status": job.job_status.lower().capitalize(),
                     "job_id": int(job.job_id),
                 }
-            if job.job_type == "image":
-                result = {
-                    "job_type": job.job_type,
-                    "status": job.job_status,
-                    "job_id": int(job.job_id),
-                }
-            else:
-                if job.job_status.lower() == "failed":
-                    result = {
-                        "job_type": job.job_type,
-                        "status": job.job_status.lower().capitalize(),
-                        "job_id": int(job.job_id),
-                    }
-                if job.job_status.lower() == ["loading", "processing"]:
-                    result = {
-                        "job_type": job.job_type,
-                        "status": job.job_status.lower().capitalize(),
-                        "job_id": int(job.job_id),
-                    }
-                if job.job_status.lower() == "running":
-                    conn_key = f"{job.job_id}"
-                    if conn_key in redis_conn:
-                        rd = redis_conn[conn_key]
-                    else:
-                        machine = (
-                            db.query(models.Machines)
-                            .filter(models.Machines.job_id == job.job_id)
-                            .first()
-                        )
-                        if machine is None:
-                            result = {
-                                "job_type": job.job_type,
-                                "status": "Job not Found",
-                                "job_id": int(job.job_id),
-                            }
-                        redis_config = fetch_instance_status(
-                            machine.instance_id, machine.provider
-                        )
-                        rd = redis.Redis(
-                            host=redis_config["host"],
-                            port=redis_config["port"],
-                            db=0,
-                            password="vB<K1Z5>8=K7",
-                            socket_timeout=60,
-                        )
-                        redis_conn[conn_key] = rd
-                    try:
-                        rd.ping()
-                    except:
+                if job.job_type == "image":
+                    result["status"] = job.job_status
+                else:
+                    if job.job_status.lower() == "failed":
+                        result["status"] = job.job_status.lower().capitalize()
+                    elif job.job_status.lower() in ["loading", "processing"]:
                         result = {
                             "job_type": job.job_type,
-                            "status": "Job not Found",
+                            "status": job.job_status.lower().capitalize(),
                             "job_id": int(job.job_id),
                         }
-                    model = rd.get("model").decode("utf-8")
-                    status = rd.get("status").decode("utf-8")
-                    try:
-                        chunk = rd.get("chunk").decode("utf-8")
-                        progress = int(rd.get("progress").decode("utf-8"))
-                    except:
-                        chunk = "1/1"
-                        progress = 100
-                    start_chunk = int(chunk.split("/")[0])
-                    end_chunk = int(chunk.split("/")[1])
-                    total_progress = int(
-                        calculate_total_progress(start_chunk, end_chunk, progress)
-                    )
-                    result = {
-                        "job_type": job.job_type,
-                        "status": job.job_status.lower().capitalize(),
-                        "model": all_tags[model]["readable"],
-                        "status": status,
-                        "progress": total_progress,
-                    }
-            await websocket.send_json(result)
-        except Exception as e:
-            print(str(e))
-            await websocket.close()
+                        result["ids"] = job_ids
+                    elif job.job_status.lower() == "running":
+                        conn_key = f"{job.job_id}"
+                        if conn_key in redis_conn:
+                            rd = redis_conn[conn_key]
+                        else:
+                            machine = (
+                                db.query(models.Machines)
+                                .filter(models.Machines.job_id == job.job_id)
+                                .first()
+                            )
+                            if machine is None:
+                                result["status"] = "Job not Found"
+                            else:
+                                redis_config = fetch_instance_status(
+                                    machine.instance_id, machine.provider
+                                )
+                                rd = redis.Redis(
+                                    host=redis_config["host"],
+                                    port=redis_config["port"],
+                                    db=0,
+                                    password="vB<K1Z5>8=K7",
+                                    socket_timeout=60,
+                                )
+                                redis_conn[conn_key] = rd
+
+                        try:
+                            rd.ping()
+                        except:
+                            result["status"] = "Job not Found"
+                        else:
+                            model = rd.get("model").decode("utf-8")
+                            status = rd.get("status").decode("utf-8")
+                            try:
+                                chunk = rd.get("chunk").decode("utf-8")
+                                progress = int(rd.get("progress").decode("utf-8"))
+                            except:
+                                chunk = "1/1"
+                                progress = 100
+                            start_chunk = int(chunk.split("/")[0])
+                            end_chunk = int(chunk.split("/")[1])
+                            total_progress = int(
+                                calculate_total_progress(
+                                    start_chunk, end_chunk, progress
+                                )
+                            )
+                            if all_tags[model]["readable"] == "Uploading Content":
+                                result.update(
+                                    {
+                                        "model": all_tags[model]["readable"],
+                                        "status": status,
+                                        "progress": 100,
+                                    }
+                                )
+                            else:
+                                result.update(
+                                    {
+                                        "model": all_tags[model]["readable"],
+                                        "status": status,
+                                        "progress": total_progress,
+                                    }
+                                )
+                    elif job.job_status.lower() == "completed":
+                        result.update(
+                            {
+                                "model": "",
+                                "status": "Completed",
+                                "progress": "",
+                            }
+                        )
+                        job_ids.remove(job.job_id)
+                await websocket.send_json(result)
+            await asyncio.sleep(5)
+    except Exception as e:
+        await websocket.close()
+    finally:
+        receive_task.cancel()
 
 
 @router.get("/filter_config")
@@ -1499,7 +1679,7 @@ async def job_status(job_status: JobStatus, db: Session = Depends(get_db)):
         job.job_key = False
         db.add(job)
         db.commit()
-        return HTTPException(status_code=200, detail="Job updated")
+        return HTTPException(status_code=201, detail="Job updated")
     except Exception as e:
         logger.error(f"Error while job indexing - {job_status}")
         logger.error(f"Error - {str(e)}")

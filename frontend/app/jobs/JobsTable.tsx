@@ -1,14 +1,13 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import JobsCard from "./jobsCard";
 import { useQueryClient } from "@tanstack/react-query";
-import { useActiveJobs, usePastJobs } from "../api";
+import { useGetJobs } from "../api";
 import { Loader } from "@mantine/core";
 import Error from "../components/ErrorTab";
 import Image from "next/image";
 import { getCookie, setCookie } from "cookies-next";
 import useWebSocket, { ReadyState } from "react-use-websocket";
-import { List } from "cypress/types/lodash";
 
 interface Jobs {
   detail: string;
@@ -26,6 +25,7 @@ export default function JobsTable() {
   const [activeBtn, setActiveBtn] = useState(true);
   const [allBtn, setAllBtn] = useState(false);
   const [jobsData, setJobsData] = useState<Jobs | null>(null);
+  const [jobType, setJobType] = useState("active");
   const limit = 5;
   const [offset, setOffset] = useState(0);
   const [noJobsText, setNoJobsText] = useState(
@@ -52,11 +52,14 @@ export default function JobsTable() {
   const ws_url = `${process.env.BASEURL}/jobs/ws`
     .replace("http", "ws")
     .replace("https", "wss");
-  const [wsConnected, setWSConnected] = useState(false);
-  const ws = useWebSocket(ws_url, {
-    share: false,
-    shouldReconnect: () => true,
-  });
+
+  const { sendJsonMessage, lastJsonMessage, readyState } = useWebSocket(
+    ws_url,
+    {
+      share: true,
+      shouldReconnect: () => true,
+    }
+  );
 
   const nextData = () => {
     setOffset(offset + limit);
@@ -88,38 +91,32 @@ export default function JobsTable() {
     setBtnClicked(true);
   };
 
-  const activeJobs = useActiveJobs();
-  const pastJobs = usePastJobs(limit, offset);
+  const getJobs = useGetJobs(jobType, limit, offset);
 
   useEffect(() => {
-    if (activeJobs.isSuccess) {
+    if (getJobs.isSuccess) {
       var jobID: any[] = [];
-      activeJobs.data.data.forEach((data: any) => {
+      getJobs.data.data.forEach((data: any) => {
         jobID.push(data.job_id as number);
       });
-      if (jobID.length >= 1) {
-        if (ws.readyState === ReadyState.OPEN) {
-          setWSConnected(true);
-        }
-      }
     }
-  }, [ws.readyState, wsConnected]);
+  }, [readyState, getJobs.isSuccess, getJobs.data]);
 
   useEffect(() => {
     if (activeBtn && call != "active") {
-      activeJobs.refetch();
-      if (activeJobs.isSuccess) {
+      getJobs.refetch();
+      if (getJobs.isSuccess) {
         setCall("active");
-        setJobsData(activeJobs.data);
+        setJobsData(getJobs.data);
       } else {
         setJobsData(null);
       }
     }
     if (allBtn && call != "past") {
-      pastJobs.refetch();
-      if (pastJobs.isSuccess) {
+      getJobs.refetch();
+      if (getJobs.isSuccess) {
         setCall("past");
-        setJobsData(pastJobs.data);
+        setJobsData(getJobs.data);
         setTotalPage(jobsData?.total);
         if ((jobsData?.total as number) <= limit) {
           setEndPage(jobsData?.total);
@@ -152,11 +149,12 @@ export default function JobsTable() {
         setJobsData(null);
       }
     }
-  }, [activeJobs, pastJobs, activeBtn, allBtn]);
+  }, [getJobs, activeBtn, allBtn, getJobs.data, jobsData]);
 
   const handleActiveClick = () => {
     setActiveBtn(true);
     setAllBtn(false);
+    setJobType("active");
     setNoJobsText(
       "Your job queue is empty – time to change that. Create a job to begin!"
     );
@@ -165,11 +163,12 @@ export default function JobsTable() {
   const handleAllClick = () => {
     setActiveBtn(false);
     setAllBtn(true);
+    setJobType("past");
     setNoJobsText("No past jobs found.");
   };
 
-  const isLoading = activeBtn ? activeJobs.isLoading : pastJobs.isLoading;
-  const isError = activeBtn ? activeJobs.isError : pastJobs.isError;
+  const isLoading = activeBtn ? getJobs.isLoading : getJobs.isLoading;
+  const isError = activeBtn ? getJobs.isError : getJobs.isError;
 
   return (
     <div>
@@ -207,18 +206,20 @@ export default function JobsTable() {
           <Loader color="grape" variant="bars" />
         </div>
       )}
-      {jobsData && jobsData?.data.length > 0 && (
+      {getJobs.data && getJobs.data?.data.length > 0 && (
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="mt-1 flex flex-col">
             <div className="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
               <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
                 <div className="">
                   <div className="flex flex-col space-y-5">
-                    {jobsData?.data.map((job: any, index: any) => (
+                    {getJobs.data?.data.map((job: any, index: any) => (
                       <JobsCard
                         data={job}
                         key={index}
-                        ws={ws}
+                        sendJsonMessage={sendJsonMessage}
+                        lastJsonMessage={lastJsonMessage}
+                        readyState={readyState}
                         allBtn={allBtn}
                       />
                     ))}
@@ -228,7 +229,7 @@ export default function JobsTable() {
             </div>
           </div>
           <div className="mt-5">
-            {jobsData?.total > limit && (
+            {getJobs.data?.total > limit && (
               <div className="flex flex-col items-center">
                 <span className="text-sm text-black ">
                   Showing{" "}
@@ -292,7 +293,7 @@ export default function JobsTable() {
           </div>
         </div>
       )}
-      {jobsData && jobsData?.data.length === 0 && (
+      {getJobs.data && getJobs.data?.data.length === 0 && (
         <div className="flex flex-col justify-center items-center">
           <div className="min-w-[250px]">
             <Image
