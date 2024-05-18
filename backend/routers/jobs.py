@@ -411,7 +411,7 @@ def video_process_task(job_config: dict):
                     if round(float(row["CUDA"]), 1) not in supported_cuda:
                         continue
                     env = {
-                        "BASEURL": "https://backend.tnsr.ai",
+                        "BASEURL": "https://concrete-titmouse-diverse.ngrok-free.app",
                         "FETCH_CONFIG": "/jobs/fetch_jobs",
                         "JOBID": job_config["job_id"],
                         "KEY": job_config["key"],
@@ -453,7 +453,7 @@ def video_process_task(job_config: dict):
 
                 if row["Cloud"] == "runpod":
                     env = {
-                        "BASEURL": "https://backend.tnsr.ai",
+                        "BASEURL": "https://concrete-titmouse-diverse.ngrok-free.app",
                         "FETCH_CONFIG": "/jobs/fetch_jobs",
                         "JOBID": job_config["job_id"],
                         "KEY": job_config["key"],

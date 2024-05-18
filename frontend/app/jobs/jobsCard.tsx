@@ -7,6 +7,7 @@ import { VideoCamera, Photo, SpeakerWave } from "styled-icons/heroicons-solid";
 import { Progress, Loader } from "@mantine/core";
 import { getCookie, setCookie } from "cookies-next";
 import useWebSocket, { ReadyState } from "react-use-websocket";
+import CancelPrompt from "../content/contentCards/CancelModal";
 
 function capitalizeWords(input: string): string[] {
   if (input.includes(",") === false) {
@@ -116,11 +117,11 @@ export default function JobsCard(props: any) {
   const { sendJsonMessage, lastJsonMessage, readyState } = props;
   const tags = capitalizeWords(props.data.content_detail["tags"]);
   const colorTag = tagColor[capitalizeFirstChar(props.data.job_status)];
-  const [lastJson, setLastJson] = useState();
   const [model, setModel] = useState("");
   const [filterStatus, setStatus] = useState("");
   const [progress, setProgress] = useState(0);
   const [uploadStarted, setUploadStarted] = useState(false);
+  const [cancelPrompt, setCancelPrompt] = useState(false);
 
   useEffect(() => {
     if (readyState === ReadyState.OPEN) {
@@ -254,12 +255,20 @@ export default function JobsCard(props: any) {
               <button
                 type="button"
                 className="rounded-md bg-red-50 px-1 md:px-3.5 py-1 md:py-2.5 text-xs font-semibold text-red-600 shadow-sm hover:bg-red-100"
+                onClick={() => {
+                  setCancelPrompt(true);
+                }}
               >
                 Cancel
               </button>
             </div>
           )}
         </div>
+        <CancelPrompt
+          cancelPrompt={cancelPrompt}
+          setCancelPrompt={setCancelPrompt}
+          job_id={props.data.job_id}
+        />
       </div>
     </div>
   );

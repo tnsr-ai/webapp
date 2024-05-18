@@ -161,6 +161,7 @@ export default function JobsTable() {
   };
 
   const handleAllClick = () => {
+    getJobs.refetch();
     setActiveBtn(false);
     setAllBtn(true);
     setJobType("past");
