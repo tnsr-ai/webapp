@@ -333,7 +333,7 @@ export const getJobEstimate = async (content_id: number, job_config: any) => {
 export const useGetJobs = (job_type: string, limit: number, offset: number) => {
   const jwt = getCookie("access_token");
   return useQuery({
-    queryKey: [jobsEndpoints["get_jobs"]],
+    queryKey: ["/jobs/get_jobs"],
     queryFn: async () => {
       const url = `${jobsEndpoints["get_jobs"]}/?limit=${limit}&offset=${offset}&job_type=${job_type}`;
       const response = await fetch(url, {

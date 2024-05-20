@@ -494,9 +494,12 @@ def video_process_task(job_config: dict):
                     db.commit()
                     db.refresh(create_machine_row)
                     break
-            process_status.delay(
+            process_job = process_status.delay(
                 int(job_config["job_id"]), int(job_config["user_id"]), int(job_eta)
             )
+            job.celery_id = process_job.id
+            db.add(job)
+            db.commit()
         except Exception as e:
             # To Do - Send Job Initiate Failed Email
             pass
@@ -662,9 +665,12 @@ def audio_process_task(job_config: dict):
                     db.commit()
                     db.refresh(create_machine_row)
                     break
-            process_status.delay(
+            process_job = process_status.delay(
                 int(job_config["job_id"]), int(job_config["user_id"]), int(job_eta)
             )
+            job.celery_id = process_job.id
+            db.add(job)
+            db.commit()
         except Exception as e:
             pass
 
@@ -1815,12 +1821,23 @@ async def cancel_job(
     current_user: TokenData = Depends(get_current_user),
 ):
     try:
-        job = db.query(models.Jobs).filter(models.Jobs.job_id == job_id).first()
+        job = (
+            db.query(models.Jobs)
+            .filter(models.Jobs.job_id == job_id)
+            .filter(models.Jobs.user_id == current_user.user_id)
+            .first()
+        )
         machine = (
-            db.query(models.Machines).filter(models.Machines.job_id == job_id).first()
+            db.query(models.Machines)
+            .filter(models.Machines.job_id == job_id)
+            .filter(models.Jobs.user_id == current_user.user_id)
+            .first()
         )
         all_content = (
-            db.query(models.Content).filter(models.Content.job_id == job_id).all()
+            db.query(models.Content)
+            .filter(models.Content.job_id == job_id)
+            .filter(models.Jobs.user_id == current_user.user_id)
+            .all()
         )
         job.job_status = "Cancelled"
         job.job_key = False
@@ -1841,15 +1858,12 @@ async def cancel_job(
             content.updated_at = int(time.time())
             db.add(content)
         if job.celery_id != None:
-            if job.job_type == "video":
-                task = video_process_task.AsyncResult(job.celery_id)
-                task.abort()
-            elif job.job_type == "audio":
-                task = audio_process_task.AsyncResult(job.celery_id)
-                task.abort()
-            else:
+            if job.job_type == "image":
                 task = image_process_task.AsyncResult(job.celery_id)
                 task.abort()
+            else:
+                celeryapp.control.revoke(job.celery_id, terminate=True)
         db.commit()
     except Exception as e:
+        print(str(e))
         raise HTTPException(400, "Error while cancelling the job")

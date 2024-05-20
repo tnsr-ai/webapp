@@ -135,7 +135,7 @@ export default function CancelPrompt(props: any) {
                     props.setCancelPrompt(false);
                     checkCookies();
                     queryClient.refetchQueries({
-                      queryKey: ["/jobs/fetch_jobs"],
+                      queryKey: ["/jobs/get_jobs"],
                     });
                   }}
                 >

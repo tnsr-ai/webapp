@@ -232,7 +232,8 @@ export default function JobsCard(props: any) {
               model != "Uploading Content" && (
                 <div className="mt-1">
                   <p className="font-light text-xs my-1">
-                    {capitalizeFirstChar(filterStatus)} -{" "}
+                    {capitalizeFirstChar(filterStatus)}{" "}
+                    {model != "" && <span className="font-semibold">-</span>}
                     <span className="font-semibold text-purple-500">
                       {model}
                     </span>
