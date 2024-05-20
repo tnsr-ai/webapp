@@ -771,9 +771,10 @@ google_sso = GoogleSSO(
 @router.get("/google/login", dependencies=[Depends(RateLimiter(times=20, seconds=60))])
 async def google_login():
     logger.info(f"Google login initiated")
-    return await google_sso.get_login_redirect(
-        params={"prompt": "consent", "access_type": "offline"}
-    )
+    with google_sso:
+        return await google_sso.get_login_redirect(
+            params={"prompt": "consent", "access_type": "offline"}
+        )
 
 
 def google_callback_task(user_data: dict, db: db_dependency):
@@ -812,7 +813,6 @@ def google_callback_task(user_data: dict, db: db_dependency):
                 gpu_usage=0,
                 storage_json="""{'video':0, 'audio':0, 'image':0}""",
                 created_at=created_at,
-                updated_at=0,
             )
             db.add(create_dashboard_model)
             db.commit()
@@ -830,105 +830,108 @@ def google_callback_task(user_data: dict, db: db_dependency):
 async def google_callback(
     response: Response, request: Request, db: Session = Depends(get_db)
 ):
-    user = await google_sso.verify_and_process(request)
-    if user is None:
-        logger.error(f"Failed to fetch user information")
-        raise HTTPException(401, detail="Failed to fetch user information")
-    user_data = {
-        "id": user.id,
-        "picture": user.picture,
-        "display_name": user.display_name,
-        "email": user.email,
-        "provider": user.provider,
-    }
-    result = google_callback_task(user_data, db)
-    if result["detail"] == "Failed":
-        logger.error(
-            f"Google login failed - {hide_email(user_data['email'])}, data - {result['data']}"
-        )
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail=result["data"]
-        )
-    user_id = result["data"]
-    user_db = db.query(models.Users).filter(models.Users.id == user_id).first()
-    token_payload = {
-        "id": user_db.id,
-        "refreshVersion": user_db.refreshVersion,
-        "accessVersion": user_db.accessVersion,
-    }
-    access_token = create_access_token(
-        token_payload, expires_delta=timedelta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
-    )
-    refreshToken = create_refresh_token(
-        token_payload, expires_delta=timedelta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES)
-    )
-    content = {
-        "id": int(user.id),
-        "firstname": user.first_name,
-        "lastname": user.last_name,
-        "email": user.email,
-    }
-    if APP_ENV == "production":
-        response.set_cookie(
-            key="access_token",
-            value=access_token,
-            max_age=minutes_to_delta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
-            path="/",
-            domain=".tnsr.ai",
-            secure=True,
-            httponly=False,
-            samesite="None",
-        )
-        response.set_cookie(
-            key="refreshToken",
-            value=refreshToken,
-            max_age=minutes_to_delta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES),
-            path="/",
-            domain=".tnsr.ai",
-            secure=True,
-            httponly=False,
-            samesite="None",
-        )
-    else:
-        response.set_cookie(
-            key="access_token",
-            value=access_token,
-            max_age=minutes_to_delta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
-            path="/",
-            secure=False,
-            samesite="lax",
-        )
-        response.set_cookie(
-            key="refreshToken",
-            value=refreshToken,
-            max_age=minutes_to_delta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES),
-            path="/",
-            secure=False,
-            samesite="lax",
-        )
-    content.update(
-        {
-            "refreshToken": refreshToken,
-            "access_token": access_token,
-            "access_token_max": minutes_to_delta(
-                minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES
-            ),
-            "refreshToken_max": minutes_to_delta(
-                minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES
-            ),
-            "token_type": "bearer",
+    with google_sso:
+        user = await google_sso.verify_and_process(request)
+        if user is None:
+            logger.error(f"Failed to fetch user information")
+            raise HTTPException(401, detail="Failed to fetch user information")
+        user_data = {
+            "id": user.id,
+            "picture": user.picture,
+            "display_name": user.display_name,
+            "email": user.email,
+            "provider": user.provider,
         }
-    )
-    content_str = json.dumps(content)
-    logger.info(f"Google login success - {hide_email(user_data['email'])}")
-    return HTMLResponse(
-        content=f"""
-      <script>
-          window.opener.postMessage({content_str}, "{TNSR_DOMAIN}");
-          window.close();
-      </script>
-      """
-    )
+        result = google_callback_task(user_data, db)
+        if result["detail"] == "Failed":
+            logger.error(
+                f"Google login failed - {hide_email(user_data['email'])}, data - {result['data']}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail=result["data"]
+            )
+        user_id = result["data"]
+        user_db = db.query(models.Users).filter(models.Users.id == user_id).first()
+        token_payload = {
+            "id": user_db.id,
+            "refreshVersion": user_db.refreshVersion,
+            "accessVersion": user_db.accessVersion,
+        }
+        access_token = create_access_token(
+            token_payload,
+            expires_delta=timedelta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
+        )
+        refreshToken = create_refresh_token(
+            token_payload,
+            expires_delta=timedelta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES),
+        )
+        content = {
+            "id": int(user.id),
+            "firstname": user.first_name,
+            "lastname": user.last_name,
+            "email": user.email,
+        }
+        if APP_ENV == "production":
+            response.set_cookie(
+                key="access_token",
+                value=access_token,
+                max_age=minutes_to_delta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
+                path="/",
+                domain=".tnsr.ai",
+                secure=True,
+                httponly=False,
+                samesite="None",
+            )
+            response.set_cookie(
+                key="refreshToken",
+                value=refreshToken,
+                max_age=minutes_to_delta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES),
+                path="/",
+                domain=".tnsr.ai",
+                secure=True,
+                httponly=False,
+                samesite="None",
+            )
+        else:
+            response.set_cookie(
+                key="access_token",
+                value=access_token,
+                max_age=minutes_to_delta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
+                path="/",
+                secure=False,
+                samesite="lax",
+            )
+            response.set_cookie(
+                key="refreshToken",
+                value=refreshToken,
+                max_age=minutes_to_delta(minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES),
+                path="/",
+                secure=False,
+                samesite="lax",
+            )
+        content.update(
+            {
+                "refreshToken": refreshToken,
+                "access_token": access_token,
+                "access_token_max": minutes_to_delta(
+                    minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES
+                ),
+                "refreshToken_max": minutes_to_delta(
+                    minutes=JWT_REFRESH_TOKEN_EXPIRE_MINUTES
+                ),
+                "token_type": "bearer",
+            }
+        )
+        content_str = json.dumps(content)
+        logger.info(f"Google login success - {hide_email(user_data['email'])}")
+        return HTMLResponse(
+            content=f"""
+                <script>
+                    window.opener.postMessage({content_str}, "{TNSR_DOMAIN}");
+                    window.close();
+                </script>
+                """
+                    )
 
 
 def forgot_password_task(name: str, verification_link: str, receiver_email: str):
