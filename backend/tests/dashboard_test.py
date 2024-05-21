@@ -44,7 +44,7 @@ def test_get_status_success(client, create_test_db):
                 "uploads": "0 bytes",
                 "storage_used": 0,
                 "storage_limit": 5368709120,
-                "gpu_usage": "0 Min",
+                "gpu_usage": "0 seconds",
                 "storage_json": "{'video':0, 'audio':0, 'image':0}",
                 "created_at": 1620124800,
                 "storage": "0 bytes / 5 GB",
