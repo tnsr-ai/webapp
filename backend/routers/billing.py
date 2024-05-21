@@ -259,7 +259,7 @@ def checkout_task(user_id: int, token: int, currency_code: str, db: Session):
             "detail": "Success",
             "data": {"session_id": checkout_session.id},
             "amount": f"{invoice_data['symbol'].strip()}{billing_amount['final_amt']}",
-            "id": create_invoice_model.id
+            "id": create_invoice_model.id,
         }
     except Exception as e:
         return {"detail": "Failed", "data": str(e)}
@@ -283,7 +283,9 @@ def send_paymentInitiated_email_task(
         return {"detail": "Success", "data": "Email sent successfully"}
 
 
-@celeryapp.task(name="routers.billing.send_paymentSuccessfull_email_task", acks_late=True)
+@celeryapp.task(
+    name="routers.billing.send_paymentSuccessfull_email_task", acks_late=True
+)
 def send_paymentSuccessfull_email_task(user_id: int, credits: int, amount: str):
     with Session(engine) as db:
         user_data = db.query(models.Users).filter(models.Users.id == user_id).first()
@@ -328,7 +330,11 @@ async def create_checkout_session(
     if result["detail"] == "Success":
         logger.info(f"User {current_user.user_id} checkout initiated")
         send_paymentInitiated_email_task.delay(
-            current_user.user_id, "Initiated", checkout.token, result["amount"], result["id"]
+            current_user.user_id,
+            "Initiated",
+            checkout.token,
+            result["amount"],
+            result["id"],
         )
         return result
     else:
@@ -556,7 +562,9 @@ def download_invoice_task(user_id: int, invoice_id: int, db: Session):
                 float(invoice_data["amount"]) * tax_data["percent"]
             )
             tax_data["product_price"] = round(tax_data["product_price"], 2)
-            tax_data["price_tax"] = float(invoice_data["amount"]) * tax_data["percent"]
+            tax_data["price_tax"] = round(
+                float(invoice_data["amount"]) * tax_data["percent"], 2
+            )
 
         template_params = {
             "invoice_no": "#" + str(int(invoice_data["id"]) + 1000),

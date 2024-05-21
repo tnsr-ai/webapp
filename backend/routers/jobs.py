@@ -267,6 +267,19 @@ def image_process_task(self, job_config: dict):
                 .filter(models.Dashboard.user_id == job_config["user_id"])
                 .first()
             )
+            balance = (
+                db.query(models.Balance)
+                .filter(models.Balance.user_id == job_config["user_id"])
+                .first()
+            )
+            eta, price = get_content_estimate(
+                main_content.__dict__,
+                job_config["config_json"]["job_data"]["filters"],
+                raw=True,
+            )
+            balance.balance -= float(price)
+            db.add(balance)
+            db.commit()
             for filter_ in job_config["config_json"]["job_data"]["filters"]:
                 model_config = job_config["config_json"]["job_data"]["filters"][filter_]
                 if model_config["active"]:
@@ -350,6 +363,11 @@ def video_process_task(job_config: dict):
                 db.query(models.Jobs)
                 .filter(models.Jobs.job_id == job_config["job_id"])
                 .filter(models.Jobs.user_id == job_config["user_id"])
+                .first()
+            )
+            balance = (
+                db.query(models.Balance)
+                .filter(models.Balance.user_id == job_config["user_id"])
                 .first()
             )
             if job is None:
@@ -497,6 +515,8 @@ def video_process_task(job_config: dict):
             process_job = process_status.delay(
                 int(job_config["job_id"]), int(job_config["user_id"]), int(job_eta)
             )
+            balance.balance -= float(price)
+            db.add(balance)
             job.celery_id = process_job.id
             db.add(job)
             db.commit()
@@ -524,6 +544,11 @@ def audio_process_task(job_config: dict):
                 db.query(models.Jobs)
                 .filter(models.Jobs.job_id == job_config["job_id"])
                 .filter(models.Jobs.user_id == job_config["user_id"])
+                .first()
+            )
+            balance = (
+                db.query(models.Balance)
+                .filter(models.Balance.user_id == job_config["user_id"])
                 .first()
             )
             if job is None:
@@ -668,6 +693,8 @@ def audio_process_task(job_config: dict):
             process_job = process_status.delay(
                 int(job_config["job_id"]), int(job_config["user_id"]), int(job_eta)
             )
+            balance.balance -= float(price)
+            db.add(balance)
             job.celery_id = process_job.id
             db.add(job)
             db.commit()
@@ -937,6 +964,28 @@ async def register_job(
             .filter(models.Content.status == "processing")
             .count()
         )
+        balance = (
+            db.query(models.Balance)
+            .filter(models.Balance.user_id == current_user.user_id)
+            .first()
+        )
+        if balance is None:
+            raise HTTPException(status_code=400, detail="No Balance Amount found")
+        main_content = (
+            db.query(models.Content)
+            .filter(models.Content.id == job_dict.config_json["job_data"]["content_id"])
+            .filter(models.Content.user_id == current_user.user_id)
+            .filter(models.Content.status == "completed")
+            .filter(models.Content.content_type == job_dict.job_type)
+            .first()
+        )
+        eta, price = get_content_estimate(
+            main_content.__dict__,
+            job_dict.config_json["job_data"]["filters"],
+            raw=True,
+        )
+        if float(balance.balance) < float(price):
+            raise Exception("Insufficient balance")
         if running_jobs >= USER_TIER[user_details.user_tier]["max_jobs"]:
             raise HTTPException(
                 status_code=400,
@@ -979,9 +1028,9 @@ async def register_job(
             create_job_model.celery_id = celery_process.id
             db.commit()
         return {"detail": "Success", "data": "Job registered successfully"}
-    except HTTPException as e:
-        raise e
     except Exception as e:
+        if "Insufficient balance" in str(e):
+            raise HTTPException(status_code=400, detail=str(e))
         raise HTTPException(status_code=400, detail="Unable to register job")
 
 
@@ -1839,6 +1888,25 @@ async def cancel_job(
             .filter(models.Jobs.user_id == current_user.user_id)
             .all()
         )
+        main_content = (
+            db.query(models.Content)
+            .filter(models.Content.id == all_content[0].id_related)
+            .filter(models.Content.user_id == current_user.user_id)
+            .first()
+        )
+        job_json = json.loads(job.config_json)
+        eta, price = get_content_estimate(
+            main_content.__dict__,
+            job_json["job_data"]["filters"],
+            raw=True,
+        )
+        balance = (
+            db.query(models.Balance)
+            .filter(models.Balance.user_id == current_user.user_id)
+            .first()
+        )
+        balance.balance += float(price)
+        db.add(balance)
         job.job_status = "Cancelled"
         job.job_key = False
         job.job_process = "cancelled"
@@ -1865,5 +1933,4 @@ async def cancel_job(
                 celeryapp.control.revoke(job.celery_id, terminate=True)
         db.commit()
     except Exception as e:
-        print(str(e))
         raise HTTPException(400, "Error while cancelling the job")
