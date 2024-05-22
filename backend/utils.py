@@ -36,6 +36,7 @@ from starlette.routing import Match
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 from starlette.types import ASGIApp
 from celeryworker import celeryapp
+import requests
 
 load_dotenv()
 APP_ENV = os.getenv("APP_ENV")
@@ -136,7 +137,7 @@ if CUDA == None:
 
 GPU_PROVIDER = GPU_PROVIDER.split(",")
 CUDA = [float(x) for x in CUDA.split(",")]
-    
+
 
 STORAGE_LIMITS = {
     "free": 2 * 1024**3,
@@ -617,7 +618,7 @@ REDIS_KEY = {
     "Video Interpolation": "video_interpolation",
     "Video Deinterlacing": "video_deinterlacing",
     "Speech Enhancement": "speech_enhancement",
-    "Transcription": "transcription"
+    "Transcription": "transcription",
 }
 
 INFO = Gauge("fastapi_app_info", "FastAPI application information.", ["app_name"])
@@ -650,9 +651,7 @@ REQUESTS_IN_PROGRESS = Gauge(
 IMAGE_MODELS = {
     "super_resolution": {
         "model": "amitalokbera/imagesr:7a766d216010219a837e5b60bc85c5391329d4f22ce259c228e1c96491cc1c45",
-        "params": {
-            "model_name": "model"
-        }
+        "params": {"model_name": "model"},
     },
     "image_deblurring": {
         "model": "amitalokbera/imagedeblurring:d92cbbbc9ce8b92db53f7a63f51b7f5eb055c0cfbb5fee0dc50ff0916d882af0"
@@ -668,7 +667,7 @@ IMAGE_MODELS = {
     },
     "remove_background": {
         "model": "amitalokbera/removebg:b0e5380f3d45f7f6b424557f3feb69f0eaa57bc42ac6643fd2b399118b2f7bb5"
-    }
+    },
 }
 
 MODEL_COMPUTE = {
@@ -678,16 +677,13 @@ MODEL_COMPUTE = {
             "SuperRes 4x v1 (Faster)": 700000,
             "SuperRes 2x v2 (Slower, better result)": 400000,
             "SuperRes 4x v2 (Slower, better result)": 200000,
-            "SuperRes Anime (For Animated content)": 300000
+            "SuperRes Anime (For Animated content)": 300000,
         },
         "video_deblurring": 800000,
         "video_denoising": 800000,
         "face_restoration": 2200000,
         "bw_to_color": 5500000,
-        "slow_motion": {
-            "2x": 1200000,
-            "4x": 1000000
-        },
+        "slow_motion": {"2x": 1200000, "4x": 1000000},
         "video_interpolation": 10800000,
         "video_deinterlacing": 3000000,
         "speech_enhancement": 10800000,
@@ -699,19 +695,15 @@ MODEL_COMPUTE = {
             "SuperRes 4x v1 (Faster)": 15,
             "SuperRes 2x v2 (Slower, better result)": 18,
             "SuperRes 4x v2 (Slower, better result)": 20,
-            "SuperRes Anime (For Animated content)": 15
+            "SuperRes Anime (For Animated content)": 15,
         },
         "image_deblurring": 15,
         "image_denoising": 15,
-        "face_restoration": 15, 
+        "face_restoration": 15,
         "bw_to_color": 15,
-        "remove_background": 15
+        "remove_background": 15,
     },
-    "audio": {
-        "stem_seperation": 3,
-        "speech_enhancement": 20,
-        "transcription": 5
-    }
+    "audio": {"stem_seperation": 3, "speech_enhancement": 20, "transcription": 5},
 }
 
 r2_client = boto3.client(
@@ -868,7 +860,12 @@ def forgotpassword_email(name: str, verification: str, receiver_email: str):
 
 
 def paymentinitiated_email(
-    name: str, payment_status: str, credits: int, amount: str, receiver_email: str, invoice_id: int
+    name: str,
+    payment_status: str,
+    credits: int,
+    amount: str,
+    receiver_email: str,
+    invoice_id: int,
 ):
     try:
         context = ssl.create_default_context()
@@ -888,7 +885,7 @@ def paymentinitiated_email(
             "payment_status": payment_status,
             "credits": credits,
             "amount": amount,
-            "payment_id": "#" + str(invoice_id + 1000)
+            "payment_id": "#" + str(invoice_id + 1000),
         }
         all_img = []
         for image_path in all_image_path:
@@ -1027,7 +1024,8 @@ def presigned_get(key, bucket, rd):
         return response
     except Exception as e:
         return None
-    
+
+
 def job_presigned_get(key, bucket):
     try:
         r2_client = boto3.client(
@@ -1199,6 +1197,7 @@ class EndpointFilter(logger.Filter):
 
 logger.getLogger("uvicorn.access").addFilter(EndpointFilter())
 
+
 @celeryapp.task(name="utils.delete_r2_object", acks_late=True)
 def delete_r2_file(file_key: str, bucket: str):
     try:
@@ -1212,4 +1211,33 @@ def delete_r2_file(file_key: str, bucket: str):
         bucket_.Object(file_key).delete()
         return True
     except Exception as e:
+        return False
+
+
+def send_discord_update(update_config: dict, webhook_url):
+    try:
+        data = {
+            "content": f"""🎉 **Job Completion Update** 🎉
+
+        We are pleased to inform you that your job has been successfully completed!
+        **Name:** {update_config['title']}
+        **Job Type:** {update_config['type']}
+        **Filters:** {update_config['tags']}
+        **Start Time:** {update_config['start_time']}
+        **End Time:** {update_config['end_time']}
+
+        You can view the details of your job using the following link (valid for 24 hours only):
+        [View Job Details]({update_config['presigned_url']})
+
+        Thank you for choosing our service! If you have any questions or need further assistance, please do not hesitate to contact us.
+        Best regards,
+        [tnsr.ai](https://tnsr.ai)"""
+        }
+
+        result = requests.post(webhook_url, json=data)
+        if result.status_code == 204:
+            return True
+        return False
+    except Exception as e:
+        logger.error("Failed to send update")
         return False
