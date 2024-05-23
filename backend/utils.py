@@ -36,7 +36,13 @@ from starlette.routing import Match
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 from starlette.types import ASGIApp
 from celeryworker import celeryapp
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, declarative_base, Session
 import requests
+import models
+import redis
+import json
+
 
 load_dotenv()
 APP_ENV = os.getenv("APP_ENV")
@@ -706,6 +712,13 @@ MODEL_COMPUTE = {
     "audio": {"stem_seperation": 3, "speech_enhancement": 20, "transcription": 5},
 }
 
+SQLALCHEMY_DATABASE_URL = f"postgresql://{POSTGRES_USERNAME}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DATABASE}"
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL, pool_size=20, max_overflow=40, pool_pre_ping=True
+)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+db = SessionLocal()
+
 r2_client = boto3.client(
     "s3",
     aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
@@ -727,6 +740,35 @@ r2_resource = boto3.resource(
 
 
 password_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def allTags(id: bool = False):
+    rd = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
+    if id == False:
+        rd_key = "all_tags"
+    else:
+        rd_key = "all_tags_id"
+    if rd.exists(rd_key):
+        return json.loads(rd.get(rd_key).decode("utf-8"))
+    with Session(engine) as db:
+        tags = db.query(models.Tags).all()
+        all_tags = {}
+        if id == False:
+            for tag in tags:
+                all_tags[tag.tag] = {
+                    "id": int(tag.id),
+                    "readable": tag.readable,
+                }
+            rd.set(rd_key, json.dumps(all_tags))
+            return all_tags
+        else:
+            for tag in tags:
+                all_tags[int(tag.id)] = {
+                    "tag": tag.tag,
+                    "readable": tag.readable,
+                }
+            rd.set(rd_key, json.dumps(all_tags))
+            return all_tags
 
 
 def get_hashed_password(password: str) -> str:
@@ -996,7 +1038,7 @@ def paymentfailed_email(name: str, credits: int, amount: str, receiver_email: st
         return False
 
 
-def presigned_get(key, bucket, rd):
+def presigned_get(key, bucket, rd, expire=None):
     try:
         if rd.exists(key):
             return rd.get(key).decode("utf-8")
@@ -1011,6 +1053,8 @@ def presigned_get(key, bucket, rd):
                 retries=dict(max_attempts=3),
             ),
         )
+        if expire is None:
+            expire = CONTENT_EXPIRE - 60
         response = r2_client.generate_presigned_url(
             ClientMethod="get_object",
             Params={
@@ -1020,7 +1064,7 @@ def presigned_get(key, bucket, rd):
             ExpiresIn=CONTENT_EXPIRE,
         )
         rd.set(key, response)
-        rd.expire(key, CONTENT_EXPIRE - 60)
+        rd.expire(key, expire)
         return response
     except Exception as e:
         return None
@@ -1241,3 +1285,232 @@ def send_discord_update(update_config: dict, webhook_url):
     except Exception as e:
         logger.error("Failed to send update")
         return False
+
+
+@celeryapp.task(name="utils.job_email", acks_late=True)
+def job_email(job_id: int, user_id: int, status: str):
+    try:
+        with Session(engine) as db:
+            context = ssl.create_default_context()
+            smtp_client = smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, context=context)
+            smtp_client.login(SMTP_USERNAME, SMTP_PASSWORD)
+            user = db.query(models.Users).filter(models.Users.id == user_id).first()
+            usersetting = (
+                db.query(models.UserSetting)
+                .filter(models.UserSetting.user_id == user_id)
+                .first()
+            )
+            job = db.query(models.Jobs).filter(models.Jobs.job_id == job_id).first()
+            content = (
+                db.query(models.Content)
+                .filter(models.Content.id == job.content_id)
+                .all()
+            )
+            main_content = (
+                db.query(models.Content)
+                .filter(models.Content.id == content[0].id_related)
+                .first()
+            )
+            all_tags = allTags(id=True)
+            if usersetting is None:
+                raise Exception("No User Found")
+            if usersetting.email_notification is False:
+                return False
+            if status == "initiated":
+                email_template = (Path() / "emailUtils/job_initiated.html").read_text()
+                all_filter = []
+                for x in content:
+                    tags = (
+                        db.query(models.ContentTags)
+                        .filter(models.ContentTags.content_id == x.id)
+                        .all()
+                    )
+                    for y in tags:
+                        tag_name = all_tags[str(y.tag_id)]["readable"]
+                        all_filter.append(tag_name)
+                template_params = {
+                    "name": user.first_name,
+                    "title": main_content.title,
+                    "filters": ", ".join(all_filter),
+                }
+                all_image_path = [
+                    Path() / "emailUtils/logo.png",
+                    Path() / "emailUtils/job_initiated.png",
+                    Path() / "emailUtils/twitter.png",
+                    Path() / "emailUtils/discord.png",
+                    Path() / "emailUtils/linkedin.png",
+                    Path() / "emailUtils/youtube.png",
+                ]
+                all_img = []
+                for image_path in all_image_path:
+                    image = open(image_path, "rb")
+                    image_img = MIMEImage(image.read())
+                    image.close()
+                    image_img.add_header("Content-ID", f"<{image_path.name}>")
+                    image_img.add_header(
+                        "Content-Disposition", "inline", filename=image_path.name
+                    )
+                    template_params[image_path.stem] = image_path.name
+                    all_img.append(image_img)
+                final_email_html = pystache.render(email_template, template_params)
+                message = MIMEMultipart("related")
+                message["Subject"] = f"Job Initiated - {job_id}"
+                message["From"] = "updates@tnsr.ai"
+                message["To"] = user.email
+                message.attach(MIMEText(final_email_html, "html"))
+                for image in all_img:
+                    message.attach(image)
+                smtp_client.sendmail("updates@tnsr.ai", user.email, message.as_string())
+                smtp_client.quit()
+                return True
+
+            if status == "completed":
+                email_template = (Path() / "emailUtils/job_success.html").read_text()
+                all_filter = []
+                for x in content:
+                    tags = (
+                        db.query(models.ContentTags)
+                        .filter(models.ContentTags.content_id == x.id)
+                        .all()
+                    )
+                    for y in tags:
+                        tag_name = all_tags[str(y.tag_id)]["readable"]
+                        all_filter.append(tag_name)
+                template_params = {
+                    "name": user.first_name,
+                    "title": main_content.title,
+                    "filters": ", ".join(all_filter),
+                    "start_time": datetime.utcfromtimestamp(
+                        int(job.created_at)
+                    ).strftime("%Y-%m-%d %H:%M:%S UTC"),
+                    "end_time": datetime.utcfromtimestamp(int(job.updated_at)).strftime(
+                        "%Y-%m-%d %H:%M:%S UTC"
+                    ),
+                    "link": f"{TNSR_DOMAIN}/{job.job_type}/{main_content.id}",
+                }
+                all_image_path = [
+                    Path() / "emailUtils/logo.png",
+                    Path() / "emailUtils/job_success.png",
+                    Path() / "emailUtils/twitter.png",
+                    Path() / "emailUtils/discord.png",
+                    Path() / "emailUtils/linkedin.png",
+                    Path() / "emailUtils/youtube.png",
+                ]
+                all_img = []
+                for image_path in all_image_path:
+                    image = open(image_path, "rb")
+                    image_img = MIMEImage(image.read())
+                    image.close()
+                    image_img.add_header("Content-ID", f"<{image_path.name}>")
+                    image_img.add_header(
+                        "Content-Disposition", "inline", filename=image_path.name
+                    )
+                    template_params[image_path.stem] = image_path.name
+                    all_img.append(image_img)
+                final_email_html = pystache.render(email_template, template_params)
+                message = MIMEMultipart("related")
+                message["Subject"] = f"Job Completed - {job_id}"
+                message["From"] = "updates@tnsr.ai"
+                message["To"] = user.email
+                message.attach(MIMEText(final_email_html, "html"))
+                for image in all_img:
+                    message.attach(image)
+                smtp_client.sendmail("updates@tnsr.ai", user.email, message.as_string())
+                smtp_client.quit()
+                return True
+            if status == "failed":
+                email_template = (Path() / "emailUtils/job_failed.html").read_text()
+                all_filter = []
+                for x in content:
+                    tags = (
+                        db.query(models.ContentTags)
+                        .filter(models.ContentTags.content_id == x.id)
+                        .all()
+                    )
+                    for y in tags:
+                        tag_name = all_tags[str(y.tag_id)]["readable"]
+                        all_filter.append(tag_name)
+                template_params = {
+                    "name": user.first_name,
+                    "title": main_content.title,
+                    "filters": ", ".join(all_filter),
+                }
+                all_image_path = [
+                    Path() / "emailUtils/logo.png",
+                    Path() / "emailUtils/job_failed.png",
+                    Path() / "emailUtils/twitter.png",
+                    Path() / "emailUtils/discord.png",
+                    Path() / "emailUtils/linkedin.png",
+                    Path() / "emailUtils/youtube.png",
+                ]
+                all_img = []
+                for image_path in all_image_path:
+                    image = open(image_path, "rb")
+                    image_img = MIMEImage(image.read())
+                    image.close()
+                    image_img.add_header("Content-ID", f"<{image_path.name}>")
+                    image_img.add_header(
+                        "Content-Disposition", "inline", filename=image_path.name
+                    )
+                    template_params[image_path.stem] = image_path.name
+                    all_img.append(image_img)
+                final_email_html = pystache.render(email_template, template_params)
+                message = MIMEMultipart("related")
+                message["Subject"] = f"Job Failed - {job_id}"
+                message["From"] = "updates@tnsr.ai"
+                message["To"] = user.email
+                message.attach(MIMEText(final_email_html, "html"))
+                for image in all_img:
+                    message.attach(image)
+                smtp_client.sendmail("updates@tnsr.ai", user.email, message.as_string())
+                smtp_client.quit()
+                return True
+            if status == "cancelled":
+                email_template = (Path() / "emailUtils/job_cancelled.html").read_text()
+                all_filter = []
+                for x in content:
+                    tags = (
+                        db.query(models.ContentTags)
+                        .filter(models.ContentTags.content_id == x.id)
+                        .all()
+                    )
+                    for y in tags:
+                        tag_name = all_tags[str(y.tag_id)]["readable"]
+                        all_filter.append(tag_name)
+                template_params = {
+                    "name": user.first_name,
+                    "title": main_content.title,
+                    "filters": ", ".join(all_filter),
+                }
+                all_image_path = [
+                    Path() / "emailUtils/logo.png",
+                    Path() / "emailUtils/job_cancelled.png",
+                    Path() / "emailUtils/twitter.png",
+                    Path() / "emailUtils/discord.png",
+                    Path() / "emailUtils/linkedin.png",
+                    Path() / "emailUtils/youtube.png",
+                ]
+                all_img = []
+                for image_path in all_image_path:
+                    image = open(image_path, "rb")
+                    image_img = MIMEImage(image.read())
+                    image.close()
+                    image_img.add_header("Content-ID", f"<{image_path.name}>")
+                    image_img.add_header(
+                        "Content-Disposition", "inline", filename=image_path.name
+                    )
+                    template_params[image_path.stem] = image_path.name
+                    all_img.append(image_img)
+                final_email_html = pystache.render(email_template, template_params)
+                message = MIMEMultipart("related")
+                message["Subject"] = f"Job Cancelled - {job_id}"
+                message["From"] = "updates@tnsr.ai"
+                message["To"] = user.email
+                message.attach(MIMEText(final_email_html, "html"))
+                for image in all_img:
+                    message.attach(image)
+                smtp_client.sendmail("updates@tnsr.ai", user.email, message.as_string())
+                smtp_client.quit()
+                return True
+    except Exception as e:
+        return str(e)

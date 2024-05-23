@@ -251,7 +251,7 @@ export default function JobsCard(props: any) {
           </div>
         </div>
         <div className="col-span-1 h-full w-full flex flex-col ">
-          {props.allBtn === false && uploadStarted === false && (
+          {props.allBtn === false && (
             <div className={`w-full h-full justify-center items-center flex`}>
               <button
                 type="button"

@@ -43,7 +43,7 @@ from utils import (
     GPU_PROVIDER,
     CUDA,
 )
-from utils import remove_key, sql_dict, job_presigned_get
+from utils import remove_key, sql_dict, job_presigned_get, job_email
 import replicate
 from celery.exceptions import TaskRevokedError
 from celery.contrib.abortable import AbortableTask
@@ -243,6 +243,7 @@ def create_content_entry(config: dict, db: Session, user_id: int, job_id: int):
     name="routers.jobs.image_process", acks_late=True, bind=True, base=AbortableTask
 )
 def image_process_task(self, job_config: dict):
+    print(job_config)
     with Session(engine) as db:
         prediction = None
         try:
@@ -303,7 +304,10 @@ def image_process_task(self, job_config: dict):
                         prediction.reload()
                         if prediction.status == "succeeded":
                             break
-                        if prediction.status == "failed":
+                        if (
+                            prediction.status == "failed"
+                            or prediction.status == "canceled"
+                        ):
                             raise Exception
                         if int(time.time()) - start_time > 400:
                             prediction.cancel()
@@ -317,6 +321,11 @@ def image_process_task(self, job_config: dict):
                 reindex_image_job(job_config, content_url=content_url)
             else:
                 raise Exception
+            job_email.delay(
+                job_id=job_config["job_id"],
+                user_id=job_config["user_id"],
+                status="completed",
+            )
         except TaskRevokedError:
             if prediction != None:
                 prediction.reload()
@@ -405,7 +414,11 @@ def video_process_task(job_config: dict):
                 & (df["Price"] <= max_price)
             ].sort_values(by=["Price"], ascending=True)
             if len(df) == 0:
-                # To Do - Send No Machine Found Email
+                job_email.delay(
+                    job_id=job_config["job_id"],
+                    user_id=job_config["user_id"],
+                    status="failed",
+                )
                 job.job_key = False
                 job.job_status = "Failed"
                 job.job_process = "No machine found"
@@ -429,7 +442,7 @@ def video_process_task(job_config: dict):
                     if round(float(row["CUDA"]), 1) not in supported_cuda:
                         continue
                     env = {
-                        "BASEURL": "https://concrete-titmouse-diverse.ngrok-free.app",
+                        "BASEURL": "https://backend.tnsr.ai",
                         "FETCH_CONFIG": "/jobs/fetch_jobs",
                         "JOBID": job_config["job_id"],
                         "KEY": job_config["key"],
@@ -471,7 +484,7 @@ def video_process_task(job_config: dict):
 
                 if row["Cloud"] == "runpod":
                     env = {
-                        "BASEURL": "https://concrete-titmouse-diverse.ngrok-free.app",
+                        "BASEURL": "https://backend.tnsr.ai",
                         "FETCH_CONFIG": "/jobs/fetch_jobs",
                         "JOBID": job_config["job_id"],
                         "KEY": job_config["key"],
@@ -521,7 +534,11 @@ def video_process_task(job_config: dict):
             db.add(job)
             db.commit()
         except Exception as e:
-            # To Do - Send Job Initiate Failed Email
+            job_email.delay(
+                job_id=job_config["job_id"],
+                user_id=job_config["user_id"],
+                status="failed",
+            )
             pass
 
 
@@ -583,7 +600,11 @@ def audio_process_task(job_config: dict):
                 & (df["Price"] <= max_price)
             ].sort_values(by=["Price"], ascending=True)
             if len(df) == 0:
-                # To Do - Send No Machine Found Email
+                job_email.delay(
+                    job_id=job_config["job_id"],
+                    user_id=job_config["user_id"],
+                    status="failed",
+                )
                 job.job_key = False
                 job.job_status = "Failed"
                 job.job_process = "No machine found"
@@ -699,6 +720,11 @@ def audio_process_task(job_config: dict):
             db.add(job)
             db.commit()
         except Exception as e:
+            job_email.delay(
+                job_id=job_config["job_id"],
+                user_id=job_config["user_id"],
+                status="failed",
+            )
             pass
 
 
@@ -826,6 +852,9 @@ def process_status(job_id: int, user_id: int, eta: int):
                         db.add(job)
                         db.commit()
                         db.refresh(machine)
+                        job_email.delay(
+                            job_id=job_id, user_id=user_id, status="completed"
+                        )
                         break
                     if status["data"] != str(machine.machine_status):
                         machine.machine_status = status["data"]
@@ -927,6 +956,9 @@ def process_status(job_id: int, user_id: int, eta: int):
                         db.add(job)
                         db.commit()
                         db.refresh(machine)
+                        job_email.delay(
+                            job_id=job_id, user_id=user_id, status="completed"
+                        )
                         break
                     if status["data"] != str(machine.machine_status):
                         machine.machine_status = status["data"]
@@ -939,6 +971,7 @@ def process_status(job_id: int, user_id: int, eta: int):
                         db.commit()
                         db.refresh(machine)
         except Exception as e:
+            job_email.delay(job_id=job_id, user_id=user_id, status="failed")
             pass
 
 
@@ -1027,6 +1060,11 @@ async def register_job(
             celery_process = audio_process_task.delay(job_config)
             create_job_model.celery_id = celery_process.id
             db.commit()
+        job_email.delay(
+            job_id=job_config["job_id"],
+            user_id=current_user.user_id,
+            status="initiated",
+        )
         return {"detail": "Success", "data": "Job registered successfully"}
     except Exception as e:
         if "Insufficient balance" in str(e):
@@ -1146,10 +1184,9 @@ def get_past_jobs(user_id, limit, offset, db, rd):
             raise HTTPException(
                 status_code=400, detail="Limit cannot be greater than 5"
             )
-        query = (
+        all_jobs = (
             db.query(models.Jobs)
-            .join(models.Content, models.Jobs.job_id == models.Content.job_id)
-            .filter(models.Content.status != "processing")
+            .filter(models.Jobs.job_status != "Processing")
             .filter(models.Jobs.user_id == user_id)
             .order_by(models.Jobs.created_at.desc())
             .limit(limit)
@@ -1158,12 +1195,11 @@ def get_past_jobs(user_id, limit, offset, db, rd):
         )
         total_count = (
             db.query(models.Jobs)
-            .join(models.Content, models.Jobs.content_id == models.Content.id)
-            .filter(models.Content.status != "processing")
+            .filter(models.Jobs.job_status != "Processing")
             .filter(models.Jobs.user_id == user_id)
             .count()
         )
-        job_details = [x.__dict__ for x in query]
+        job_details = [x.__dict__ for x in all_jobs]
         remove_keys = [
             "_sa_instance_state",
             "user_id",
@@ -1225,154 +1261,6 @@ async def get_jobs(
             raise Exception
     except Exception as e:
         raise HTTPException(status_code=400, detail="Unable to fetch jobs")
-
-
-# @router.get("/active_jobs", dependencies=[Depends(RateLimiter(times=240, seconds=60))])
-# async def active_jobs(
-#     db: Session = Depends(get_db),
-#     current_user: TokenData = Depends(get_current_user),
-#     rd: redis.Redis = Depends(get_redis),
-# ):
-#     try:
-#         all_tags = allTags(id=True)
-#         job_details = (
-#             db.query(models.Jobs)
-#             .filter(models.Jobs.user_id == current_user.user_id)
-#             .filter(
-#                 or_(
-#                     models.Jobs.job_status == "Processing",
-#                     models.Jobs.job_status == "Loading",
-#                     models.Jobs.job_status == "Running",
-#                 )
-#             )
-#             .all()
-#         )
-#         job_details = [x.__dict__ for x in job_details]
-#         remove_keys = [
-#             "celery_id",
-#             "_sa_instance_state",
-#             "user_id",
-#             "config_json",
-#             "key",
-#             "job_key",
-#             "job_tier",
-#             "updated_at",
-#         ]
-#         for x in job_details:
-#             for y in remove_keys:
-#                 x.pop(y)
-#         final_data = []
-#         for job in job_details:
-#             content_detail = fetch_content_data(job["content_id"], db).__dict__
-#             content_detail.pop("_sa_instance_state")
-#             content_detail = {k: v for k, v in content_detail.items() if v is not None}
-#             content_detail["thumbnail"] = add_presigned_single(
-#                 content_detail["thumbnail"], CLOUDFLARE_METADATA, rd
-#             )
-#             if content_detail["status"].value != "processing":
-#                 continue
-#             job["content_detail"] = content_detail
-#             all_content_tags = []
-#             related_content = (
-#                 db.query(models.Content)
-#                 .filter(models.Content.job_id == job["job_id"])
-#                 .all()
-#             )
-#             all_content_id = [x.id for x in related_content]
-#             tags_query = (
-#                 db.query(models.ContentTags)
-#                 .filter(models.ContentTags.content_id.in_(all_content_id))
-#                 .all()
-#             )
-#             for y in tags_query:
-#                 all_content_tags.append(y.tag_id)
-#             job["content_detail"]["tags"] = []
-#             for tag in all_content_tags:
-#                 job["content_detail"]["tags"].append((all_tags[str(tag)]["readable"]))
-#             job["content_detail"]["tags"] = ",".join(job["content_detail"]["tags"])
-#             final_data.append(job)
-#         return {"detail": "Success", "data": final_data}
-#     except Exception as e:
-#         raise HTTPException(status_code=400, detail="Unable to fetch jobs")
-
-
-# @router.get(
-#     "/past_jobs",
-#     dependencies=[Depends(RateLimiter(times=120, seconds=60))],
-#     status_code=status.HTTP_200_OK,
-# )
-# async def past_jobs(
-#     limit: int,
-#     offset: int,
-#     db: Session = Depends(get_db),
-#     current_user: TokenData = Depends(get_current_user),
-#     rd: redis.Redis = Depends(get_redis),
-# ):
-#     try:
-#         all_tags = allTags(id=True)
-#         if limit > 5:
-#             raise HTTPException(
-#                 status_code=400, detail="Limit cannot be greater than 5"
-#             )
-#         query = (
-#             db.query(models.Jobs)
-#             .join(models.Content, models.Jobs.job_id == models.Content.job_id)
-#             .filter(models.Content.status != "processing")
-#             .filter(models.Jobs.user_id == current_user.user_id)
-#             .order_by(models.Jobs.created_at.desc())
-#             .limit(limit)
-#             .offset(offset)
-#             .all()
-#         )
-#         total_count = (
-#             db.query(models.Jobs)
-#             .join(models.Content, models.Jobs.content_id == models.Content.id)
-#             .filter(models.Content.status != "processing")
-#             .filter(models.Jobs.user_id == current_user.user_id)
-#             .count()
-#         )
-#         job_details = [x.__dict__ for x in query]
-#         remove_keys = [
-#             "_sa_instance_state",
-#             "user_id",
-#             "config_json",
-#             "key",
-#             "job_key",
-#             "job_tier",
-#         ]
-#         for x in job_details:
-#             for y in remove_keys:
-#                 x.pop(y)
-#         final_data = []
-#         for job in job_details:
-#             content_detail = fetch_content_data(job["content_id"], db).__dict__
-#             content_detail.pop("_sa_instance_state")
-#             content_detail = {k: v for k, v in content_detail.items() if v is not None}
-#             content_detail["thumbnail"] = add_presigned_single(
-#                 content_detail["thumbnail"], CLOUDFLARE_METADATA, rd
-#             )
-#             job["content_detail"] = content_detail
-#             all_content = (
-#                 db.query(models.Content)
-#                 .filter(models.Content.job_id == job["job_id"])
-#                 .all()
-#             )
-#             tags_query = (
-#                 db.query(models.ContentTags)
-#                 .filter(models.ContentTags.content_id.in_([x.id for x in all_content]))
-#                 .all()
-#             )
-#             all_content_tags = []
-#             for y in tags_query:
-#                 all_content_tags.append(y.tag_id)
-#             job["content_detail"]["tags"] = []
-#             for tag in all_content_tags:
-#                 job["content_detail"]["tags"].append((all_tags[str(tag)]["readable"]))
-#             job["content_detail"]["tags"] = ",".join(job["content_detail"]["tags"])
-#             final_data.append(job)
-#         return {"detail": "Success", "data": final_data, "total": total_count}
-#     except Exception as e:
-#         raise HTTPException(status_code=400, detail=str(e))
 
 
 def fetch_instance_status(instance_id, provider):
@@ -1932,5 +1820,6 @@ async def cancel_job(
             else:
                 celeryapp.control.revoke(job.celery_id, terminate=True)
         db.commit()
+        job_email.delay(job_id=job_id, user_id=current_user.user_id, status="cancelled")
     except Exception as e:
         raise HTTPException(400, "Error while cancelling the job")

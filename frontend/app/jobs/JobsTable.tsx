@@ -9,35 +9,19 @@ import Image from "next/image";
 import { getCookie, setCookie } from "cookies-next";
 import useWebSocket, { ReadyState } from "react-use-websocket";
 
-interface Jobs {
-  detail: string;
-  data: [];
-  total: number | 0;
-}
-
 export default function JobsTable() {
-  const cookieKey = "pastjobs";
+  const cookieKey = "all_jobs";
   const browserData =
     getCookie(cookieKey) ||
     '{"key": -1, "startPage": 1, "endPage": 1, "totalPage": 0, "offset": 0, "prevPage": true, "nextPage": true}';
   const pageJSON = JSON.parse(browserData as string);
-  const [call, setCall] = useState("");
-  const [activeBtn, setActiveBtn] = useState(true);
-  const [allBtn, setAllBtn] = useState(false);
-  const [jobsData, setJobsData] = useState<Jobs | null>(null);
   const [jobType, setJobType] = useState("active");
-  const limit = 5;
-  const [offset, setOffset] = useState(0);
   const [noJobsText, setNoJobsText] = useState(
     "Your job queue is empty – time to change that. Create a job to begin!"
   );
 
-  pageJSON.startPage = 1;
-  pageJSON.endPage = 1;
-  pageJSON.totalPage = 0;
-  pageJSON.offset = 0;
-  pageJSON.prevPage = true;
-  pageJSON.nextPage = true;
+  const limit = 5;
+  const [offset, setOffset] = useState(0);
 
   const [startPage, setStartPage] = useState(pageJSON.startPage);
   const [endPage, setEndPage] = useState(pageJSON.endPage);
@@ -45,10 +29,12 @@ export default function JobsTable() {
   const [prevPage, setPrevPage] = useState(pageJSON.prevPage);
   const [nextPage, setNextPage] = useState(pageJSON.nextPage);
 
+  const getJobs = useGetJobs(jobType, limit, offset);
+
   const disabled = true;
   const enabled = false;
-  const [btnClicked, setBtnClicked] = useState(false);
 
+  // websocket connection -
   const ws_url = `${process.env.BASEURL}/jobs/ws`
     .replace("http", "ws")
     .replace("https", "wss");
@@ -61,6 +47,11 @@ export default function JobsTable() {
     }
   );
 
+  const handleBtnChange = (type: string) => {
+    getJobs.refetch();
+    setJobType(type);
+  };
+
   const nextData = () => {
     setOffset(offset + limit);
     setStartPage(startPage + limit);
@@ -70,7 +61,6 @@ export default function JobsTable() {
     } else {
       setEndPage(endPage + limit);
     }
-    setBtnClicked(true);
   };
 
   const prevData = () => {
@@ -88,10 +78,7 @@ export default function JobsTable() {
     } else {
       setEndPage(endPage - limit);
     }
-    setBtnClicked(true);
   };
-
-  const getJobs = useGetJobs(jobType, limit, offset);
 
   useEffect(() => {
     if (getJobs.isSuccess) {
@@ -103,73 +90,48 @@ export default function JobsTable() {
   }, [readyState, getJobs.isSuccess, getJobs.data]);
 
   useEffect(() => {
-    if (activeBtn && call != "active") {
-      getJobs.refetch();
-      if (getJobs.isSuccess) {
-        setCall("active");
-        setJobsData(getJobs.data);
+    if (jobType === "active") {
+      setNoJobsText(
+        "Your job queue is empty – time to change that. Create a job to begin!"
+      );
+    } else {
+    }
+  }, [
+    jobType,
+    totalPage,
+    startPage,
+    endPage,
+    totalPage,
+    limit,
+    offset,
+    prevPage,
+    nextPage,
+  ]);
+
+  useEffect(() => {
+    if (
+      getJobs.isSuccess === true &&
+      getJobs.isFetched === true &&
+      jobType === "past"
+    ) {
+      setTotalPage(getJobs.data.total);
+      if (getJobs.data.total <= limit) {
+        setEndPage(getJobs.data.total);
+        setNextPage(disabled);
       } else {
-        setJobsData(null);
+        setEndPage(startPage + limit - 1);
+        setNextPage(enabled);
+      }
+      if (endPage >= totalPage) {
+        setEndPage(totalPage);
+        setNextPage(disabled);
       }
     }
-    if (allBtn && call != "past") {
-      getJobs.refetch();
-      if (getJobs.isSuccess) {
-        setCall("past");
-        setJobsData(getJobs.data);
-        setTotalPage(jobsData?.total);
-        if ((jobsData?.total as number) <= limit) {
-          setEndPage(jobsData?.total);
-          setNextPage(disabled);
-        } else {
-          setEndPage(startPage + limit - 1);
-          setNextPage(enabled);
-        }
-        if (endPage >= totalPage) {
-          setEndPage(totalPage);
-          setNextPage(disabled);
-        }
-        var cookieJSON = {
-          startPage: startPage,
-          endPage: endPage,
-          totalPage: totalPage,
-          offset: offset,
-          prevPage: prevPage,
-          nextPage: nextPage,
-        };
-        setCookie("pastjobs", JSON.stringify(cookieJSON), {
-          maxAge: 60 * 60 * 24,
-        });
-        if (btnClicked === true) {
-          const nextBtn = document.getElementById("next_button");
-          const nextBtnOffset = nextBtn?.offsetTop;
-          window.scrollTo({ top: nextBtnOffset, behavior: "instant" });
-        }
-      } else {
-        setJobsData(null);
-      }
-    }
-  }, [getJobs, activeBtn, allBtn, getJobs.data, jobsData]);
+  });
 
-  const handleActiveClick = () => {
-    setActiveBtn(true);
-    setAllBtn(false);
-    setJobType("active");
-    setNoJobsText(
-      "Your job queue is empty – time to change that. Create a job to begin!"
-    );
-  };
-
-  const handleAllClick = () => {
-    getJobs.refetch();
-    setActiveBtn(false);
-    setAllBtn(true);
-    setJobType("past");
-    setNoJobsText("No past jobs found.");
-  };
-
-  const isLoading = activeBtn ? getJobs.isLoading : getJobs.isLoading;
-  const isError = activeBtn ? getJobs.isError : getJobs.isError;
+  const isLoading =
+    jobType === "active" ? getJobs.isLoading : getJobs.isLoading;
+  const isError = jobType === "active" ? getJobs.isError : getJobs.isError;
 
   return (
     <div>
@@ -183,20 +145,26 @@ export default function JobsTable() {
           <button
             type="button"
             className={`rounded-full px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-100 ${
-              activeBtn
+              jobType === "active"
                 ? "bg-purple-100 text-purple-600"
                 : "bg-white text-black"
             }`}
-            onClick={handleActiveClick}
+            onClick={() => {
+              handleBtnChange("active");
+            }}
           >
             Active
           </button>
           <button
             type="button"
             className={`rounded-full px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-100 ${
-              allBtn ? "bg-purple-100 text-purple-600" : "bg-white text-black"
+              jobType === "past"
+                ? "bg-purple-100 text-purple-600"
+                : "bg-white text-black"
             }`}
-            onClick={handleAllClick}
+            onClick={() => {
+              handleBtnChange("past");
+            }}
           >
             All
           </button>
@@ -221,7 +189,7 @@ export default function JobsTable() {
                         sendJsonMessage={sendJsonMessage}
                         lastJsonMessage={lastJsonMessage}
                         readyState={readyState}
-                        allBtn={allBtn}
+                        allBtn={jobType === "past"}
                       />
                     ))}
                   </div>
@@ -233,13 +201,11 @@ export default function JobsTable() {
             {getJobs.data?.total > limit && (
               <div className="flex flex-col items-center">
                 <span className="text-sm text-black ">
-                  Showing{" "}
+                  Showing items{" "}
                   <span className="font-semibold text-black">{startPage}</span>{" "}
                   to <span className="font-semibold text-black">{endPage}</span>{" "}
                   of{" "}
-                  <span className="font-semibold text-black">
-                    {jobsData?.total}
-                  </span>{" "}
+                  <span className="font-semibold text-black">{totalPage}</span>{" "}
                 </span>
                 <div className="inline-flex mt-2 xs:mt-0 gap-x-2">
                   <button
