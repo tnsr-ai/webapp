@@ -1258,33 +1258,104 @@ def delete_r2_file(file_key: str, bucket: str):
         return False
 
 
-def send_discord_update(update_config: dict, webhook_url):
+@celeryapp.task(name="utils.send_discord_update", acks_late=True)
+def send_discord_update(job_id: int, user_id: int, status: str):
     try:
-        data = {
-            "content": f"""🎉 **Job Completion Update** 🎉
+        with Session(engine) as db:
+            context = ssl.create_default_context()
+            smtp_client = smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, context=context)
+            smtp_client.login(SMTP_USERNAME, SMTP_PASSWORD)
+            user = db.query(models.Users).filter(models.Users.id == user_id).first()
+            usersetting = (
+                db.query(models.UserSetting)
+                .filter(models.UserSetting.user_id == user_id)
+                .first()
+            )
+            job = db.query(models.Jobs).filter(models.Jobs.job_id == job_id).first()
+            content = (
+                db.query(models.Content)
+                .filter(models.Content.id == job.content_id)
+                .all()
+            )
+            main_content = (
+                db.query(models.Content)
+                .filter(models.Content.id == content[0].id_related)
+                .first()
+            )
+            all_tags = allTags(id=True)
+            if usersetting is None:
+                raise Exception("No User Found")
+            if usersetting.discord_notification is False:
+                return False
+            all_filter = []
+            for x in content:
+                tags = (
+                    db.query(models.ContentTags)
+                    .filter(models.ContentTags.content_id == x.id)
+                    .all()
+                )
+                for y in tags:
+                    tag_name = all_tags[str(y.tag_id)]["readable"]
+                    all_filter.append(tag_name)
+            if status == "initiated":
+                data = {
+                    "content": f'🚀**Job Initiated**🚀 \n\nWe are pleased to inform you that your job has been successfully initiated!\n\n**ID:** {job.job_id}\n**Name:** {main_content.title}\n**Job Type:** {job.job_type.capitalize()}\n**Filters:** {", ".join(all_filter)}\n\nIf you did not initiate the job, please update your password and contact us immediately at admin@tnsr.ai\n\nBest Regards,\n[tnsr.ai](https://tnsr.ai)'
+                }
 
-        We are pleased to inform you that your job has been successfully completed!
-        **Name:** {update_config['title']}
-        **Job Type:** {update_config['type']}
-        **Filters:** {update_config['tags']}
-        **Start Time:** {update_config['start_time']}
-        **End Time:** {update_config['end_time']}
+                result = requests.post(usersetting.discord_webhook, json=data)
+                if result.status_code == 204:
+                    return True
+                return False
 
-        You can view the details of your job using the following link (valid for 24 hours only):
-        [View Job Details]({update_config['presigned_url']})
+            if status == "completed":
+                data = {
+                    "content": f'🎉 **Job Completed** 🎉\n\nWe are pleased to inform you that your job has been successfully completed!\n\n**ID:** {job.job_id}\n**Name:** {main_content.title}\n**Job Type:** {job.job_type.capitalize()}\n**Filters:** {", ".join(all_filter)}\n**Start Time:** {datetime.utcfromtimestamp(int(job.created_at)).strftime("%Y-%m-%d %H:%M:%S UTC")}\n**End Time:** {datetime.utcfromtimestamp(int(job.updated_at)).strftime("%Y-%m-%d %H:%M:%S UTC")}\n\nYou can access the processed content using the following link:[View Job]({f"{TNSR_DOMAIN}/{job.job_type}/{main_content.id}"})\n\nThank you for choosing our service! If you have any questions or need further assistance, please do not hesitate to contact us.\nBest regards,\n[tnsr.ai](https://tnsr.ai)'
+                }
 
-        Thank you for choosing our service! If you have any questions or need further assistance, please do not hesitate to contact us.
-        Best regards,
-        [tnsr.ai](https://tnsr.ai)"""
-        }
+                result = requests.post(usersetting.discord_webhook, json=data)
+                if result.status_code == 204:
+                    return True
+                return False
 
-        result = requests.post(webhook_url, json=data)
-        if result.status_code == 204:
-            return True
-        return False
+            if status == "failed":
+                data = {
+                    "content": "🚨 **Job Failed** 🚨\n\n"
+                    "We regret to inform you that your job has encountered an issue and has failed.\n\n"
+                    f"**ID:** {job.job_id}\n"
+                    f"**Name:** {main_content.title}\n"
+                    f"**Job Type:** {job.job_type.capitalize()}\n"
+                    f'**Filters:** {", ".join(all_filter)}\n\n'
+                    "Our team is currently investigating the issue to determine the cause and will take the necessary steps to ensure it does not occur in the future. We apologize for any inconvenience this may have caused.\n\n"
+                    "Please reinitiate a new job at your earliest convenience. If you need any assistance with this process, please feel free to contact us at admin@tnsr.ai\n\n"
+                    "Thank you for your understanding and patience.\n\n"
+                    "Best regards,\n"
+                    "[tnsr.ai](https://tnsr.ai)"
+                }
+
+                result = requests.post(usersetting.discord_webhook, json=data)
+                if result.status_code == 204:
+                    return True
+                return False
+
+            if status == "cancelled":
+                data = {
+                    "content": f"🚨 **Job Cancelled** 🚨\n\n"
+                    "We regret to inform you that your job has been cancelled.\n\n"
+                    f"**ID:** {job.job_id}\n"
+                    f"**Name:** {main_content.title}\n"
+                    f"**Job Type:** {job.job_type.capitalize()}\n"
+                    f'**Filters:** {", ".join(all_filter)}\n\n'
+                    "If you did not initiate the job cancellation, please update your password and contact us immediately at admin@tnsr.ai\n\n"
+                    "Best regards,\n"
+                    "[tnsr.ai](https://tnsr.ai)"
+                }
+
+                result = requests.post(usersetting.discord_webhook, json=data)
+                if result.status_code == 204:
+                    return True
+                return False
     except Exception as e:
-        logger.error("Failed to send update")
-        return False
+        return str(e)
 
 
 @celeryapp.task(name="utils.job_email", acks_late=True)

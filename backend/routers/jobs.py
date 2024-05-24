@@ -43,7 +43,13 @@ from utils import (
     GPU_PROVIDER,
     CUDA,
 )
-from utils import remove_key, sql_dict, job_presigned_get, job_email
+from utils import (
+    remove_key,
+    sql_dict,
+    job_presigned_get,
+    job_email,
+    send_discord_update,
+)
 import replicate
 from celery.exceptions import TaskRevokedError
 from celery.contrib.abortable import AbortableTask
@@ -326,6 +332,11 @@ def image_process_task(self, job_config: dict):
                 user_id=job_config["user_id"],
                 status="completed",
             )
+            send_discord_update.delay(
+                job_id=job_config["job_id"],
+                user_id=job_config["user_id"],
+                status="completed",
+            )
         except TaskRevokedError:
             if prediction != None:
                 prediction.reload()
@@ -415,6 +426,11 @@ def video_process_task(job_config: dict):
             ].sort_values(by=["Price"], ascending=True)
             if len(df) == 0:
                 job_email.delay(
+                    job_id=job_config["job_id"],
+                    user_id=job_config["user_id"],
+                    status="failed",
+                )
+                send_discord_update.delay(
                     job_id=job_config["job_id"],
                     user_id=job_config["user_id"],
                     status="failed",
@@ -539,6 +555,11 @@ def video_process_task(job_config: dict):
                 user_id=job_config["user_id"],
                 status="failed",
             )
+            send_discord_update.delay(
+                job_id=job_config["job_id"],
+                user_id=job_config["user_id"],
+                status="failed",
+            )
             pass
 
 
@@ -601,6 +622,11 @@ def audio_process_task(job_config: dict):
             ].sort_values(by=["Price"], ascending=True)
             if len(df) == 0:
                 job_email.delay(
+                    job_id=job_config["job_id"],
+                    user_id=job_config["user_id"],
+                    status="failed",
+                )
+                send_discord_update.delay(
                     job_id=job_config["job_id"],
                     user_id=job_config["user_id"],
                     status="failed",
@@ -721,6 +747,11 @@ def audio_process_task(job_config: dict):
             db.commit()
         except Exception as e:
             job_email.delay(
+                job_id=job_config["job_id"],
+                user_id=job_config["user_id"],
+                status="failed",
+            )
+            send_discord_update.delay(
                 job_id=job_config["job_id"],
                 user_id=job_config["user_id"],
                 status="failed",
@@ -855,6 +886,9 @@ def process_status(job_id: int, user_id: int, eta: int):
                         job_email.delay(
                             job_id=job_id, user_id=user_id, status="completed"
                         )
+                        send_discord_update.delay(
+                            job_id=job_id, user_id=user_id, status="completed"
+                        )
                         break
                     if status["data"] != str(machine.machine_status):
                         machine.machine_status = status["data"]
@@ -959,6 +993,9 @@ def process_status(job_id: int, user_id: int, eta: int):
                         job_email.delay(
                             job_id=job_id, user_id=user_id, status="completed"
                         )
+                        send_discord_update.delay(
+                            job_id=job_id, user_id=user_id, status="completed"
+                        )
                         break
                     if status["data"] != str(machine.machine_status):
                         machine.machine_status = status["data"]
@@ -972,6 +1009,7 @@ def process_status(job_id: int, user_id: int, eta: int):
                         db.refresh(machine)
         except Exception as e:
             job_email.delay(job_id=job_id, user_id=user_id, status="failed")
+            send_discord_update.delay(job_id=job_id, user_id=user_id, status="failed")
             pass
 
 
@@ -1061,6 +1099,11 @@ async def register_job(
             create_job_model.celery_id = celery_process.id
             db.commit()
         job_email.delay(
+            job_id=job_config["job_id"],
+            user_id=current_user.user_id,
+            status="initiated",
+        )
+        send_discord_update.delay(
             job_id=job_config["job_id"],
             user_id=current_user.user_id,
             status="initiated",
@@ -1821,5 +1864,8 @@ async def cancel_job(
                 celeryapp.control.revoke(job.celery_id, terminate=True)
         db.commit()
         job_email.delay(job_id=job_id, user_id=current_user.user_id, status="cancelled")
+        send_discord_update.delay(
+            job_id=job_id, user_id=current_user.user_id, status="cancelled"
+        )
     except Exception as e:
         raise HTTPException(400, "Error while cancelling the job")
