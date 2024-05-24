@@ -94,9 +94,23 @@ class Content(Base):
     updated_at = Column(Integer, nullable=True)
     id_related = Column(Integer, nullable=True)
     job_id = Column(Integer, nullable=True)
-    status = Column(Enum(ContentStatus, name="content_status_" + str(int(time.time())), create_type=False))
+    status = Column(
+        Enum(
+            ContentStatus,
+            name="content_status_" + str(int(time.time())),
+            create_type=False,
+        )
+    )
     content_type = Column(
-        Enum("video", "audio", "image", "subtitle", "zip", name="content_type_" + str(int(time.time())), create_type=False)
+        Enum(
+            "video",
+            "audio",
+            "image",
+            "subtitle",
+            "zip",
+            name="content_type_" + str(int(time.time())),
+            create_type=False,
+        )
     )
     duration = Column(String, nullable=True)
     resolution = Column(String, nullable=True)
@@ -130,7 +144,13 @@ class Invoices(Base):
     currency = Column(String)
     exchange_rate = Column(Float)
     status = Column(
-        Enum("pending", "completed", "failed", name="invoice_status_" + str(int(time.time())), create_type=False)
+        Enum(
+            "pending",
+            "completed",
+            "failed",
+            name="invoice_status_" + str(int(time.time())),
+            create_type=False,
+        )
     )
     created_at = Column(Integer, nullable=True)
     updated_at = Column(Integer, nullable=True)
@@ -145,7 +165,15 @@ class Machines(Base):
     instance_id = Column(String)
     user_id = Column(Integer, ForeignKey("users.id"))
     machine_status = Column(
-        Enum("LOADING", "RUNNING", "EXITED", "CANCELLED", "FAILED", name="machine_status_" + str(int(time.time())), create_type=False)
+        Enum(
+            "LOADING",
+            "RUNNING",
+            "EXITED",
+            "CANCELLED",
+            "FAILED",
+            name="machine_status_" + str(int(time.time())),
+            create_type=False,
+        )
     )
     job_id = Column(Integer, ForeignKey("jobs.job_id"))
     provider = Column(String)
@@ -183,6 +211,7 @@ class UserSetting(Base):
     user_id = Column(Integer, ForeignKey("users.id"), primary_key=True, index=True)
     newsletter = Column(Boolean, default=True)
     email_notification = Column(Boolean, default=True)
+    discord_notification = Column(Boolean, default=False)
     discord_webhook = Column(String)
     created_at = Column(Integer, nullable=True)
     updated_at = Column(Integer, nullable=True)
