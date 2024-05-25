@@ -14,6 +14,7 @@ RUN apt update && apt install -y \
     ffmpeg \
     libsm6 \ 
     libxext6 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip3 install --upgrade pip
