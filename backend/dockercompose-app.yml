@@ -1,0 +1,59 @@
+x-logging: &default-logging
+  driver: loki
+  options:
+    loki-url: 'http://localhost:3100/api/prom/push'
+    loki-pipeline-stages: |
+      - multiline:
+          firstline: '^\d{4}-\d{2}-\d{2} \d{1,2}:\d{2}:\d{2}'
+          max_wait_time: 3s
+      - regex:
+          expression: '^(?P<time>\d{4}-\d{2}-\d{2} \d{1,2}:\d{2}:\d{2},d{3}) (?P<message>(?s:.*))$$'
+
+services:
+  fastapi-backend:
+    build:
+      dockerfile: backend.dockerfile
+    restart: always
+    depends_on:
+      - tempo
+      - postgres
+      - redis
+      - loki
+    environment:
+      APP_ENV: "production"
+    env_file:
+      - .env
+    logging: *default-logging
+    networks:
+      - app-network
+
+  celeryworker:
+    restart: always
+    depends_on:
+      - fastapi-backend
+      - postgres
+      - redis
+      - loki
+    env_file:
+      - .env
+    build:
+      dockerfile: celery.dockerfile
+    networks:
+      - app-network
+
+  redis:
+    image: redis
+    restart: always
+    volumes:
+      - redis_data:/data
+    ports:
+      - 6379:6379
+    command: redis-server --appendonly yes
+    networks:
+      - app-network
+
+volumes:
+  redis_data:
+
+networks:
+  app-network:
