@@ -249,7 +249,6 @@ def create_content_entry(config: dict, db: Session, user_id: int, job_id: int):
     name="routers.jobs.image_process", acks_late=True, bind=True, base=AbortableTask
 )
 def image_process_task(self, job_config: dict):
-    print(job_config)
     with Session(engine) as db:
         prediction = None
         try:
@@ -544,7 +543,8 @@ def video_process_task(job_config: dict):
             process_job = process_status.delay(
                 int(job_config["job_id"]), int(job_config["user_id"]), int(job_eta)
             )
-            balance.balance -= float(price)
+            new_price = float(balance.balance) - float(price)
+            balance.balance = new_price
             db.add(balance)
             job.celery_id = process_job.id
             db.add(job)

@@ -154,11 +154,7 @@ def get_object_data(file_key, bucket, rd):
 
 
 def filter_data(data):
-    delete_keys = [
-        "user_id",
-        "thumbnail",
-        "id_related"
-    ]
+    delete_keys = ["user_id", "thumbnail", "id_related"]
     for x in data:
         for key in delete_keys:
             if key in x:
@@ -176,7 +172,16 @@ def get_content_table(user_id, table_name, limit, offset, db):
             .filter(models.Content.user_id == user_id)
             .filter(models.Content.id_related == None)
             .filter(models.Content.content_type == table_name)
-            .filter(or_(models.Content.status == "completed", models.Content.status == "indexing", and_(models.Content.status == "cancelled", models.Content.created_at >= current_time )))
+            .filter(
+                or_(
+                    models.Content.status == "completed",
+                    models.Content.status == "indexing",
+                    and_(
+                        models.Content.status == "cancelled",
+                        models.Content.created_at >= current_time,
+                    ),
+                )
+            )
             .order_by(models.Content.created_at.desc())
             .limit(limit)
             .offset(offset)
@@ -192,7 +197,12 @@ def get_content_table(user_id, table_name, limit, offset, db):
             db.query(models.Content)
             .filter(models.Content.user_id == user_id)
             .filter(models.Content.id_related == None)
-            .filter(or_(models.Content.status == "completed", models.Content.status == "indexing"))
+            .filter(
+                or_(
+                    models.Content.status == "completed",
+                    models.Content.status == "indexing",
+                )
+            )
             .count()
         )
         return {"detail": "Success", "data": [all_result, get_counts]}
@@ -564,11 +574,7 @@ async def rename_project(
         raise HTTPException(status_code=400, detail="Failed to rename content")
 
 
-
-
-def delete_content_task(
-    content_id: int, content_type: str, user_id: int, db: Session
-):
+def delete_content_task(content_id: int, content_type: str, user_id: int, db: Session):
     try:
         if content_type not in ["video", "audio", "image"]:
             return {"detail": "Failed", "data": "Invalid type"}
@@ -587,7 +593,7 @@ def delete_content_task(
                 .all()
             )
             if int(main_tag[0].tag_id) == 1:
-                return {"detail": "Failed", "data": "Main File can't be deleted"} 
+                return {"detail": "Failed", "data": "Main File can't be deleted"}
             dashboard_user = (
                 db.query(models.Dashboard)
                 .filter(models.Dashboard.user_id == user_id)
@@ -605,33 +611,50 @@ def delete_content_task(
                 .filter(models.Content.content_type == content_type)
                 .all()
             )
+            machine = (
+                db.query(models.Machines)
+                .filter(models.Machines.job_id == job_data.job_id)
+                .first()
+            )
+            if machine is not None:
+                machine.job_id = None
+            db.add(machine)
+            db.commit()
             attached_content.append(main_file)
             for all_content in attached_content:
-                file_size = "".join([x for x in all_content.size if x.isdigit() or x == "."])
+                file_size = "".join(
+                    [x for x in all_content.size if x.isdigit() or x == "."]
+                )
                 if content_type == "video":
-                    dashboard_user.video_processed = int(dashboard_user.video_processed) - 1
+                    dashboard_user.video_processed = (
+                        int(dashboard_user.video_processed) - 1
+                    )
                     storageJSON = json.loads(dashboard_user.storage_json)
                     storageJSON["video"] = float(storageJSON["video"]) - bytes_to_mb(
                         float(file_size)
                     )
                     dashboard_user.storage_json = json.dumps(storageJSON)
                 elif content_type == "audio":
-                    dashboard_user.audio_processed = int(dashboard_user.audio_processed) - 1
+                    dashboard_user.audio_processed = (
+                        int(dashboard_user.audio_processed) - 1
+                    )
                     storageJSON = json.loads(dashboard_user.storage_json)
                     storageJSON["audio"] = float(storageJSON["audio"]) - bytes_to_mb(
                         float(file_size)
                     )
                     dashboard_user.storage_json = json.dumps(storageJSON)
                 elif content_type == "image":
-                    dashboard_user.image_processed = int(dashboard_user.image_processed) - 1
+                    dashboard_user.image_processed = (
+                        int(dashboard_user.image_processed) - 1
+                    )
                     storageJSON = json.loads(dashboard_user.storage_json)
                     storageJSON["image"] = float(storageJSON["image"]) - bytes_to_mb(
                         float(file_size)
                     )
                     dashboard_user.storage_json = json.dumps(storageJSON)
-                dashboard_user.storage_used = float(dashboard_user.storage_used) - float(
-                    file_size
-                )
+                dashboard_user.storage_used = float(
+                    dashboard_user.storage_used
+                ) - float(file_size)
                 if str(all_content.status) == "processing":
                     return {"detail": "Failed", "data": "Running Job Found"}
                 related_tags = (
@@ -669,9 +692,7 @@ async def delete_content(
     current_user: TokenData = Depends(get_current_user),
 ):
     try:
-        result = delete_content_task(
-            id, content_type,  current_user.user_id, db
-        )
+        result = delete_content_task(id, content_type, current_user.user_id, db)
         if result["detail"] == "Success":
             logger.info("Content renamed successfully")
             return {"detail": "Success", "data": "Project deleted"}

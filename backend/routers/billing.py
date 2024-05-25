@@ -76,6 +76,7 @@ def billing_task(id: int, db: Session):
                 "verified": user_details.verified,
             }
         data = sql_dict(user)
+        data["balance"] = round(data["balance"], 2)
         remove_keys = ["created_at", "updated_at"]
         for key in remove_keys:
             data.pop(key, None)
