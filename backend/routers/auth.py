@@ -801,6 +801,14 @@ def google_callback_task(user_data: dict, db: db_dependency):
             db.add(user)
             db.commit()
             db.refresh(user)
+            if user.user_tier == "free":
+                storage_limit = 1073741824 * 2
+            elif user.user_tier == "standard":
+                storage_limit = 1073741824 * 20
+            elif user.user_tier == "deluxe":
+                storage_limit = 1073741824 * 100
+            else:
+                storage_limit = 1073741824 * 2
             create_dashboard_model = models.Dashboard(
                 user_id=int(user.id),
                 video_processed=0,
@@ -809,7 +817,7 @@ def google_callback_task(user_data: dict, db: db_dependency):
                 downloads=0,
                 uploads=0,
                 storage_used=0,
-                storage_limit=0,
+                storage_limit=storage_limit,
                 gpu_usage=0,
                 storage_json="""{'video':0, 'audio':0, 'image':0}""",
                 created_at=created_at,
@@ -931,7 +939,7 @@ async def google_callback(
                     window.close();
                 </script>
                 """
-                    )
+        )
 
 
 def forgot_password_task(name: str, verification_link: str, receiver_email: str):
