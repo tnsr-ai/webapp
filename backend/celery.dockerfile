@@ -32,6 +32,9 @@ ENV C_FORCE_ROOT=1
 
 ENV PYTHONPATH=/app
 
+# Create the /var/run/celery directory and set permissions
+RUN mkdir -p /var/run/celery && chown -R nobody:nogroup /var/run/celery
+
 RUN chmod +x worker-start.sh
 
 CMD ["bash", "worker-start.sh"]
