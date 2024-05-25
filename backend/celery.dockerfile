@@ -13,6 +13,7 @@ RUN apt update && apt install -y \
     libsm6 \ 
     libxext6 \
     curl \
+    ghostscript \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip3 install --upgrade pip
