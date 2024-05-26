@@ -15,7 +15,7 @@ from routers.auth import get_current_user, TokenData
 import models
 from script_utils.util import *
 from dotenv import load_dotenv
-from utils import TNSR_DOMAIN, CLOUDFLARE_CONTENT, CLOUDFLARE_METADATA
+from utils import TNSR_DOMAIN, CLOUDFLARE_CONTENT, CLOUDFLARE_METADATA, USER_TIER
 from celeryworker import celeryapp
 from fastapi_limiter.depends import RateLimiter
 
@@ -45,7 +45,9 @@ def isAlpnanumeric(string):
 db_dependency = Annotated[Session, Depends(get_db)]
 
 
-def delete_project_celery(content_id: int, content_type: str, user_id: int, db: Session):
+def delete_project_celery(
+    content_id: int, content_type: str, user_id: int, db: Session
+):
     try:
         if content_type not in ["video", "audio", "image"]:
             return {"detail": "Failed", "data": "Invalid type"}
@@ -73,41 +75,61 @@ def delete_project_celery(content_id: int, content_type: str, user_id: int, db: 
             attached_content.append(main_file)
             for file in attached_content:
                 if str(file.status) == "processing":
-                    return {"detail": "Failed", "data": "Please cancel the running job first"}
+                    return {
+                        "detail": "Failed",
+                        "data": "Please cancel the running job first",
+                    }
             for all_content in attached_content:
                 job_data = (
                     db.query(models.Jobs)
                     .filter(models.Jobs.content_id == all_content.id)
                     .first()
                 )
+                if job_data is not None:
+                    machine = (
+                        db.query(models.Machines)
+                        .filter(models.Machines.job_id == job_data.job_id)
+                        .first()
+                    )
+                    if machine is not None:
+                        machine.job_id = None
+                    db.add(machine)
                 try:
-                    file_size = "".join([x for x in all_content.size if x.isdigit() or x == "."])
+                    file_size = "".join(
+                        [x for x in all_content.size if x.isdigit() or x == "."]
+                    )
                 except:
                     file_size = 0
                 if content_type == "video":
-                    dashboard_user.video_processed = int(dashboard_user.video_processed) - 1
+                    dashboard_user.video_processed = (
+                        int(dashboard_user.video_processed) - 1
+                    )
                     storageJSON = json.loads(dashboard_user.storage_json)
                     storageJSON["video"] = float(storageJSON["video"]) - bytes_to_mb(
                         float(file_size)
                     )
                     dashboard_user.storage_json = json.dumps(storageJSON)
                 elif content_type == "audio":
-                    dashboard_user.audio_processed = int(dashboard_user.audio_processed) - 1
+                    dashboard_user.audio_processed = (
+                        int(dashboard_user.audio_processed) - 1
+                    )
                     storageJSON = json.loads(dashboard_user.storage_json)
                     storageJSON["audio"] = float(storageJSON["audio"]) - bytes_to_mb(
                         float(file_size)
                     )
                     dashboard_user.storage_json = json.dumps(storageJSON)
                 elif content_type == "image":
-                    dashboard_user.image_processed = int(dashboard_user.image_processed) - 1
+                    dashboard_user.image_processed = (
+                        int(dashboard_user.image_processed) - 1
+                    )
                     storageJSON = json.loads(dashboard_user.storage_json)
                     storageJSON["image"] = float(storageJSON["image"]) - bytes_to_mb(
                         float(file_size)
                     )
                     dashboard_user.storage_json = json.dumps(storageJSON)
-                dashboard_user.storage_used = float(dashboard_user.storage_used) - float(
-                    file_size
-                )
+                dashboard_user.storage_used = float(
+                    dashboard_user.storage_used
+                ) - float(file_size)
                 related_tags = (
                     db.query(models.ContentTags)
                     .filter(models.ContentTags.content_id == all_content.id)
@@ -147,7 +169,6 @@ async def delete_project(
     else:
         logger.error(f"Failed to delete project {id}")
         raise HTTPException(status_code=400, detail=result["data"])
-
 
 
 def rename_project_celery(
@@ -203,26 +224,25 @@ async def rename_project(
 
 @celeryapp.task(name="routers.options.resend_email_task", acks_late=True)
 def resend_email_task(user_id: int):
-    db = SessionLocal()
-    email_token = {
-        "token": secrets.token_urlsafe(32),
-        "expires": int(time.time()) + 172800,
-    }
-    user_data = db.query(models.Users).filter(models.Users.id == user_id).first()
-    if not user_data:
-        return {"detail": "Failed", "data": "User not found"}
-    if user_data.verified == True:
-        return {"detail": "Failed", "data": "Email already verified"}
-    user_data.email_token = json.dumps(email_token)
-    db.commit()
-    verification_link = f"{TNSR_DOMAIN}/verifyemail/?user_id={user_id}&email_token={email_token['token']}"
-    email_status = registration_email(
-        user_data.first_name, verification_link, user_data.email
-    )
-    db.close()
-    if email_status != True:
-        return {"detail": "Failed", "data": "Failed to send email"}
-    return {"detail": "Success", "data": "Email sent successfully"}
+    with Session(engine) as db:
+        email_token = {
+            "token": secrets.token_urlsafe(32),
+            "expires": int(time.time()) + 172800,
+        }
+        user_data = db.query(models.Users).filter(models.Users.id == user_id).first()
+        if not user_data:
+            return {"detail": "Failed", "data": "User not found"}
+        if user_data.verified == True:
+            return {"detail": "Failed", "data": "Email already verified"}
+        user_data.email_token = json.dumps(email_token)
+        db.commit()
+        verification_link = f"{TNSR_DOMAIN}/verifyemail/?user_id={user_id}&email_token={email_token['token']}"
+        email_status = registration_email(
+            user_data.first_name, verification_link, user_data.email
+        )
+        if email_status != True:
+            return {"detail": "Failed", "data": "Failed to send email"}
+        return {"detail": "Success", "data": "Email sent successfully"}
 
 
 @router.post(
@@ -247,3 +267,21 @@ async def resend_email(
     resend_email_task.delay(current_user.user_id)
     logger.info(f"Resend email {current_user.user_id}")
     return {"detail": "Success", "data": "Email sent successfully"}
+
+
+@router.get(
+    "/user_tier",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(RateLimiter(times=60, seconds=60))],
+)
+async def user_tier(
+    current_user: TokenData = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    user = (
+        db.query(models.Users).filter(models.Users.id == current_user.user_id).first()
+    )
+    if not user:
+        logger.error(f"User not found {current_user.user_id}")
+        raise HTTPException(status_code=400, detail="User not found")
+    user_tier = str(user.user_tier)
+    return USER_TIER[user_tier]

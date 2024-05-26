@@ -76,6 +76,7 @@ def billing_task(id: int, db: Session):
                 "verified": user_details.verified,
             }
         data = sql_dict(user)
+        data["balance"] = round(data["balance"], 2)
         remove_keys = ["created_at", "updated_at"]
         for key in remove_keys:
             data.pop(key, None)
@@ -259,7 +260,7 @@ def checkout_task(user_id: int, token: int, currency_code: str, db: Session):
             "detail": "Success",
             "data": {"session_id": checkout_session.id},
             "amount": f"{invoice_data['symbol'].strip()}{billing_amount['final_amt']}",
-            "id": create_invoice_model.id
+            "id": create_invoice_model.id,
         }
     except Exception as e:
         return {"detail": "Failed", "data": str(e)}
@@ -269,49 +270,48 @@ def checkout_task(user_id: int, token: int, currency_code: str, db: Session):
 def send_paymentInitiated_email_task(
     user_id: int, payment_status: str, credits: int, amount: str, invoice_id: int
 ):
-    db = SessionLocal()
-    user_data = db.query(models.Users).filter(models.Users.id == user_id).first()
-    if user_data is None:
-        return {"detail": "Failed", "data": "User not found"}
-    name = user_data.first_name
-    receiver_email = user_data.email
-    email_status = paymentinitiated_email(
-        name, payment_status, credits, amount, receiver_email, invoice_id
-    )
-    db.close()
-    if email_status == False:
-        return {"detail": "Failed", "data": "Failed to send email"}
-    return {"detail": "Success", "data": "Email sent successfully"}
+    with Session(engine) as db:
+        user_data = db.query(models.Users).filter(models.Users.id == user_id).first()
+        if user_data is None:
+            return {"detail": "Failed", "data": "User not found"}
+        name = user_data.first_name
+        receiver_email = user_data.email
+        email_status = paymentinitiated_email(
+            name, payment_status, credits, amount, receiver_email, invoice_id
+        )
+        if email_status == False:
+            return {"detail": "Failed", "data": "Failed to send email"}
+        return {"detail": "Success", "data": "Email sent successfully"}
 
 
-@celeryapp.task(name="routers.billing.send_paymentSuccessfull_email_task", acks_late=True)
+@celeryapp.task(
+    name="routers.billing.send_paymentSuccessfull_email_task", acks_late=True
+)
 def send_paymentSuccessfull_email_task(user_id: int, credits: int, amount: str):
-    db = SessionLocal()
-    user_data = db.query(models.Users).filter(models.Users.id == user_id).first()
-    if user_data is None:
-        return {"detail": "Failed", "data": "User not found"}
-    name = user_data.first_name
-    receiver_email = user_data.email
-    email_status = paymentsuccessfull_email(name, credits, amount, receiver_email)
-    db.close()
-    if email_status == False:
-        return {"detail": "Failed", "data": "Failed to send email"}
-    return {"detail": "Success", "data": "Email sent successfully"}
+    with Session(engine) as db:
+        user_data = db.query(models.Users).filter(models.Users.id == user_id).first()
+        if user_data is None:
+            return {"detail": "Failed", "data": "User not found"}
+        name = user_data.first_name
+        receiver_email = user_data.email
+        email_status = paymentsuccessfull_email(name, credits, amount, receiver_email)
+        if email_status == False:
+            return {"detail": "Failed", "data": "Failed to send email"}
+        return {"detail": "Success", "data": "Email sent successfully"}
 
 
 @celeryapp.task(name="routers.billing.send_paymentFailed_email_task", acks_late=True)
 def send_paymentFailed_email_task(user_id: int, credits: int, amount: str):
-    db = SessionLocal()
-    user_data = db.query(models.Users).filter(models.Users.id == user_id).first()
-    if user_data is None:
-        return {"detail": "Failed", "data": "User not found"}
-    name = user_data.first_name
-    receiver_email = user_data.email
-    email_status = paymentfailed_email(name, credits, amount, receiver_email)
-    db.close()
-    if email_status == False:
-        return {"detail": "Failed", "data": "Failed to send email"}
-    return {"detail": "Success", "data": "Email sent successfully"}
+    with Session(engine) as db:
+        user_data = db.query(models.Users).filter(models.Users.id == user_id).first()
+        if user_data is None:
+            return {"detail": "Failed", "data": "User not found"}
+        name = user_data.first_name
+        receiver_email = user_data.email
+        email_status = paymentfailed_email(name, credits, amount, receiver_email)
+        if email_status == False:
+            return {"detail": "Failed", "data": "Failed to send email"}
+        return {"detail": "Success", "data": "Email sent successfully"}
 
 
 @router.post("/checkout", dependencies=[Depends(RateLimiter(times=10, seconds=60))])
@@ -331,7 +331,11 @@ async def create_checkout_session(
     if result["detail"] == "Success":
         logger.info(f"User {current_user.user_id} checkout initiated")
         send_paymentInitiated_email_task.delay(
-            current_user.user_id, "Initiated", checkout.token, result["amount"], result["id"]
+            current_user.user_id,
+            "Initiated",
+            checkout.token,
+            result["amount"],
+            result["id"],
         )
         return result
     else:
@@ -559,7 +563,9 @@ def download_invoice_task(user_id: int, invoice_id: int, db: Session):
                 float(invoice_data["amount"]) * tax_data["percent"]
             )
             tax_data["product_price"] = round(tax_data["product_price"], 2)
-            tax_data["price_tax"] = float(invoice_data["amount"]) * tax_data["percent"]
+            tax_data["price_tax"] = round(
+                float(invoice_data["amount"]) * tax_data["percent"], 2
+            )
 
         template_params = {
             "invoice_no": "#" + str(int(invoice_data["id"]) + 1000),

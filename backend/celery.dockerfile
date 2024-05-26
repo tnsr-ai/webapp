@@ -12,6 +12,8 @@ RUN apt update && apt install -y \
     ffmpeg \
     libsm6 \ 
     libxext6 \
+    curl \
+    ghostscript \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip3 install --upgrade pip
@@ -32,6 +34,16 @@ ENV C_FORCE_ROOT=1
 
 ENV PYTHONPATH=/app
 
+# Create the /var/run/celery directory and set permissions
+RUN mkdir -p /var/run/celery && chown -R nobody:nogroup /var/run/celery
+
 RUN chmod +x worker-start.sh
+
+# Install Google Chrome
+RUN curl -sSL https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome-keyring.gpg && \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \
+    apt update && \
+    apt install -y google-chrome-stable && \
+    rm -rf /var/lib/apt/lists/*
 
 CMD ["bash", "worker-start.sh"]

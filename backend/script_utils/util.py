@@ -37,25 +37,27 @@ def is_video_valid(file_path):
     except ffmpeg.Error:
         pass
     return False
-
-
-def create_thumbnail(video_file, output_file, time_offset):
+    
+def create_thumbnail(video_url, output_file, time_offset):
+    time_offset = min(float(time_offset), 60)
+    ffmpeg_command = [
+        'ffmpeg',
+        '-ss', str(time_offset),
+        '-i', video_url,
+        '-vframes', '1',
+        '-vf', 'scale=320:-1',
+        '-y',  
+        '-loglevel', 'error',  
+        '-f', 'image2', 
+        '-'
+    ]
     try:
-        ffmpeg.input(video_file, ss=time_offset).output(
-            output_file, vframes=1, y="-y", hide_banner=None, loglevel="quiet"
-        ).run()
-        img = Image.open(output_file)
-        width, height = img.size
-        aspect_ratio = width / height
-        if abs(aspect_ratio - 1.7777) > 0.5:
-            bg_blur = img.resize((960, 540))
-            blurred = bg_blur.filter(ImageFilter.GaussianBlur(52))
-            bg_blur.paste(blurred, (0, 0))
-            main_img = img.resize((int(540 * aspect_ratio), 540))
-            bg_blur.paste(main_img, (int((960 - (540 * aspect_ratio)) / 2), 0))
-            bg_blur.save(output_file, quality=50)
-    except ffmpeg.Error as e:
-        raise e
+        result = subprocess.run(ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+        with open(output_file, 'wb') as f:
+            f.write(result.stdout) 
+    except subprocess.CalledProcessError as e:
+        error_message = e.stderr.decode().strip()
+        raise Exception(f"FFmpeg error: {error_message}") from e
 
 
 def create_thumbnail_image(output_file):
@@ -69,7 +71,7 @@ def create_thumbnail_image(output_file):
         bg_blur.paste(blurred, (0, 0))
         main_img = img.resize((int(540 * aspect_ratio), 540))
         bg_blur.paste(main_img, (int((960 - (540 * aspect_ratio)) / 2), 0))
-        bg_blur.save(output_file, quality=50)
+        bg_blur.save(output_file, quality=75)
 
 
 def lower_resolution(image_file):
@@ -233,33 +235,32 @@ def is_audio_valid(file_path):
 
 
 def audio_image(url, file_ext, savepath):
-    z = io.BytesIO(urlopen(url).read())
-    temp_name = tempfile.NamedTemporaryFile()
-    temp_name = temp_name.name + "." + file_ext
-    p = pathlib.Path(temp_name).write_bytes(z.getbuffer())
-    audio_duration = librosa.get_duration(path=temp_name)
-    desired_length = min(audio_duration, 5)
-    audio, sr = librosa.load(temp_name, sr=None)
-    start, end = find_loudest_section(audio, sr, desired_length)
-    extracted_audio = audio[start:end]
-    fig, ax = plt.subplots(nrows=1, sharex=True, sharey=True)
-    y_harm, y_perc = librosa.effects.hpss(extracted_audio)
-    librosa.display.waveshow(y_harm, sr=sr, alpha=0.25, ax=ax)
-    librosa.display.waveshow(y_perc, sr=sr, color="r", alpha=0.5, ax=ax)
-    ax.axis("off")
-    fig.patch.set_facecolor("#E2E8F0")  # set the figure background color
-    ax.set_facecolor("#E2E8F0")  # set the axes element background color
-    plt.savefig(
-        savepath,
-        bbox_inches="tight",
-        pad_inches=0,
-        facecolor=fig.get_facecolor(),
-        edgecolor="none",
-        dpi=200
-    )
-    plt.close()
-    audio_data = is_audio_valid(temp_name)
-    os.remove(temp_name)
+    response = requests.get(url)
+    audio_data = response.content
+    with tempfile.NamedTemporaryFile(suffix='.' + file_ext) as temp_file:
+        temp_file.write(audio_data)
+        temp_file.flush()
+        desired_length = 5
+        audio, sr = librosa.load(temp_file.name, sr=None, duration=desired_length)
+        start, end = find_loudest_section(audio, sr, desired_length)
+        extracted_audio = audio[start:end]
+        fig, ax = plt.subplots(nrows=1, sharex=True, sharey=True)
+        y_harm, y_perc = librosa.effects.hpss(extracted_audio)
+        librosa.display.waveshow(y_harm, sr=sr, alpha=0.25, ax=ax)
+        librosa.display.waveshow(y_perc, sr=sr, color="r", alpha=0.5, ax=ax)
+        ax.axis("off")
+        fig.patch.set_facecolor("#E2E8F0")  
+        ax.set_facecolor("#E2E8F0")
+        plt.savefig(
+            savepath,
+            bbox_inches="tight",
+            pad_inches=0,
+            facecolor=fig.get_facecolor(),
+            edgecolor="none",
+            dpi=200
+        )
+        plt.close()
+        audio_data = is_audio_valid(temp_file.name)
     return audio_data
 
 
@@ -267,3 +268,8 @@ def bytes_to_mb(bytes_value):
     bytes_value = int(float(bytes_value))
     mb_value = bytes_value / (1024 * 1024)
     return round(mb_value, 2)
+
+def duration_to_seconds(duration):
+    hours, minutes, seconds = map(int, duration.split(':'))
+    total_seconds = hours * 3600 + minutes * 60 + seconds
+    return total_seconds

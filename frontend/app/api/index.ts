@@ -253,35 +253,6 @@ export const useGetSettings = () => {
 
 // Content Endpoints
 
-export const useGetContent = (
-  limit: number,
-  offset: number,
-  content_type: string
-) => {
-  const jwt = getCookie("access_token");
-  return useQuery({
-    queryKey: [
-      "/content/get_content",
-      { limit: limit, offset: offset, content_type: content_type },
-    ],
-    queryFn: async () => {
-      const url = `${contentEndpoints["getContent"]}/?limit=${limit}&offset=${offset}&content_type=${content_type}`;
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${jwt}`,
-        },
-      });
-      if (!response.ok) {
-        throw new Error("Network response was not ok");
-      }
-      const data = await response.json();
-      return data;
-    },
-  });
-};
-
 export const useListContent = (
   content_id: number,
   content_type: string,
@@ -337,35 +308,37 @@ export const registerJob = async (job_type: string, config_json: any) => {
   return data;
 };
 
-export const useActiveJobs = () => {
+export const getJobEstimate = async (content_id: number, job_config: any) => {
   const jwt = getCookie("access_token");
-  return useQuery({
-    queryKey: [jobsEndpoints["activeJobs"]],
-    queryFn: async () => {
-      const url = `${jobsEndpoints["activeJobs"]}`;
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${jwt}`,
-        },
-      });
-      if (!response.ok) {
-        throw new Error("Network response was not ok");
-      }
-      const data = await response.json();
-      return data;
+  const url = jobsEndpoints["jobEstimate"];
+  const postData = {
+    content_id: content_id,
+    job_config: job_config,
+  };
+  const response = await fetch(url, {
+    method: "POST",
+    body: JSON.stringify(postData),
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${jwt}`,
     },
-    enabled: false,
   });
+  if (!response.ok) {
+    throw new Error("Network response was not ok");
+  }
+  const data = await response.json();
+  return data;
 };
 
-export const usePastJobs = (limit: number, offset: number) => {
+export const useGetJobs = (job_type: string, limit: number, offset: number) => {
   const jwt = getCookie("access_token");
   return useQuery({
-    queryKey: [jobsEndpoints["pastJobs"], { limit: limit, offset: offset }],
+    queryKey: [
+      "/jobs/get_jobs",
+      { job_type: job_type, limit: limit, offset: offset },
+    ],
     queryFn: async () => {
-      const url = `${jobsEndpoints["pastJobs"]}/?limit=${limit}&offset=${offset}`;
+      const url = `${jobsEndpoints["get_jobs"]}/?limit=${limit}&offset=${offset}&job_type=${job_type}`;
       const response = await fetch(url, {
         method: "GET",
         headers: {
@@ -379,7 +352,7 @@ export const usePastJobs = (limit: number, offset: number) => {
       const data = await response.json();
       return data;
     },
-    enabled: false,
+    refetchInterval: 1000 * 10,
   });
 };
 
@@ -389,6 +362,25 @@ export const useJobsConfig = () => {
     queryKey: [jobsEndpoints["filterConfig"]],
     queryFn: async () => {
       const url = jobsEndpoints["filterConfig"];
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${jwt}`,
+        },
+      });
+      const data = await response.json();
+      return data;
+    },
+  });
+};
+
+export const useGetUserConfig = () => {
+  const jwt = getCookie("access_token");
+  return useQuery({
+    queryKey: [optionsEndpoints["userTierConfig"]],
+    queryFn: async () => {
+      const url = optionsEndpoints["userTierConfig"];
       const response = await fetch(url, {
         method: "GET",
         headers: {

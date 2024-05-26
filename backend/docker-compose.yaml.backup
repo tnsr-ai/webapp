@@ -9,8 +9,6 @@ x-logging: &default-logging
       - regex:
           expression: '^(?P<time>\d{4}-\d{2}-\d{2} \d{1,2}:\d{2}:\d{2},d{3}) (?P<message>(?s:.*))$$'
 
-version: "3.4"
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -88,6 +86,8 @@ services:
       - fastapi-backend
       - grafana
       - redis
+    extra_hosts:
+      - "host.docker.internal:172.17.0.1"
 
   flower:
     image: mher/flower:2.0
@@ -140,6 +140,8 @@ services:
   grafana:
     image: grafana/grafana:9.5.15-ubuntu
     restart: always
+    ports:
+      - "5000:3000"
     volumes:
       - ./etc/grafana/:/etc/grafana/provisioning/datasources
       - ./etc/dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml

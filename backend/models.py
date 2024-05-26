@@ -11,6 +11,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from database import Base
 import enum
+import time
 
 
 class ContentStatus(enum.Enum):
@@ -21,6 +22,7 @@ class ContentStatus(enum.Enum):
     completed = "completed"
     failed = "failed"
     cancelled = "cancelled"
+    indexing = "indexing"
 
 
 class Users(Base):
@@ -36,7 +38,7 @@ class Users(Base):
             "free",
             "standard",
             "deluxe",
-            name="user_tier_enum",
+            name="user_tier_enum_" + str(int(time.time())),
             default="free",
             create_type=False,
         )
@@ -92,9 +94,23 @@ class Content(Base):
     updated_at = Column(Integer, nullable=True)
     id_related = Column(Integer, nullable=True)
     job_id = Column(Integer, nullable=True)
-    status = Column(Enum(ContentStatus, name="content_status", create_type=False))
+    status = Column(
+        Enum(
+            ContentStatus,
+            name="content_status_" + str(int(time.time())),
+            create_type=False,
+        )
+    )
     content_type = Column(
-        Enum("video", "audio", "image", name="content_type", create_type=False)
+        Enum(
+            "video",
+            "audio",
+            "image",
+            "subtitle",
+            "zip",
+            name="content_type_" + str(int(time.time())),
+            create_type=False,
+        )
     )
     duration = Column(String, nullable=True)
     resolution = Column(String, nullable=True)
@@ -128,7 +144,13 @@ class Invoices(Base):
     currency = Column(String)
     exchange_rate = Column(Float)
     status = Column(
-        Enum("pending", "completed", "failed", name="invoice_status", create_type=False)
+        Enum(
+            "pending",
+            "completed",
+            "failed",
+            name="invoice_status_" + str(int(time.time())),
+            create_type=False,
+        )
     )
     created_at = Column(Integer, nullable=True)
     updated_at = Column(Integer, nullable=True)
@@ -140,11 +162,18 @@ class Machines(Base):
     __tablename__ = "machines"
 
     machine_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    instance_id = Column(String)
     user_id = Column(Integer, ForeignKey("users.id"))
-    machine_ip = Column(String)
-    machine_config = Column(String)
     machine_status = Column(
-        Enum("available", "busy", "offline", name="machine_status", create_type=False)
+        Enum(
+            "LOADING",
+            "RUNNING",
+            "EXITED",
+            "CANCELLED",
+            "FAILED",
+            name="machine_status_" + str(int(time.time())),
+            create_type=False,
+        )
     )
     job_id = Column(Integer, ForeignKey("jobs.job_id"))
     provider = Column(String)
@@ -182,6 +211,7 @@ class UserSetting(Base):
     user_id = Column(Integer, ForeignKey("users.id"), primary_key=True, index=True)
     newsletter = Column(Boolean, default=True)
     email_notification = Column(Boolean, default=True)
+    discord_notification = Column(Boolean, default=False)
     discord_webhook = Column(String)
     created_at = Column(Integer, nullable=True)
     updated_at = Column(Integer, nullable=True)

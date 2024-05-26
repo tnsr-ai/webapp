@@ -5,9 +5,10 @@ import React from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader } from "@mantine/core";
 import { Key, useEffect, useState } from "react";
-import { useGetContent } from "../../api/index";
+import { contentEndpoints } from "@/app/api/endpoints";
+import { useQuery } from "@tanstack/react-query";
 import ContentCard from "./ContentCard";
-import { ArrowSmallUpIcon } from "@heroicons/react/20/solid";
+import { ArrowUpIcon } from "@heroicons/react/20/solid";
 import Error from "../../components/ErrorTab";
 import { setCookie, getCookie } from "cookies-next";
 
@@ -28,6 +29,44 @@ export default function ContentList(props: any) {
   const [prevPage, setPrevPage] = useState(pageJSON.prevPage);
   const [nextPage, setNextPage] = useState(pageJSON.nextPage);
   const [domLoaded, setDomLoaded] = useState(false);
+  const [shouldPoll, setShouldPoll] = useState(false);
+
+  const useGetContent = (
+    limit: number,
+    offset: number,
+    content_type: string
+  ) => {
+    const jwt = getCookie("access_token");
+    return useQuery({
+      queryKey: [
+        "/content/get_content",
+        { limit: limit, offset: offset, content_type: content_type },
+      ],
+      queryFn: async () => {
+        const url = `${contentEndpoints["getContent"]}/?limit=${limit}&offset=${offset}&content_type=${content_type}`;
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${jwt}`,
+          },
+        });
+        if (!response.ok) {
+          throw `Network response was not ok. Status: ${response.status}`;
+        }
+        const data = await response.json();
+        return data;
+      },
+      onSuccess: (data) => {
+        const isProcessing = data.data.some(
+          (content: any) => content.status === "indexing"
+        );
+        setShouldPoll(isProcessing);
+      },
+      refetchInterval: shouldPoll ? 1000 * 5 : false,
+      retry: 2,
+    });
+  };
 
   const { data, isLoading, isSuccess, isFetched, refetch, isError } =
     useGetContent(limit, offset, pathname);
@@ -143,6 +182,7 @@ export default function ContentList(props: any) {
     offset,
     prevPage,
     nextPage,
+    data,
   ]);
 
   return (
@@ -159,7 +199,7 @@ export default function ContentList(props: any) {
                 onClick={jumpToPage}
               >
                 <p className="text-purple-500">Jump to Page 1</p>
-                <ArrowSmallUpIcon className="w-[30px] h-[30px] fill-purple-500" />
+                <ArrowUpIcon className="w-[30px] h-[30px] fill-purple-500" />
               </div>
             )}
           </div>

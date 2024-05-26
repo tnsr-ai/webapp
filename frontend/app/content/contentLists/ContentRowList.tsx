@@ -80,7 +80,7 @@ export default function ContentListRow(props: any) {
         );
         setShouldPoll(isProcessing);
       },
-      refetchInterval: shouldPoll ? 1000 * 60 : false,
+      refetchInterval: shouldPoll ? 1000 * 15 : false,
       retry: 2,
     });
   };
@@ -216,7 +216,7 @@ export default function ContentListRow(props: any) {
             {totalPage > limit && (
               <div className="flex flex-col items-center">
                 <span className="text-sm text-black ">
-                  Showing{" "}
+                  Showing items{" "}
                   <span className="font-semibold text-black">{startPage}</span>{" "}
                   to <span className="font-semibold text-black">{endPage}</span>{" "}
                   of{" "}

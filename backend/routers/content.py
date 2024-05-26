@@ -16,6 +16,7 @@ import redis
 from celeryworker import celeryapp
 from routers.auth import get_current_user, TokenData
 import json
+import time
 import re
 from fastapi_limiter.depends import RateLimiter
 from utils import (
@@ -24,7 +25,6 @@ from utils import (
     CLOUDFLARE_ACCESS_KEY,
     CLOUDFLARE_SECRET_KEY,
     CLOUDFLARE_ACCOUNT_ENDPOINT,
-    CLOUDFLARE_EXPIRE_TIME,
     CLOUDFLARE_METADATA,
     CLOUDFLARE_CONTENT,
     CONTENT_EXPIRE,
@@ -70,26 +70,25 @@ def allTags(id: bool = False):
         rd_key = "all_tags_id"
     if rd.exists(rd_key):
         return json.loads(rd.get(rd_key).decode("utf-8"))
-    db = SessionLocal()
-    tags = db.query(models.Tags).all()
-    db.close()
-    all_tags = {}
-    if id == False:
-        for tag in tags:
-            all_tags[tag.tag] = {
-                "id": int(tag.id),
-                "readable": tag.readable,
-            }
-        rd.set(rd_key, json.dumps(all_tags))
-        return all_tags
-    else:
-        for tag in tags:
-            all_tags[int(tag.id)] = {
-                "tag": tag.tag,
-                "readable": tag.readable,
-            }
-        rd.set(rd_key, json.dumps(all_tags))
-        return all_tags
+    with Session(engine) as db:
+        tags = db.query(models.Tags).all()
+        all_tags = {}
+        if id == False:
+            for tag in tags:
+                all_tags[tag.tag] = {
+                    "id": int(tag.id),
+                    "readable": tag.readable,
+                }
+            rd.set(rd_key, json.dumps(all_tags))
+            return all_tags
+        else:
+            for tag in tags:
+                all_tags[int(tag.id)] = {
+                    "tag": tag.tag,
+                    "readable": tag.readable,
+                }
+            rd.set(rd_key, json.dumps(all_tags))
+            return all_tags
 
 
 def add_presigned(data, key, result_key, bucket, rd):
@@ -126,7 +125,6 @@ def add_presigned_single(file_key, bucket, rd):
             rd.expire(file_key, CONTENT_EXPIRE - 43200)
         return response
     except Exception as e:
-        print(str(e))
         return None
 
 
@@ -156,14 +154,7 @@ def get_object_data(file_key, bucket, rd):
 
 
 def filter_data(data):
-    delete_keys = [
-        "user_id",
-        "thumbnail",
-        "md5",
-        "id_related",
-        "updated_at",
-        "created_at",
-    ]
+    delete_keys = ["user_id", "thumbnail", "id_related"]
     for x in data:
         for key in delete_keys:
             if key in x:
@@ -175,12 +166,22 @@ def filter_data(data):
 
 def get_content_table(user_id, table_name, limit, offset, db):
     try:
+        current_time = int(time.time()) - 60
         get_table = (
             db.query(models.Content)
             .filter(models.Content.user_id == user_id)
             .filter(models.Content.id_related == None)
-            .filter(models.Content.status == "completed")
             .filter(models.Content.content_type == table_name)
+            .filter(
+                or_(
+                    models.Content.status == "completed",
+                    models.Content.status == "indexing",
+                    and_(
+                        models.Content.status == "cancelled",
+                        models.Content.created_at >= current_time,
+                    ),
+                )
+            )
             .order_by(models.Content.created_at.desc())
             .limit(limit)
             .offset(offset)
@@ -191,11 +192,17 @@ def get_content_table(user_id, table_name, limit, offset, db):
             return {"detail": "Failed", "data": "User not verified"}
         all_result = [x.__dict__ for x in get_table]
         remove_key(all_result, "_sa_instance_state")
+
         get_counts = (
             db.query(models.Content)
             .filter(models.Content.user_id == user_id)
             .filter(models.Content.id_related == None)
-            .filter(models.Content.status == "completed")
+            .filter(
+                or_(
+                    models.Content.status == "completed",
+                    models.Content.status == "indexing",
+                )
+            )
             .count()
         )
         return {"detail": "Success", "data": [all_result, get_counts]}
@@ -206,7 +213,7 @@ def get_content_table(user_id, table_name, limit, offset, db):
 @router.get(
     "/get_content",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(RateLimiter(times=60, seconds=60))],
+    dependencies=[Depends(RateLimiter(times=240, seconds=60))],
 )
 async def get_content(
     limit: int,
@@ -368,7 +375,6 @@ def get_content_list_celery(
                 "title": main_title,
             }
     except Exception as e:
-        print(str(e))
         return {"detail": "Failed", "data": "Unable to fetch content"}
 
 
@@ -568,11 +574,7 @@ async def rename_project(
         raise HTTPException(status_code=400, detail="Failed to rename content")
 
 
-
-
-def delete_content_task(
-    content_id: int, content_type: str, user_id: int, db: Session
-):
+def delete_content_task(content_id: int, content_type: str, user_id: int, db: Session):
     try:
         if content_type not in ["video", "audio", "image"]:
             return {"detail": "Failed", "data": "Invalid type"}
@@ -591,7 +593,7 @@ def delete_content_task(
                 .all()
             )
             if int(main_tag[0].tag_id) == 1:
-                return {"detail": "Failed", "data": "Main File can't be deleted"} 
+                return {"detail": "Failed", "data": "Main File can't be deleted"}
             dashboard_user = (
                 db.query(models.Dashboard)
                 .filter(models.Dashboard.user_id == user_id)
@@ -609,33 +611,50 @@ def delete_content_task(
                 .filter(models.Content.content_type == content_type)
                 .all()
             )
+            machine = (
+                db.query(models.Machines)
+                .filter(models.Machines.job_id == job_data.job_id)
+                .first()
+            )
+            if machine is not None:
+                machine.job_id = None
+            db.add(machine)
+            db.commit()
             attached_content.append(main_file)
             for all_content in attached_content:
-                file_size = "".join([x for x in all_content.size if x.isdigit() or x == "."])
+                file_size = "".join(
+                    [x for x in all_content.size if x.isdigit() or x == "."]
+                )
                 if content_type == "video":
-                    dashboard_user.video_processed = int(dashboard_user.video_processed) - 1
+                    dashboard_user.video_processed = (
+                        int(dashboard_user.video_processed) - 1
+                    )
                     storageJSON = json.loads(dashboard_user.storage_json)
                     storageJSON["video"] = float(storageJSON["video"]) - bytes_to_mb(
                         float(file_size)
                     )
                     dashboard_user.storage_json = json.dumps(storageJSON)
                 elif content_type == "audio":
-                    dashboard_user.audio_processed = int(dashboard_user.audio_processed) - 1
+                    dashboard_user.audio_processed = (
+                        int(dashboard_user.audio_processed) - 1
+                    )
                     storageJSON = json.loads(dashboard_user.storage_json)
                     storageJSON["audio"] = float(storageJSON["audio"]) - bytes_to_mb(
                         float(file_size)
                     )
                     dashboard_user.storage_json = json.dumps(storageJSON)
                 elif content_type == "image":
-                    dashboard_user.image_processed = int(dashboard_user.image_processed) - 1
+                    dashboard_user.image_processed = (
+                        int(dashboard_user.image_processed) - 1
+                    )
                     storageJSON = json.loads(dashboard_user.storage_json)
                     storageJSON["image"] = float(storageJSON["image"]) - bytes_to_mb(
                         float(file_size)
                     )
                     dashboard_user.storage_json = json.dumps(storageJSON)
-                dashboard_user.storage_used = float(dashboard_user.storage_used) - float(
-                    file_size
-                )
+                dashboard_user.storage_used = float(
+                    dashboard_user.storage_used
+                ) - float(file_size)
                 if str(all_content.status) == "processing":
                     return {"detail": "Failed", "data": "Running Job Found"}
                 related_tags = (
@@ -673,9 +692,7 @@ async def delete_content(
     current_user: TokenData = Depends(get_current_user),
 ):
     try:
-        result = delete_content_task(
-            id, content_type,  current_user.user_id, db
-        )
+        result = delete_content_task(id, content_type, current_user.user_id, db)
         if result["detail"] == "Success":
             logger.info("Content renamed successfully")
             return {"detail": "Success", "data": "Project deleted"}
