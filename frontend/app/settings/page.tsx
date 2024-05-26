@@ -11,7 +11,6 @@ export default function Settings() {
   const { data, isLoading, isSuccess, isError, refetch } = useGetSettings();
   useEffect(() => {
     refetch();
-    console.log("Refected");
   }, [data]);
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[296px_1fr] grid-rows-[minmax(62px,_90px)_1fr]">
