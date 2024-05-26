@@ -25,6 +25,7 @@ celeryapp = Celery(
     "celeryworker",
     broker=REDIS_BROKER,
     backend=REDIS_BACKEND,
+    result_backend=REDIS_BACKEND,
     include=["routers.auth", "routers.dashboard", "routers.upload", "routers.content", "routers.settings", "routers.jobs", "routers.options", "routers.machines", "routers.billing", "utils"],
     broker_connection_retry=False,
     broker_connection_retry_on_startup=True,

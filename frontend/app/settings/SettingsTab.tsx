@@ -6,19 +6,28 @@ import { setPassword, setSettings } from "../api/index";
 import { useMutation } from "@tanstack/react-query";
 import { getCookie } from "cookies-next";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 function classNames(...classes: any) {
   return classes.filter(Boolean).join(" ");
 }
 
 export default function SettingsTab(props: any) {
+  const router = useRouter();
   const jwt: string = getCookie("access_token") as string;
   const [newsletter, setNewsletter] = useState(props.data.data["newsletter"]);
   const [enabled, setEnabled] = useState(props.data.data["email_notification"]);
+  const [discordEnabled, setDiscordEnabled] = useState(
+    props.data.data["discord_notification"]
+  );
+  const [discordWebhook, setDiscordWebhook] = useState(
+    props.data.data["discord_webhook"]
+  );
   const [emailMsg, setEmailMsg] = useState(
     "Click here to resend verification email"
   );
   const [emailStatus, setEmailStatus] = useState("text-blue-500");
+
   const { mutate } = useMutation((formData) => setPassword(formData as any), {
     onSuccess: (data) => {
       if (data["detail"] != "Success") {
@@ -44,8 +53,7 @@ export default function SettingsTab(props: any) {
       } else {
         setSuccessSetting("Settings changed successfully");
         setErrorSetting("");
-        setChanged(false); // Reset the changed state after successful save
-        // Also update default_notification to reflect the new saved state
+        setChanged(false);
         setDefaultNotification(notificationSettings);
       }
     },
@@ -56,15 +64,24 @@ export default function SettingsTab(props: any) {
 
   const [changed, setChanged] = useState(false);
 
+  useEffect(() => {
+    setNewsletter(props.data.data["newsletter"]);
+    setEnabled(props.data.data["email_notification"]);
+    setDiscordEnabled(props.data.data["discord_notification"]);
+    setDiscordWebhook(props.data.data["discord_webhook"]);
+  }, [props.data]);
+
   const [default_notification, setDefaultNotification] = useState({
     newsletter: props.data.data["newsletter"],
     email_notification: props.data.data["email_notification"],
+    discord_notification: props.data.data["discord_notification"],
     discord_webhook: props.data.data["discord_webhook"],
   });
 
   const [notificationSettings, setNotificationSettings] = useState({
     newsletter: props.data.data["newsletter"],
     email_notification: props.data.data["email_notification"],
+    discord_notification: props.data.data["discord_notification"],
     discord_webhook: props.data.data["discord_webhook"],
   });
 
@@ -89,10 +106,12 @@ export default function SettingsTab(props: any) {
   };
 
   const handleNotificationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setNotificationSettings({
-      ...notificationSettings,
-      [e.target.name]: e.target.value,
-    });
+    // setNotificationSettings({
+    //   ...notificationSettings,
+    //   [e.target.name]: e.target.value,
+    // });
+    setChanged(true);
+    setDiscordWebhook(e.target.value);
   };
 
   // Add a useEffect to monitor changes in the notificationSettings state
@@ -123,9 +142,11 @@ export default function SettingsTab(props: any) {
     const formData = {
       newsletter: newsletter,
       email_notification: enabled,
-      discord_webhook: notificationSettings.discord_webhook,
+      discord_notification: discordEnabled,
+      discord_webhook: discordWebhook,
     };
     settingsPost.mutate(formData as any);
+    router.push("/settings");
   };
 
   const resendTask = useMutation(({ id }: { id: number }) => {
@@ -171,7 +192,8 @@ export default function SettingsTab(props: any) {
       JSON.stringify(notificationSettings) !==
         JSON.stringify(default_notification) ||
       default_notification.newsletter !== newsletter ||
-      default_notification.email_notification !== enabled
+      default_notification.email_notification !== enabled ||
+      default_notification.discord_notification !== discordEnabled
     ) {
       setChanged(true);
     } else {
@@ -182,6 +204,7 @@ export default function SettingsTab(props: any) {
     notificationSettings,
     newsletter,
     enabled,
+    discordEnabled,
     emailMsg,
     emailStatus,
   ]);
@@ -360,6 +383,28 @@ export default function SettingsTab(props: any) {
               Send Email Notification
             </h1>
           </div>
+          <div className="px-6 flex gap-3 mt-5" id="discordSwitch">
+            <Switch
+              checked={discordEnabled}
+              onChange={setDiscordEnabled}
+              className={classNames(
+                discordEnabled ? "bg-purple-600" : "bg-gray-400",
+                "relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+              )}
+            >
+              <span className="sr-only">Use setting</span>
+              <span
+                aria-hidden="true"
+                className={classNames(
+                  discordEnabled ? "translate-x-5" : "translate-x-0",
+                  "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                )}
+              />
+            </Switch>
+            <h1 className="text-black font-normal text-lg">
+              Send Discord Notification
+            </h1>
+          </div>
           <div className="px-6 mt-5 mb-5 xl:mb-0" id="emailTab">
             <p className="font-medium tracking-tight">
               Discord Webhook{" "}
@@ -377,7 +422,7 @@ export default function SettingsTab(props: any) {
               type="text"
               className="w-full mt-2 px-3 py-2 text-gray-500 outline-transparent border-transparent focus:bg-gray-200 focus:ring-0 focus:border-transparent shadow-sm rounded-lg bg-gray-50"
               name="discord_webhook"
-              defaultValue={props.data.data["discord_webhook"]}
+              defaultValue={discordWebhook}
               onChange={handleNotificationChange}
             />
             <div>

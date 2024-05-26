@@ -330,12 +330,15 @@ export const getJobEstimate = async (content_id: number, job_config: any) => {
   return data;
 };
 
-export const useActiveJobs = () => {
+export const useGetJobs = (job_type: string, limit: number, offset: number) => {
   const jwt = getCookie("access_token");
   return useQuery({
-    queryKey: [jobsEndpoints["activeJobs"]],
+    queryKey: [
+      "/jobs/get_jobs",
+      { job_type: job_type, limit: limit, offset: offset },
+    ],
     queryFn: async () => {
-      const url = `${jobsEndpoints["activeJobs"]}`;
+      const url = `${jobsEndpoints["get_jobs"]}/?limit=${limit}&offset=${offset}&job_type=${job_type}`;
       const response = await fetch(url, {
         method: "GET",
         headers: {
@@ -349,30 +352,7 @@ export const useActiveJobs = () => {
       const data = await response.json();
       return data;
     },
-    enabled: false,
-  });
-};
-
-export const usePastJobs = (limit: number, offset: number) => {
-  const jwt = getCookie("access_token");
-  return useQuery({
-    queryKey: [jobsEndpoints["pastJobs"], { limit: limit, offset: offset }],
-    queryFn: async () => {
-      const url = `${jobsEndpoints["pastJobs"]}/?limit=${limit}&offset=${offset}`;
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${jwt}`,
-        },
-      });
-      if (!response.ok) {
-        throw new Error("Network response was not ok");
-      }
-      const data = await response.json();
-      return data;
-    },
-    enabled: false,
+    refetchInterval: 1000 * 10,
   });
 };
 

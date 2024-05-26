@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USERNAME}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DATABASE}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  postgres-backup:
+    image: eeshugerman/postgres-backup-s3:16
+    restart: always
+    environment:
+      SCHEDULE: '@daily'
+      BACKUP_KEEP_DAYS: 3
+      S3_REGION: ${AWS_REGION}
+      S3_ACCESS_KEY_ID: ${AWS_KEY}
+      S3_SECRET_ACCESS_KEY: ${AWS_SECRET}
+      S3_BUCKET: ${S3_BUCKET}
+      S3_PREFIX: backup
+      POSTGRES_HOST: postgres
+      POSTGRES_DATABASE: ${POSTGRES_DATABASE}
+      POSTGRES_USER: ${POSTGRES_USERNAME}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    networks:
+      - app-network
+
+volumes:
+  postgres:
+
+networks:
+  app-network:

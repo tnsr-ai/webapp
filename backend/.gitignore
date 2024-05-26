@@ -8,5 +8,4 @@ __pycache__
 nohup.out
 test.db
 *.ipynb
-Caddyfile
 logs

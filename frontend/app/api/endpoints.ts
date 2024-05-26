@@ -38,8 +38,7 @@ const settingsEndpoints = {
 
 const jobsEndpoints = {
   registerJob: `${baseURL}/jobs/register_job`,
-  activeJobs: `${baseURL}/jobs/active_jobs`,
-  pastJobs: `${baseURL}/jobs/past_jobs`,
+  get_jobs: `${baseURL}/jobs/get_jobs`,
   filterConfig: `${baseURL}/jobs/filter_config`,
   jobEstimate: `${baseURL}/jobs/get_estimate`,
 };

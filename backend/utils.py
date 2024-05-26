@@ -36,6 +36,13 @@ from starlette.routing import Match
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 from starlette.types import ASGIApp
 from celeryworker import celeryapp
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, declarative_base, Session
+import requests
+import models
+import redis
+import json
+
 
 load_dotenv()
 APP_ENV = os.getenv("APP_ENV")
@@ -136,7 +143,7 @@ if CUDA == None:
 
 GPU_PROVIDER = GPU_PROVIDER.split(",")
 CUDA = [float(x) for x in CUDA.split(",")]
-    
+
 
 STORAGE_LIMITS = {
     "free": 2 * 1024**3,
@@ -617,7 +624,7 @@ REDIS_KEY = {
     "Video Interpolation": "video_interpolation",
     "Video Deinterlacing": "video_deinterlacing",
     "Speech Enhancement": "speech_enhancement",
-    "Transcription": "transcription"
+    "Transcription": "transcription",
 }
 
 INFO = Gauge("fastapi_app_info", "FastAPI application information.", ["app_name"])
@@ -650,9 +657,7 @@ REQUESTS_IN_PROGRESS = Gauge(
 IMAGE_MODELS = {
     "super_resolution": {
         "model": "amitalokbera/imagesr:7a766d216010219a837e5b60bc85c5391329d4f22ce259c228e1c96491cc1c45",
-        "params": {
-            "model_name": "model"
-        }
+        "params": {"model_name": "model"},
     },
     "image_deblurring": {
         "model": "amitalokbera/imagedeblurring:d92cbbbc9ce8b92db53f7a63f51b7f5eb055c0cfbb5fee0dc50ff0916d882af0"
@@ -668,7 +673,7 @@ IMAGE_MODELS = {
     },
     "remove_background": {
         "model": "amitalokbera/removebg:b0e5380f3d45f7f6b424557f3feb69f0eaa57bc42ac6643fd2b399118b2f7bb5"
-    }
+    },
 }
 
 MODEL_COMPUTE = {
@@ -678,16 +683,13 @@ MODEL_COMPUTE = {
             "SuperRes 4x v1 (Faster)": 700000,
             "SuperRes 2x v2 (Slower, better result)": 400000,
             "SuperRes 4x v2 (Slower, better result)": 200000,
-            "SuperRes Anime (For Animated content)": 300000
+            "SuperRes Anime (For Animated content)": 300000,
         },
         "video_deblurring": 800000,
         "video_denoising": 800000,
         "face_restoration": 2200000,
         "bw_to_color": 5500000,
-        "slow_motion": {
-            "2x": 1200000,
-            "4x": 1000000
-        },
+        "slow_motion": {"2x": 1200000, "4x": 1000000},
         "video_interpolation": 10800000,
         "video_deinterlacing": 3000000,
         "speech_enhancement": 10800000,
@@ -699,20 +701,23 @@ MODEL_COMPUTE = {
             "SuperRes 4x v1 (Faster)": 15,
             "SuperRes 2x v2 (Slower, better result)": 18,
             "SuperRes 4x v2 (Slower, better result)": 20,
-            "SuperRes Anime (For Animated content)": 15
+            "SuperRes Anime (For Animated content)": 15,
         },
         "image_deblurring": 15,
         "image_denoising": 15,
-        "face_restoration": 15, 
+        "face_restoration": 15,
         "bw_to_color": 15,
-        "remove_background": 15
+        "remove_background": 15,
     },
-    "audio": {
-        "stem_seperation": 3,
-        "speech_enhancement": 20,
-        "transcription": 5
-    }
+    "audio": {"stem_seperation": 3, "speech_enhancement": 20, "transcription": 5},
 }
+
+SQLALCHEMY_DATABASE_URL = f"postgresql://{POSTGRES_USERNAME}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DATABASE}"
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL, pool_size=20, max_overflow=40, pool_pre_ping=True
+)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+db = SessionLocal()
 
 r2_client = boto3.client(
     "s3",
@@ -735,6 +740,35 @@ r2_resource = boto3.resource(
 
 
 password_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def allTags(id: bool = False):
+    rd = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
+    if id == False:
+        rd_key = "all_tags"
+    else:
+        rd_key = "all_tags_id"
+    if rd.exists(rd_key):
+        return json.loads(rd.get(rd_key).decode("utf-8"))
+    with Session(engine) as db:
+        tags = db.query(models.Tags).all()
+        all_tags = {}
+        if id == False:
+            for tag in tags:
+                all_tags[tag.tag] = {
+                    "id": int(tag.id),
+                    "readable": tag.readable,
+                }
+            rd.set(rd_key, json.dumps(all_tags))
+            return all_tags
+        else:
+            for tag in tags:
+                all_tags[int(tag.id)] = {
+                    "tag": tag.tag,
+                    "readable": tag.readable,
+                }
+            rd.set(rd_key, json.dumps(all_tags))
+            return all_tags
 
 
 def get_hashed_password(password: str) -> str:
@@ -868,7 +902,12 @@ def forgotpassword_email(name: str, verification: str, receiver_email: str):
 
 
 def paymentinitiated_email(
-    name: str, payment_status: str, credits: int, amount: str, receiver_email: str, invoice_id: int
+    name: str,
+    payment_status: str,
+    credits: int,
+    amount: str,
+    receiver_email: str,
+    invoice_id: int,
 ):
     try:
         context = ssl.create_default_context()
@@ -888,7 +927,7 @@ def paymentinitiated_email(
             "payment_status": payment_status,
             "credits": credits,
             "amount": amount,
-            "payment_id": "#" + str(invoice_id + 1000)
+            "payment_id": "#" + str(invoice_id + 1000),
         }
         all_img = []
         for image_path in all_image_path:
@@ -999,7 +1038,7 @@ def paymentfailed_email(name: str, credits: int, amount: str, receiver_email: st
         return False
 
 
-def presigned_get(key, bucket, rd):
+def presigned_get(key, bucket, rd, expire=None):
     try:
         if rd.exists(key):
             return rd.get(key).decode("utf-8")
@@ -1014,6 +1053,8 @@ def presigned_get(key, bucket, rd):
                 retries=dict(max_attempts=3),
             ),
         )
+        if expire is None:
+            expire = CONTENT_EXPIRE - 60
         response = r2_client.generate_presigned_url(
             ClientMethod="get_object",
             Params={
@@ -1023,11 +1064,12 @@ def presigned_get(key, bucket, rd):
             ExpiresIn=CONTENT_EXPIRE,
         )
         rd.set(key, response)
-        rd.expire(key, CONTENT_EXPIRE - 60)
+        rd.expire(key, expire)
         return response
     except Exception as e:
         return None
-    
+
+
 def job_presigned_get(key, bucket):
     try:
         r2_client = boto3.client(
@@ -1199,6 +1241,7 @@ class EndpointFilter(logger.Filter):
 
 logger.getLogger("uvicorn.access").addFilter(EndpointFilter())
 
+
 @celeryapp.task(name="utils.delete_r2_object", acks_late=True)
 def delete_r2_file(file_key: str, bucket: str):
     try:
@@ -1213,3 +1256,332 @@ def delete_r2_file(file_key: str, bucket: str):
         return True
     except Exception as e:
         return False
+
+
+@celeryapp.task(name="utils.send_discord_update", acks_late=True)
+def send_discord_update(job_id: int, user_id: int, status: str):
+    try:
+        with Session(engine) as db:
+            context = ssl.create_default_context()
+            smtp_client = smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, context=context)
+            smtp_client.login(SMTP_USERNAME, SMTP_PASSWORD)
+            user = db.query(models.Users).filter(models.Users.id == user_id).first()
+            usersetting = (
+                db.query(models.UserSetting)
+                .filter(models.UserSetting.user_id == user_id)
+                .first()
+            )
+            job = db.query(models.Jobs).filter(models.Jobs.job_id == job_id).first()
+            content = (
+                db.query(models.Content)
+                .filter(models.Content.id == job.content_id)
+                .all()
+            )
+            main_content = (
+                db.query(models.Content)
+                .filter(models.Content.id == content[0].id_related)
+                .first()
+            )
+            all_tags = allTags(id=True)
+            if usersetting is None:
+                raise Exception("No User Found")
+            if usersetting.discord_notification is False:
+                return False
+            all_filter = []
+            for x in content:
+                tags = (
+                    db.query(models.ContentTags)
+                    .filter(models.ContentTags.content_id == x.id)
+                    .all()
+                )
+                for y in tags:
+                    tag_name = all_tags[str(y.tag_id)]["readable"]
+                    all_filter.append(tag_name)
+            if status == "initiated":
+                data = {
+                    "content": f'🚀**Job Initiated**🚀 \n\nWe are pleased to inform you that your job has been successfully initiated!\n\n**ID:** {job.job_id}\n**Name:** {main_content.title}\n**Job Type:** {job.job_type.capitalize()}\n**Filters:** {", ".join(all_filter)}\n\nIf you did not initiate the job, please update your password and contact us immediately at admin@tnsr.ai\n\nBest Regards,\n[tnsr.ai](https://tnsr.ai)'
+                }
+
+                result = requests.post(usersetting.discord_webhook, json=data)
+                if result.status_code == 204:
+                    return True
+                return False
+
+            if status == "completed":
+                data = {
+                    "content": f'🎉 **Job Completed** 🎉\n\nWe are pleased to inform you that your job has been successfully completed!\n\n**ID:** {job.job_id}\n**Name:** {main_content.title}\n**Job Type:** {job.job_type.capitalize()}\n**Filters:** {", ".join(all_filter)}\n**Start Time:** {datetime.utcfromtimestamp(int(job.created_at)).strftime("%Y-%m-%d %H:%M:%S UTC")}\n**End Time:** {datetime.utcfromtimestamp(int(job.updated_at)).strftime("%Y-%m-%d %H:%M:%S UTC")}\n\nYou can access the processed content using the following link:[View Job]({f"{TNSR_DOMAIN}/{job.job_type}/{main_content.id}"})\n\nThank you for choosing our service! If you have any questions or need further assistance, please do not hesitate to contact us.\nBest regards,\n[tnsr.ai](https://tnsr.ai)'
+                }
+
+                result = requests.post(usersetting.discord_webhook, json=data)
+                if result.status_code == 204:
+                    return True
+                return False
+
+            if status == "failed":
+                data = {
+                    "content": "🚨 **Job Failed** 🚨\n\n"
+                    "We regret to inform you that your job has encountered an issue and has failed.\n\n"
+                    f"**ID:** {job.job_id}\n"
+                    f"**Name:** {main_content.title}\n"
+                    f"**Job Type:** {job.job_type.capitalize()}\n"
+                    f'**Filters:** {", ".join(all_filter)}\n\n'
+                    "Our team is currently investigating the issue to determine the cause and will take the necessary steps to ensure it does not occur in the future. We apologize for any inconvenience this may have caused.\n\n"
+                    "Please reinitiate a new job at your earliest convenience. If you need any assistance with this process, please feel free to contact us at admin@tnsr.ai\n\n"
+                    "Thank you for your understanding and patience.\n\n"
+                    "Best regards,\n"
+                    "[tnsr.ai](https://tnsr.ai)"
+                }
+
+                result = requests.post(usersetting.discord_webhook, json=data)
+                if result.status_code == 204:
+                    return True
+                return False
+
+            if status == "cancelled":
+                data = {
+                    "content": f"🚨 **Job Cancelled** 🚨\n\n"
+                    "We regret to inform you that your job has been cancelled.\n\n"
+                    f"**ID:** {job.job_id}\n"
+                    f"**Name:** {main_content.title}\n"
+                    f"**Job Type:** {job.job_type.capitalize()}\n"
+                    f'**Filters:** {", ".join(all_filter)}\n\n'
+                    "If you did not initiate the job cancellation, please update your password and contact us immediately at admin@tnsr.ai\n\n"
+                    "Best regards,\n"
+                    "[tnsr.ai](https://tnsr.ai)"
+                }
+
+                result = requests.post(usersetting.discord_webhook, json=data)
+                if result.status_code == 204:
+                    return True
+                return False
+    except Exception as e:
+        return str(e)
+
+
+@celeryapp.task(name="utils.job_email", acks_late=True)
+def job_email(job_id: int, user_id: int, status: str):
+    try:
+        with Session(engine) as db:
+            context = ssl.create_default_context()
+            smtp_client = smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, context=context)
+            smtp_client.login(SMTP_USERNAME, SMTP_PASSWORD)
+            user = db.query(models.Users).filter(models.Users.id == user_id).first()
+            usersetting = (
+                db.query(models.UserSetting)
+                .filter(models.UserSetting.user_id == user_id)
+                .first()
+            )
+            job = db.query(models.Jobs).filter(models.Jobs.job_id == job_id).first()
+            content = (
+                db.query(models.Content)
+                .filter(models.Content.id == job.content_id)
+                .all()
+            )
+            main_content = (
+                db.query(models.Content)
+                .filter(models.Content.id == content[0].id_related)
+                .first()
+            )
+            all_tags = allTags(id=True)
+            if usersetting is None:
+                raise Exception("No User Found")
+            if usersetting.email_notification is False:
+                return False
+            if status == "initiated":
+                email_template = (Path() / "emailUtils/job_initiated.html").read_text()
+                all_filter = []
+                for x in content:
+                    tags = (
+                        db.query(models.ContentTags)
+                        .filter(models.ContentTags.content_id == x.id)
+                        .all()
+                    )
+                    for y in tags:
+                        tag_name = all_tags[str(y.tag_id)]["readable"]
+                        all_filter.append(tag_name)
+                template_params = {
+                    "name": user.first_name,
+                    "title": main_content.title,
+                    "filters": ", ".join(all_filter),
+                }
+                all_image_path = [
+                    Path() / "emailUtils/logo.png",
+                    Path() / "emailUtils/job_initiated.png",
+                    Path() / "emailUtils/twitter.png",
+                    Path() / "emailUtils/discord.png",
+                    Path() / "emailUtils/linkedin.png",
+                    Path() / "emailUtils/youtube.png",
+                ]
+                all_img = []
+                for image_path in all_image_path:
+                    image = open(image_path, "rb")
+                    image_img = MIMEImage(image.read())
+                    image.close()
+                    image_img.add_header("Content-ID", f"<{image_path.name}>")
+                    image_img.add_header(
+                        "Content-Disposition", "inline", filename=image_path.name
+                    )
+                    template_params[image_path.stem] = image_path.name
+                    all_img.append(image_img)
+                final_email_html = pystache.render(email_template, template_params)
+                message = MIMEMultipart("related")
+                message["Subject"] = f"Job Initiated - {job_id}"
+                message["From"] = "updates@tnsr.ai"
+                message["To"] = user.email
+                message.attach(MIMEText(final_email_html, "html"))
+                for image in all_img:
+                    message.attach(image)
+                smtp_client.sendmail("updates@tnsr.ai", user.email, message.as_string())
+                smtp_client.quit()
+                return True
+
+            if status == "completed":
+                email_template = (Path() / "emailUtils/job_success.html").read_text()
+                all_filter = []
+                for x in content:
+                    tags = (
+                        db.query(models.ContentTags)
+                        .filter(models.ContentTags.content_id == x.id)
+                        .all()
+                    )
+                    for y in tags:
+                        tag_name = all_tags[str(y.tag_id)]["readable"]
+                        all_filter.append(tag_name)
+                template_params = {
+                    "name": user.first_name,
+                    "title": main_content.title,
+                    "filters": ", ".join(all_filter),
+                    "start_time": datetime.utcfromtimestamp(
+                        int(job.created_at)
+                    ).strftime("%Y-%m-%d %H:%M:%S UTC"),
+                    "end_time": datetime.utcfromtimestamp(int(job.updated_at)).strftime(
+                        "%Y-%m-%d %H:%M:%S UTC"
+                    ),
+                    "link": f"{TNSR_DOMAIN}/{job.job_type}/{main_content.id}",
+                }
+                all_image_path = [
+                    Path() / "emailUtils/logo.png",
+                    Path() / "emailUtils/job_success.png",
+                    Path() / "emailUtils/twitter.png",
+                    Path() / "emailUtils/discord.png",
+                    Path() / "emailUtils/linkedin.png",
+                    Path() / "emailUtils/youtube.png",
+                ]
+                all_img = []
+                for image_path in all_image_path:
+                    image = open(image_path, "rb")
+                    image_img = MIMEImage(image.read())
+                    image.close()
+                    image_img.add_header("Content-ID", f"<{image_path.name}>")
+                    image_img.add_header(
+                        "Content-Disposition", "inline", filename=image_path.name
+                    )
+                    template_params[image_path.stem] = image_path.name
+                    all_img.append(image_img)
+                final_email_html = pystache.render(email_template, template_params)
+                message = MIMEMultipart("related")
+                message["Subject"] = f"Job Completed - {job_id}"
+                message["From"] = "updates@tnsr.ai"
+                message["To"] = user.email
+                message.attach(MIMEText(final_email_html, "html"))
+                for image in all_img:
+                    message.attach(image)
+                smtp_client.sendmail("updates@tnsr.ai", user.email, message.as_string())
+                smtp_client.quit()
+                return True
+            if status == "failed":
+                email_template = (Path() / "emailUtils/job_failed.html").read_text()
+                all_filter = []
+                for x in content:
+                    tags = (
+                        db.query(models.ContentTags)
+                        .filter(models.ContentTags.content_id == x.id)
+                        .all()
+                    )
+                    for y in tags:
+                        tag_name = all_tags[str(y.tag_id)]["readable"]
+                        all_filter.append(tag_name)
+                template_params = {
+                    "name": user.first_name,
+                    "title": main_content.title,
+                    "filters": ", ".join(all_filter),
+                }
+                all_image_path = [
+                    Path() / "emailUtils/logo.png",
+                    Path() / "emailUtils/job_failed.png",
+                    Path() / "emailUtils/twitter.png",
+                    Path() / "emailUtils/discord.png",
+                    Path() / "emailUtils/linkedin.png",
+                    Path() / "emailUtils/youtube.png",
+                ]
+                all_img = []
+                for image_path in all_image_path:
+                    image = open(image_path, "rb")
+                    image_img = MIMEImage(image.read())
+                    image.close()
+                    image_img.add_header("Content-ID", f"<{image_path.name}>")
+                    image_img.add_header(
+                        "Content-Disposition", "inline", filename=image_path.name
+                    )
+                    template_params[image_path.stem] = image_path.name
+                    all_img.append(image_img)
+                final_email_html = pystache.render(email_template, template_params)
+                message = MIMEMultipart("related")
+                message["Subject"] = f"Job Failed - {job_id}"
+                message["From"] = "updates@tnsr.ai"
+                message["To"] = user.email
+                message.attach(MIMEText(final_email_html, "html"))
+                for image in all_img:
+                    message.attach(image)
+                smtp_client.sendmail("updates@tnsr.ai", user.email, message.as_string())
+                smtp_client.quit()
+                return True
+            if status == "cancelled":
+                email_template = (Path() / "emailUtils/job_cancelled.html").read_text()
+                all_filter = []
+                for x in content:
+                    tags = (
+                        db.query(models.ContentTags)
+                        .filter(models.ContentTags.content_id == x.id)
+                        .all()
+                    )
+                    for y in tags:
+                        tag_name = all_tags[str(y.tag_id)]["readable"]
+                        all_filter.append(tag_name)
+                template_params = {
+                    "name": user.first_name,
+                    "title": main_content.title,
+                    "filters": ", ".join(all_filter),
+                }
+                all_image_path = [
+                    Path() / "emailUtils/logo.png",
+                    Path() / "emailUtils/job_cancelled.png",
+                    Path() / "emailUtils/twitter.png",
+                    Path() / "emailUtils/discord.png",
+                    Path() / "emailUtils/linkedin.png",
+                    Path() / "emailUtils/youtube.png",
+                ]
+                all_img = []
+                for image_path in all_image_path:
+                    image = open(image_path, "rb")
+                    image_img = MIMEImage(image.read())
+                    image.close()
+                    image_img.add_header("Content-ID", f"<{image_path.name}>")
+                    image_img.add_header(
+                        "Content-Disposition", "inline", filename=image_path.name
+                    )
+                    template_params[image_path.stem] = image_path.name
+                    all_img.append(image_img)
+                final_email_html = pystache.render(email_template, template_params)
+                message = MIMEMultipart("related")
+                message["Subject"] = f"Job Cancelled - {job_id}"
+                message["From"] = "updates@tnsr.ai"
+                message["To"] = user.email
+                message.attach(MIMEText(final_email_html, "html"))
+                for image in all_img:
+                    message.attach(image)
+                smtp_client.sendmail("updates@tnsr.ai", user.email, message.as_string())
+                smtp_client.quit()
+                return True
+    except Exception as e:
+        return str(e)

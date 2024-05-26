@@ -45,7 +45,9 @@ def isAlpnanumeric(string):
 db_dependency = Annotated[Session, Depends(get_db)]
 
 
-def delete_project_celery(content_id: int, content_type: str, user_id: int, db: Session):
+def delete_project_celery(
+    content_id: int, content_type: str, user_id: int, db: Session
+):
     try:
         if content_type not in ["video", "audio", "image"]:
             return {"detail": "Failed", "data": "Invalid type"}
@@ -73,41 +75,61 @@ def delete_project_celery(content_id: int, content_type: str, user_id: int, db: 
             attached_content.append(main_file)
             for file in attached_content:
                 if str(file.status) == "processing":
-                    return {"detail": "Failed", "data": "Please cancel the running job first"}
+                    return {
+                        "detail": "Failed",
+                        "data": "Please cancel the running job first",
+                    }
             for all_content in attached_content:
                 job_data = (
                     db.query(models.Jobs)
                     .filter(models.Jobs.content_id == all_content.id)
                     .first()
                 )
+                if job_data is not None:
+                    machine = (
+                        db.query(models.Machines)
+                        .filter(models.Machines.job_id == job_data.job_id)
+                        .first()
+                    )
+                    if machine is not None:
+                        machine.job_id = None
+                    db.add(machine)
                 try:
-                    file_size = "".join([x for x in all_content.size if x.isdigit() or x == "."])
+                    file_size = "".join(
+                        [x for x in all_content.size if x.isdigit() or x == "."]
+                    )
                 except:
                     file_size = 0
                 if content_type == "video":
-                    dashboard_user.video_processed = int(dashboard_user.video_processed) - 1
+                    dashboard_user.video_processed = (
+                        int(dashboard_user.video_processed) - 1
+                    )
                     storageJSON = json.loads(dashboard_user.storage_json)
                     storageJSON["video"] = float(storageJSON["video"]) - bytes_to_mb(
                         float(file_size)
                     )
                     dashboard_user.storage_json = json.dumps(storageJSON)
                 elif content_type == "audio":
-                    dashboard_user.audio_processed = int(dashboard_user.audio_processed) - 1
+                    dashboard_user.audio_processed = (
+                        int(dashboard_user.audio_processed) - 1
+                    )
                     storageJSON = json.loads(dashboard_user.storage_json)
                     storageJSON["audio"] = float(storageJSON["audio"]) - bytes_to_mb(
                         float(file_size)
                     )
                     dashboard_user.storage_json = json.dumps(storageJSON)
                 elif content_type == "image":
-                    dashboard_user.image_processed = int(dashboard_user.image_processed) - 1
+                    dashboard_user.image_processed = (
+                        int(dashboard_user.image_processed) - 1
+                    )
                     storageJSON = json.loads(dashboard_user.storage_json)
                     storageJSON["image"] = float(storageJSON["image"]) - bytes_to_mb(
                         float(file_size)
                     )
                     dashboard_user.storage_json = json.dumps(storageJSON)
-                dashboard_user.storage_used = float(dashboard_user.storage_used) - float(
-                    file_size
-                )
+                dashboard_user.storage_used = float(
+                    dashboard_user.storage_used
+                ) - float(file_size)
                 related_tags = (
                     db.query(models.ContentTags)
                     .filter(models.ContentTags.content_id == all_content.id)
@@ -147,7 +169,6 @@ async def delete_project(
     else:
         logger.error(f"Failed to delete project {id}")
         raise HTTPException(status_code=400, detail=result["data"])
-
 
 
 def rename_project_celery(
@@ -247,14 +268,14 @@ async def resend_email(
     logger.info(f"Resend email {current_user.user_id}")
     return {"detail": "Success", "data": "Email sent successfully"}
 
+
 @router.get(
     "/user_tier",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(RateLimiter(times=60, seconds=60))]
+    dependencies=[Depends(RateLimiter(times=60, seconds=60))],
 )
 async def user_tier(
-    current_user: TokenData = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: TokenData = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     user = (
         db.query(models.Users).filter(models.Users.id == current_user.user_id).first()
@@ -264,4 +285,3 @@ async def user_tier(
         raise HTTPException(status_code=400, detail="User not found")
     user_tier = str(user.user_tier)
     return USER_TIER[user_tier]
-

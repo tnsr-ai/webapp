@@ -52,12 +52,15 @@ class NotificationDict(BaseModel):
     newsletter: bool
     email_notification: bool
     discord_webhook: str
+    discord_notification: bool
 
 
 def change_password_task(passworddict: dict, user_id: int, db: Session) -> None:
     try:
-        user = (db.query(models.Users).filter(models.Users.id == user_id).first())
-        user_status = authenticate_user(user.email, passworddict["current_password"], db)
+        user = db.query(models.Users).filter(models.Users.id == user_id).first()
+        user_status = authenticate_user(
+            user.email, passworddict["current_password"], db
+        )
         if user_status is False:
             return {"detail": "Failed", "data": "Incorrect password"}
         if not user_status:
@@ -113,6 +116,7 @@ def get_settings_task(user_id: int, db: Session) -> None:
                 user_id=user_id,
                 newsletter=True,
                 email_notification=True,
+                discord_notification=False,
                 discord_webhook="",
                 created_at=int(time.time()),
             )
@@ -124,6 +128,7 @@ def get_settings_task(user_id: int, db: Session) -> None:
         else:
             details["newsletter"] = user_settings.newsletter
             details["email_notification"] = user_settings.email_notification
+            details["discord_notification"] = user_settings.discord_notification
             details["discord_webhook"] = user_settings.discord_webhook
         return {"detail": "Success", "data": details, "verified": user.verified}
     except Exception as e:
@@ -145,6 +150,7 @@ async def get_settings(
 
 def update_settings_task(new_settings: dict, user_id: int, db: Session) -> None:
     try:
+        print(new_settings)
         settings = (
             db.query(models.UserSetting)
             .filter(models.UserSetting.user_id == user_id)
@@ -154,6 +160,7 @@ def update_settings_task(new_settings: dict, user_id: int, db: Session) -> None:
             return {"detail": "Failed", "data": "User not found"}
         settings.newsletter = new_settings["newsletter"]
         settings.email_notification = new_settings["email_notification"]
+        settings.discord_notification = new_settings["discord_notification"]
         settings.discord_webhook = new_settings["discord_webhook"]
         settings.updated_at = int(time.time())
         db.commit()

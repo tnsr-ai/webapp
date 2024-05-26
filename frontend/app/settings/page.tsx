@@ -5,9 +5,14 @@ import SideDrawer from "../components/SideDrawer";
 import SettingsTab from "./SettingsTab";
 import { useGetSettings } from "../api/index";
 import Error from "../components/ErrorTab";
+import { useEffect } from "react";
 
 export default function Settings() {
-  const { data, isLoading, isSuccess, isError } = useGetSettings();
+  const { data, isLoading, isSuccess, isError, refetch } = useGetSettings();
+  useEffect(() => {
+    refetch();
+    console.log("Refected");
+  }, [data]);
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[296px_1fr] grid-rows-[minmax(62px,_90px)_1fr]">
       <div className="lg:col-start-1 lg:col-end-2 lg:row-start-1 lg:row-span-2 hidden lg:block">
