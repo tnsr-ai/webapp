@@ -94,6 +94,7 @@ def test_update_settings_success(client, create_test_db):
                 "newsletter": True,
                 "email_notification": True,
                 "discord_webhook": "",
+                "discord_notification": True,
             },
         )
         assert response.status_code == status.HTTP_200_OK
@@ -115,6 +116,7 @@ def test_update_settings_fail(client, create_test_db):
                 "newsletter": True,
                 "email_notification": True,
                 "discord_webhook": "",
+                "discord_notification": True,
             },
         )
         assert response.status_code == status.HTTP_200_OK
