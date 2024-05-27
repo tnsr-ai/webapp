@@ -6,17 +6,17 @@ on:
       - production
 
 jobs:
-  unit-tests:
+  unit-test:
     uses: ./.github/workflows/unit_test.yml
     secrets: inherit
 
-  e2e-tests:
+  e2e-test:
     uses: ./.github/workflows/e2e_test.yml
     secrets: inherit
 
   deployment-job:
-    needs: [unit-tests, e2e-tests]
-    if: ${{ needs.unit-tests.outputs.passed == 'true' && needs.e2e-tests.outputs.passed == 'true'}}
+    needs: [unit-test, e2e-test]
+    if: ${{ needs.unit-test.outputs.passed == 'true' && needs.e2e-test.outputs.passed == 'true'}}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
