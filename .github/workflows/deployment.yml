@@ -7,13 +7,11 @@ on:
       - completed
     branches:
       - production
-  push:
-    branches:
-      - production
 
 jobs:
   deployment-job:
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
       - uses: actions/checkout@v2
       - name: Set up SSH
@@ -24,7 +22,7 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} -p ${{ secrets.SSH_PORT }} <<-EOF
             cd webapp
-            git checkout ${{ secrets.SSH_BRANCH }}
+            git checkout production
             git pull
             cd frontend
             npm run build 
