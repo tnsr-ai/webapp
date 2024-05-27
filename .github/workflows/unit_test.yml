@@ -5,8 +5,6 @@ on:
 jobs:
   frontendtest:
     runs-on: ubuntu-22.04
-    outputs:
-      passed: ${{ steps.unit-test-result.outputs.passed }}
     steps:
       - name: Get Code
         uses: actions/checkout@v4
@@ -44,11 +42,11 @@ jobs:
       - name: Run Unit Tests
         run: npm run test
         working-directory: ./frontend
-      - name: Set output
-        if: ${{ success() }}
-        run: echo "::set-output name=passed::true"
   backendtest:
+    needs: "frontendtest"
     runs-on: ubuntu-22.04
+    outputs:
+      passed: ${{ steps.unit-test-result.outputs.passed }}
     services:
       redis:
         image: redis:latest
