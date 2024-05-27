@@ -1,28 +1,21 @@
 name: Deployment
 
-on:
-  workflow_run:
-    workflows: ["Unit Testing (Container)", "Cypress Tests"]
-    types:
-      - completed
+on: [workflow_dispatch]
 
 jobs:
   deployment-job:
     runs-on: ubuntu-latest
-    if: >
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'production'
     steps:
       - uses: actions/checkout@v2
       - name: Set up SSH
         uses: webfactory/ssh-agent@v0.9.0
         with:
-          ssh-private-key: ${{ secrets.SSH_KEY }}
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: Deploy to Server
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.USERNAME }}@${{ secrets.HOST }} -p ${{ secrets.PORT }} <<-EOF
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} -p ${{ secrets.SSH_PORT }} <<-EOF
             cd webapp
-            git checkout production
+            git checkout ${{ secrets.SSH_BRANCH }}
             git pull
             cd frontend
             npm run build 
