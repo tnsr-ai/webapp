@@ -11,13 +11,13 @@ jobs:
     secrets: inherit
 
   e2e-tests:
-    if: ${{ needs.unit-tests.outputs.passed == 'true' }}
+    if: ${{ needs.unit-tests.outputs.passed == 'true' && needs.unit-tests.outputs.passed == 'true'}}
     uses: ./.github/workflows/e2e_test.yml
     secrets: inherit
 
   deployment-job:
     needs: [unit-tests, e2e-tests]
-    if: ${{ needs.unit-tests.outputs.passed == 'true' && needs.e2e-tests.outputs.passed == 'true' }}
+    if: ${{ needs.unit-tests.outputs.passed == 'true' && needs.e2e-tests.outputs.passed == 'true' && needs.unit-tests.outputs.passed == 'true'}}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
