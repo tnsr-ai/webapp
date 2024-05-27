@@ -1,14 +1,13 @@
 name: Cypress Tests
 
 on:
-  push:
-    branches:
-      - development
-      - production
+  workflow_call:
 
 jobs:
   e2e:
     runs-on: ubuntu-22.04
+    outputs:
+      passed: ${{ steps.e2e-test-result.outputs.passed }}
     services:
       redis:
         image: redis:latest
@@ -108,3 +107,6 @@ jobs:
           NODE_ENV: "development"
           STRIPE_PUBLIC: ${{ secrets.STRIPE_PUBLIC }}
         working-directory: ./frontend
+      - name: Set output
+        if: ${{ success() }}
+        run: echo "::set-output name=passed::true"
