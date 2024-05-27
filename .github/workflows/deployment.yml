@@ -16,7 +16,7 @@ jobs:
 
   deployment-job:
     needs: [unit-test, e2e-test]
-    if: ${{ needs.unit-test.outputs.passed == 'true' && needs.e2e-test.outputs.passed == 'true'}}
+    if: ${{ needs.unit-test.output.passed == 'true' && needs.e2e-test.output.passed == 'true'}}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
