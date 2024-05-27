@@ -1,0 +1,26 @@
+name: Deployment Test
+
+on: [workflow_dispatch]
+
+jobs:
+  deployment-job:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+      - name: Deploy to Server
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} -p ${{ secrets.SSH_PORT }} <<-EOF
+            cd webapp
+            git checkout ${{ secrets.SSH_BRANCH }}
+            git pull
+            cd frontend
+            npm run build 
+            pm2 restart all --update-env
+            cd ..
+            cd backend
+            ./rebuild.sh
+          EOF
