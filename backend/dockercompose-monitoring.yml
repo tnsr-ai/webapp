@@ -9,9 +9,11 @@ x-logging: &default-logging
       - regex:
           expression: '^(?P<time>\d{4}-\d{2}-\d{2} \d{1,2}:\d{2}:\d{2},d{3}) (?P<message>(?s:.*))$$'
 
+version: "3.8"
+
 services:
   loki:
-    image: grafana/loki:main-10c88aa
+    image: grafana/loki:3.0.0
     restart: always
     command: -config.file=/etc/loki/local-config.yaml
     ports:
@@ -20,7 +22,7 @@ services:
       - app-network
 
   prometheus:
-    image: prom/prometheus:v2.49.0-rc.2
+    image: prom/prometheus:v2.51.2
     restart: always
     ports:
       - "9090:9090"
@@ -36,7 +38,7 @@ services:
       - app-network
 
   tempo:
-    image: grafana/tempo:main-19f6a6c
+    image: grafana/tempo:2.4.1
     restart: always
     command:
       [
@@ -45,6 +47,9 @@ services:
         "--storage.trace.local.path=/var/tempo",
         "--auth.enabled=false"
       ]
+    ports:
+      - "4317:4317"
+      - "4318:4318"
     depends_on:
       - loki
     logging: *default-logging
@@ -52,10 +57,10 @@ services:
       - app-network
 
   grafana:
-    image: grafana/grafana:9.5.15-ubuntu
+    image: grafana/grafana:10.4.2
     restart: always
     ports:
-      - "5000:3000"
+      - "4000:3000"
     volumes:
       - ./etc/grafana/:/etc/grafana/provisioning/datasources
       - ./etc/dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml
