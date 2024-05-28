@@ -43,10 +43,7 @@ jobs:
         run: npm run test
         working-directory: ./frontend
   backendtest:
-    needs: "frontendtest"
     runs-on: ubuntu-22.04
-    outputs:
-      passed: ${{ steps.unit-test-result.outputs.passed }}
     services:
       redis:
         image: redis:latest
@@ -108,6 +105,3 @@ jobs:
           APP_ENV: "github"
           TNSR_DOMAIN: "http://127.0.0.1:3000"
         working-directory: ./backend
-      - name: Set output
-        if: ${{ success() }}
-        run: echo "::set-output name=passed::true"
