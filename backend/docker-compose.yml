@@ -9,6 +9,8 @@ x-logging: &default-logging
       - regex:
           expression: '^(?P<time>\d{4}-\d{2}-\d{2} \d{1,2}:\d{2}:\d{2},d{3}) (?P<message>(?s:.*))$$'
 
+version: "3.4"
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -103,14 +105,14 @@ services:
       - redis
 
   loki:
-    image: grafana/loki:main-10c88aa
+    image: grafana/loki:3.0.0
     restart: always
     command: -config.file=/etc/loki/local-config.yaml
     ports:
       - "3100:3100"
 
   prometheus:
-    image: prom/prometheus:v2.49.0-rc.2
+    image: prom/prometheus:v2.51.2
     restart: always
     ports:
       - "9090:9090"
@@ -124,7 +126,7 @@ services:
     logging: *default-logging
 
   tempo:
-    image: grafana/tempo:main-19f6a6c
+    image: grafana/tempo:2.4.1
     restart: always
     command:
       [
@@ -138,7 +140,7 @@ services:
     logging: *default-logging
 
   grafana:
-    image: grafana/grafana:9.5.15-ubuntu
+    image: grafana/grafana:10.4.2
     restart: always
     ports:
       - "5000:3000"
