@@ -1,9 +1,7 @@
-name: Unit Testing (Container)
+name: Unit Testing
 on:
-  push:
-    branches:
-      - development
-      - production
+  workflow_call:
+
 jobs:
   frontendtest:
     runs-on: ubuntu-22.04
