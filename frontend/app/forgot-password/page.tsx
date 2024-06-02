@@ -70,6 +70,9 @@ export default function Forgot() {
 
   return (
     <div className="grid lg:grid-cols-[30%_70%] w-full">
+      <head>
+        <title>Tnsr.ai - Forgot Password</title>
+      </head>
       <GradientBar />
       <div className="w-full h-full flex justify-center items-center">
         <div

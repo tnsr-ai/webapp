@@ -80,6 +80,9 @@ export default function Reset() {
 
   return (
     <div className="grid lg:grid-cols-[30%_70%] w-full">
+      <head>
+        <title>Tnsr.ai - Reset Password</title>
+      </head>
       <GradientBar />
       <Suspense fallback={<SearchParamsFallback />}>
         <GetParams setUID={setUID} setPToken={setPToken} />

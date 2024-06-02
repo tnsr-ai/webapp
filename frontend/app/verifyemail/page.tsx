@@ -75,6 +75,9 @@ export default function Forgot() {
 
   return (
     <div className="grid lg:grid-cols-[30%_70%] w-full">
+      <head>
+        <title>Tnsr.ai - Verify Email</title>
+      </head>
       <Suspense fallback={<SearchBarFallback />}>
         <GradientBar />
         <GetParams setUID={setUID} setEToken={setEToken} />

@@ -12,6 +12,9 @@ export default function Dashboard() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[296px_1fr] grid-rows-[minmax(62px,_90px)_1fr]">
+      <head>
+        <title>Tnsr.ai - Dashboard</title>
+      </head>
       <div className="lg:col-start-1 lg:col-end-2 lg:row-start-1 lg:row-span-2 hidden lg:block">
         <div className="fixed top-0 h-full" data-testid="sideDrawer">
           <SideDrawer />

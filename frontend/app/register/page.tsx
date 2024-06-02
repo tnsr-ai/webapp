@@ -96,6 +96,9 @@ export default function Register() {
 
   return (
     <div className="grid lg:grid-cols-[30%_70%] w-full">
+      <head>
+        <title>Tnsr.ai</title>
+      </head>
       <GradientBar />
       <div className="w-full h-full flex justify-center items-center">
         <div className="flex-col text-black" data-testid="registerForm">
