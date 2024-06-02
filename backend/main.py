@@ -30,7 +30,7 @@ from utils import (
 from fastapi_limiter import FastAPILimiter
 from fastapi_limiter.depends import RateLimiter
 import time
-from utils import PrometheusMiddleware, metrics, logger, r2_client
+from utils import PrometheusMiddleware, metrics, logger, r2_client, run_command
 from dotenv import load_dotenv
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
@@ -174,6 +174,10 @@ async def startup():
     redis_connection = redis.from_url(
         f"redis://{REDIS_HOST}:{REDIS_PORT}", encoding="utf-8", decode_responses=True
     )
+    RUNPOD_KEY = os.getenv("RUNPOD_KEY")
+    command = f"runpodctl config --apiKey={RUNPOD_KEY}"
+    run_command("runpodctl config")
+    exit_code, cmd_output = run_command(command)
     await FastAPILimiter.init(redis_connection)
 
 

@@ -41,6 +41,7 @@ from sqlalchemy.orm import sessionmaker, declarative_base, Session
 import requests
 import models
 import redis
+import subprocess
 import json
 
 
@@ -1585,3 +1586,11 @@ def job_email(job_id: int, user_id: int, status: str):
                 return True
     except Exception as e:
         return str(e)
+
+def run_command(command: str):
+    output = subprocess.run(command, shell=True, capture_output=True, text=True)
+    ansi_escape = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
+    cmd_output = ansi_escape.sub("", output.stdout)
+    exit_code = output.returncode
+    cmd_error = output.stderr
+    return exit_code, cmd_output

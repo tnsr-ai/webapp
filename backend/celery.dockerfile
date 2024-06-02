@@ -16,19 +16,31 @@ RUN apt update && apt install -y \
     ghostscript \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Google Chrome
+RUN curl -sSL https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome-keyring.gpg && \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \
+    apt update && \
+    apt install -y google-chrome-stable && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Runpod  CLI
+RUN wget -qO- cli.runpod.net | bash
+
 RUN pip3 install --upgrade pip
 
 RUN pip3 install poetry
 
 RUN mkdir -p /app
 
-COPY . /app
-
 WORKDIR /app
+
+COPY /poetry.lock /pyproject.toml /app/
 
 RUN poetry config virtualenvs.create false
 
 RUN poetry install --no-dev --no-interaction --no-ansi
+
+COPY . /app
 
 ENV C_FORCE_ROOT=1
 
@@ -38,12 +50,5 @@ ENV PYTHONPATH=/app
 RUN mkdir -p /var/run/celery && chown -R nobody:nogroup /var/run/celery
 
 RUN chmod +x worker-start.sh
-
-# Install Google Chrome
-RUN curl -sSL https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome-keyring.gpg && \
-    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \
-    apt update && \
-    apt install -y google-chrome-stable && \
-    rm -rf /var/lib/apt/lists/*
 
 CMD ["bash", "worker-start.sh"]

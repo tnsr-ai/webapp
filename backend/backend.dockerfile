@@ -15,12 +15,33 @@ RUN apt update && apt install -y \
     libsm6 \ 
     libxext6 \
     curl \
+    wget \
     ghostscript \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Google Chrome
+RUN curl -sSL https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome-keyring.gpg && \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \
+    apt update && \
+    apt install -y google-chrome-stable && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Runpod  CLI
+RUN wget -qO- cli.runpod.net | bash
 
 RUN pip3 install --upgrade pip
 
 RUN pip3 install poetry
+
+RUN mkdir -p /app
+
+WORKDIR /app
+
+COPY /poetry.lock /pyproject.toml /app/
+
+RUN poetry config virtualenvs.create false
+
+RUN poetry install --no-dev --no-interaction --no-ansi
 
 COPY ./start.sh /start.sh
 
@@ -36,21 +57,10 @@ COPY . /app
 
 WORKDIR /app
 
-RUN poetry config virtualenvs.create false
-
-RUN poetry install --no-dev --no-interaction --no-ansi
-
 ENV PYTHONPATH=/app
 
 ENV OTEL_PYTHON_LOG_LEVEL="info"
 
 ENV OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED="true"
-
-# Install Google Chrome
-RUN curl -sSL https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome-keyring.gpg && \
-    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \
-    apt update && \
-    apt install -y google-chrome-stable && \
-    rm -rf /var/lib/apt/lists/*
 
 CMD ["/start.sh"]

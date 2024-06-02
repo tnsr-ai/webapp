@@ -34,7 +34,6 @@ import models
 from database import SessionLocal, engine
 from routers.auth import TokenData, get_current_user
 from routers.content import add_presigned_single, allTags
-from script_utils.util import *
 from utils import (
     CLOUDFLARE_METADATA,
     CLOUDFLARE_CONTENT,
@@ -69,8 +68,10 @@ from script_utils.gpu_workers import (
     RUNPOD_KEY,
 )
 import pandas as pd
-import runpod
 from humanfriendly import parse_timespan
+from utils import REDIS_HOST, REDIS_PORT, r2_client, logger, USER_TIER, MODELS_CONFIG
+import os, requests
+from celeryworker import celeryapp
 
 
 load_dotenv()
@@ -1847,8 +1848,9 @@ async def cancel_job(
                 url = f"https://console.vast.ai/api/v0/instances/{machine.instance_id}/?api_key={VAST_KEY}"
                 r = requests.delete(url)
             if machine.provider == "runpod":
-                runpod.api_key = RUNPOD_KEY
-                runpod.terminate_pod(machine.instance_id)
+                rp = RunpodIO("", "", "", 1, 86000, "12.0", {}, RUNPOD_KEY)
+                rp.instance_id = machine.instance_id
+                rp.terminate_instance()
             machine.machine_status = "CANCELLED"
             machine.updated_at = int(time.time())
             db.add(machine)
