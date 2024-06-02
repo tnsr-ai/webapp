@@ -242,11 +242,14 @@ export default function SettingsTab(props: any) {
                 <label className="font-medium tracking-tight">Email</label>
                 {props.data.verified === false && (
                   <div className="flex space-x-2">
-                    <p className="font-medium tracking-tight text-red-500">
+                    <p className="block md:hidden text-xs md:text-base text-center font-medium tracking-tight text-red-500">
+                      Not Verified
+                    </p>
+                    <p className="hidden md:block text-xs md:text-base text-center font-medium tracking-tight text-red-500">
                       (Not Verified)
                     </p>
                     <p
-                      className={`font-medium tracking-tight cursor-pointer ${emailStatus}`}
+                      className={`text-xs md:text-base font-medium tracking-tight cursor-pointer ${emailStatus}`}
                       onClick={() => {
                         resendTask.mutate({ id: 1 });
                         setEmailMsg("Email sent");

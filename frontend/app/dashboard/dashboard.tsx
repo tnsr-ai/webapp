@@ -40,6 +40,9 @@ export default function DashboardContent({ data }: DashboardContentProps) {
       className={`max-w-[1500px] m-auto ${spacingClass}`}
       data-testid="dashboardContent"
     >
+      <head>
+        <title>Tnsr.ai - Dashboard</title>
+      </head>
       <div className="flex flex-col ">
         <div id="welcome-back" className="">
           <div className="flex-row xl:flex mt-5 px-6 gap-5 ">

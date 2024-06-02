@@ -7,6 +7,7 @@ import SwipeableDrawer from "@mui/material/SwipeableDrawer";
 import { List } from "@mui/material";
 import { IconLogout } from "@tabler/icons-react";
 import Logout from "./ModalComponents/LogoutModal";
+import { useVerifyUser } from "../api/index";
 import {
   VideoCamera,
   SpeakerWave,
@@ -27,7 +28,10 @@ const AppBar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const pathname = usePathname().split("/")[1];
 
-  const drawerItems = [
+  const { data, isLoading, isSuccess } = useVerifyUser();
+  const [run, setRun] = useState(false);
+
+  const [drawerBtn, setDrawerBtn] = useState([
     {
       id: 1,
       icon: ChartBar,
@@ -84,7 +88,22 @@ const AppBar = () => {
       active: pathname === "settings" ? true : false,
       disabled: false,
     },
-  ];
+  ]);
+
+  useEffect(() => {
+    if (isSuccess === true && run === false && data !== undefined) {
+      const disableBtn = [2, 3, 4, 5, 6];
+      if (data?.data?.verified === false) {
+        drawerBtn.map((item: any) => {
+          if (disableBtn.includes(item.id)) {
+            item.disabled = true;
+          }
+        });
+      }
+      setDrawerBtn(drawerBtn);
+      setRun(true);
+    }
+  }, [drawerBtn, isSuccess, run, data]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -148,7 +167,7 @@ const AppBar = () => {
               </div>
               <div className="mt-5">
                 <div>
-                  {drawerItems.map((nav, index) => (
+                  {drawerBtn.map((nav, index) => (
                     <Link
                       key={nav.title}
                       href={nav.disabled === false ? nav.href : "/dashboard"}
