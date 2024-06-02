@@ -13,4 +13,4 @@ docker compose $COMPOSE_FILES up --build -d
 docker image prune -af
 docker builder prune -af
 
-docker compose -f dockercompose-db.yml -f dockercompose-app.yml -f dockercompose-monitoring.yml -f dockercompose-proxy.yml -f dockercompose-celery.yml up -d
+# docker compose -f dockercompose-db.yml -f dockercompose-app.yml -f dockercompose-monitoring.yml -f dockercompose-proxy.yml -f dockercompose-celery.yml up -d
