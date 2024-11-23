@@ -74,40 +74,43 @@ export default function Forgot() {
   }, [counter]);
 
   return (
-    <div className="grid lg:grid-cols-[30%_70%] w-full">
-      <Suspense fallback={<SearchBarFallback />}>
-        <GradientBar />
-        <GetParams setUID={setUID} setEToken={setEToken} />
-      </Suspense>
-      <div className="w-full h-full flex justify-center items-center">
-        <div className="flex-col justify-center items-center text-black">
-          {isLoading && (
-            <div>
-              <Loader color="grape" variant="dots" />
-            </div>
-          )}
-          {!isLoading && isSuccess && (
-            <div>
-              <h1 className="text-center font-semibold text-2xl lg:text-3xl mt-[2em] lg:mt-0 tracking-tight">
-                Email Verified
-              </h1>
-              <p className="text-center font-normal text-lg lg:text-xl mt-2 lg:mt-3 text-gray-400 tracking-tight">
-                {`You will be redirected in ${counter} seconds...`}
-              </p>
-            </div>
-          )}
-          {!isLoading && isError && (
-            <div>
-              <h1 className="text-center font-semibold text-2xl lg:text-3xl mt-[2em] lg:mt-0 tracking-tight">
-                Email Not Verified
-              </h1>
-              <p className="text-center font-normal text-lg lg:text-xl mt-2 lg:mt-3 text-gray-400 tracking-tight">
-                {`Please try again. Redirecting in ${counter} seconds...`}
-              </p>
-            </div>
-          )}
+    <>
+      <title>Verify Email</title>
+      <div className="grid lg:grid-cols-[30%_70%] w-full">
+        <Suspense fallback={<SearchBarFallback />}>
+          <GradientBar />
+          <GetParams setUID={setUID} setEToken={setEToken} />
+        </Suspense>
+        <div className="w-full h-full flex justify-center items-center">
+          <div className="flex-col justify-center items-center text-black">
+            {isLoading && (
+              <div>
+                <Loader color="grape" variant="dots" />
+              </div>
+            )}
+            {!isLoading && isSuccess && (
+              <div>
+                <h1 className="text-center font-semibold text-2xl lg:text-3xl mt-[2em] lg:mt-0 tracking-tight">
+                  Email Verified
+                </h1>
+                <p className="text-center font-normal text-lg lg:text-xl mt-2 lg:mt-3 text-gray-400 tracking-tight">
+                  {`You will be redirected in ${counter} seconds...`}
+                </p>
+              </div>
+            )}
+            {!isLoading && isError && (
+              <div>
+                <h1 className="text-center font-semibold text-2xl lg:text-3xl mt-[2em] lg:mt-0 tracking-tight">
+                  Email Not Verified
+                </h1>
+                <p className="text-center font-normal text-lg lg:text-xl mt-2 lg:mt-3 text-gray-400 tracking-tight">
+                  {`Please try again. Redirecting in ${counter} seconds...`}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
