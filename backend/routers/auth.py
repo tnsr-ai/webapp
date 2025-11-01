@@ -149,6 +149,12 @@ oauth2_bearer = OAuth2PasswordBearer(tokenUrl="auth/login", auto_error=False)
 
 def get_current_user(db: db_dependency, token: str = Depends(oauth2_bearer)):
     try:
+        if token is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="No token provided",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
         if len(token.split(".")) != 3:
             tracer = trace.get_tracer(__name__)
             with tracer.start_as_current_span("get_current_user_jwt_auth"):
@@ -157,6 +163,11 @@ def get_current_user(db: db_dependency, token: str = Depends(oauth2_bearer)):
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 headers={"WWW-Authenticate": "Bearer"},
             )
+    except HTTPException as he:
+        tracer = trace.get_tracer(__name__)
+        with tracer.start_as_current_span("get_current_user_jwt_auth"):
+            logger.info(f"Invalid Token")
+        raise he
     except Exception as e:
         tracer = trace.get_tracer(__name__)
         with tracer.start_as_current_span("get_current_user_jwt_auth"):

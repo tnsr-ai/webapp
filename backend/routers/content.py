@@ -613,15 +613,17 @@ def delete_content_task(content_id: int, content_type: str, user_id: int, db: Se
                 .filter(models.Content.content_type == content_type)
                 .all()
             )
-            machine = (
-                db.query(models.Machines)
-                .filter(models.Machines.job_id == job_data.job_id)
-                .first()
-            )
-            if machine is not None:
-                machine.job_id = None
-            db.add(machine)
-            db.commit()
+            machine = None
+            if job_data is not None:
+                machine = (
+                    db.query(models.Machines)
+                    .filter(models.Machines.job_id == job_data.job_id)
+                    .first()
+                )
+                if machine is not None:
+                    machine.job_id = None
+                    db.add(machine)
+                    db.commit()
             attached_content.append(main_file)
             for all_content in attached_content:
                 file_size = "".join(
@@ -696,11 +698,10 @@ async def delete_content(
     try:
         result = delete_content_task(id, content_type, current_user.user_id, db)
         if result["detail"] == "Success":
-            logger.info("Content renamed successfully")
             return {"detail": "Success", "data": "Project deleted"}
         else:
-            logger.error("Failed to delete project - " + str(result["data"]))
             raise HTTPException(status_code=400, detail=result["data"])
-    except:
-        logger.error("Failed to delete project")
+    except HTTPException as he:
+        raise he
+    except Exception as e:
         raise HTTPException(status_code=400, detail="Failed to delete project")
