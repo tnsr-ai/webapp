@@ -1,3 +1,4 @@
+"use client";
 import AppBar from "../components/AppBar";
 import SideDrawer from "../components/SideDrawer";
 import JobsTable from "./JobsTable";
