@@ -14,20 +14,50 @@ import { setCookie, getCookie } from "cookies-next";
 
 export default function ContentList(props: any) {
   const pathname = usePathname().replace("/", "");
-  const browserData =
-    getCookie(usePathname().split("/")[1]) ||
-    '{"startPage": 1, "endPage": 1, "totalPage": 0, "offset": 0, "prevPage": true, "nextPage": true}';
-
-  const pageJSON = JSON.parse(browserData as string);
-  const disabled = true;
-  const enabled = false;
-  const [startPage, setStartPage] = useState(pageJSON.startPage);
-  const [endPage, setEndPage] = useState(pageJSON.endPage);
-  const [totalPage, setTotalPage] = useState(pageJSON.totalPage);
   const limit = 12;
-  const [offset, setOffset] = useState(pageJSON.offset);
-  const [prevPage, setPrevPage] = useState(pageJSON.prevPage);
-  const [nextPage, setNextPage] = useState(pageJSON.nextPage);
+  
+  // Initialize with default values if cookie doesn't exist or is invalid
+  const getInitialPaginationState = () => {
+    try {
+      const browserData = getCookie(pathname);
+      if (!browserData || typeof browserData !== 'string') {
+        return {
+          startPage: 1,
+          endPage: limit,
+          totalPage: 0,
+          offset: 0,
+          prevPage: true,
+          nextPage: true
+        };
+      }
+      const parsed = JSON.parse(browserData);
+      return {
+        startPage: parsed.startPage || 1,
+        endPage: parsed.endPage || limit,
+        totalPage: parsed.totalPage || 0,
+        offset: parsed.offset || 0,
+        prevPage: parsed.prevPage !== undefined ? parsed.prevPage : true,
+        nextPage: parsed.nextPage !== undefined ? parsed.nextPage : true
+      };
+    } catch (error) {
+      return {
+        startPage: 1,
+        endPage: limit,
+        totalPage: 0,
+        offset: 0,
+        prevPage: true,
+        nextPage: true
+      };
+    }
+  };
+
+  const initialState = getInitialPaginationState();
+  const [startPage, setStartPage] = useState(initialState.startPage);
+  const [endPage, setEndPage] = useState(initialState.endPage);
+  const [totalPage, setTotalPage] = useState(initialState.totalPage);
+  const [offset, setOffset] = useState(initialState.offset);
+  const [prevPage, setPrevPage] = useState(initialState.prevPage);
+  const [nextPage, setNextPage] = useState(initialState.nextPage);
   const [domLoaded, setDomLoaded] = useState(false);
   const [shouldPoll, setShouldPoll] = useState(false);
 
@@ -73,41 +103,55 @@ export default function ContentList(props: any) {
   const [btnClicked, setBtnClicked] = useState(false);
 
   const nextData = () => {
-    setOffset(offset + limit);
-    setStartPage(startPage + limit);
-    setPrevPage(enabled);
-    if (endPage + limit >= totalPage) {
-      setEndPage(totalPage);
-    } else {
-      setEndPage(endPage + limit);
+    // Prevent going beyond available data
+    if (offset >= totalPage) return;
+    
+    const newOffset = Math.min(offset + limit, totalPage);
+    const newStartPage = startPage + limit;
+    let newEndPage = Math.min(endPage + limit, totalPage);
+    
+    setOffset(newOffset);
+    setStartPage(newStartPage);
+    setPrevPage(false);
+    
+    // Disable next button if we're at the end
+    if (newOffset >= totalPage - limit || newEndPage >= totalPage) {
+      setNextPage(true);
     }
+    
+    setEndPage(newEndPage);
     setBtnClicked(true);
   };
 
   const prevData = () => {
-    setOffset(offset - limit);
-    setNextPage(enabled);
-    if (startPage - limit <= 1) {
+    // Prevent going before the first page
+    if (offset <= 0) return;
+    
+    const newOffset = Math.max(0, offset - limit);
+    const newStartPage = Math.max(1, startPage - limit);
+    let newEndPage = Math.max(limit, endPage - limit);
+    
+    setOffset(newOffset);
+    setNextPage(false);
+    
+    // Disable prev button if we're at the beginning
+    if (newOffset <= 0) {
       setStartPage(1);
-      pageJSON.prevPage = false;
-      setPrevPage(disabled);
+      setPrevPage(true);
     } else {
-      setStartPage(startPage - limit);
+      setStartPage(newStartPage);
     }
-    if (endPage - limit <= limit) {
-      setEndPage(limit);
-    } else {
-      setEndPage(endPage - limit);
-    }
+    
+    setEndPage(newEndPage);
     setBtnClicked(true);
   };
 
   const firstPage = () => {
     setOffset(0);
     setStartPage(1);
-    setEndPage(pageJSON.limit);
-    setPrevPage(disabled);
-    setNextPage(enabled);
+    setEndPage(Math.min(limit, totalPage || 0));
+    setPrevPage(true);
+    setNextPage((totalPage || 0) <= limit);
   };
 
   const queryClient = useQueryClient();
@@ -132,6 +176,7 @@ export default function ContentList(props: any) {
 
   useEffect(() => {
     setDomLoaded(true);
+    
     if (props.VideoUpload === true) {
       setBtnClicked(false);
       firstPage();
@@ -139,51 +184,66 @@ export default function ContentList(props: any) {
       props.setVideoUpload(false);
       return;
     }
-    if (isSuccess === true && isFetched === true) {
-      setTotalPage(data.total);
-      if (data.total <= limit) {
-        setEndPage(data.total);
-        setNextPage(disabled);
-      } else {
-        setEndPage(startPage + limit - 1);
-        setNextPage(enabled);
+    
+    if (isSuccess === true && isFetched === true && data) {
+      const newTotalPage = data.total || 0;
+      setTotalPage(newTotalPage);
+      
+      // Handle case when current page is empty after deletion
+      if (data.data.length === 0 && newTotalPage > 0) {
+        // Navigate to previous page if current page is empty
+        const newOffset = Math.max(0, offset - limit);
+        const newStartPage = Math.max(1, startPage - limit);
+        const newEndPage = Math.min(newStartPage + limit - 1, newTotalPage);
+        
+        setOffset(newOffset);
+        setStartPage(newStartPage);
+        setEndPage(newEndPage);
+        setPrevPage(newOffset <= 0);
+        setNextPage(newOffset + limit >= newTotalPage);
+        return;
       }
-      if (endPage >= totalPage) {
-        setEndPage(totalPage);
-        setNextPage(disabled);
+      
+      // Update end page based on total items and current offset
+      if (newTotalPage === 0) {
+        setEndPage(0);
+        setNextPage(true);
+        setPrevPage(true);
+      } else if (newTotalPage <= limit) {
+        setEndPage(newTotalPage);
+        setNextPage(true);
+        setPrevPage(true);
+      } else {
+        const calculatedEndPage = Math.min(offset + limit, newTotalPage);
+        setEndPage(calculatedEndPage);
+        setNextPage(offset + limit >= newTotalPage);
+        setPrevPage(offset <= 0);
       }
     }
+  }, [isFetched, props.VideoUpload, isSuccess, data, limit, offset, startPage]);
 
-    var cookieJSON = {
-      startPage: startPage,
-      endPage: endPage,
-      totalPage: totalPage,
-      offset: offset,
-      prevPage: prevPage,
-      nextPage: nextPage,
+  // Separate effect for cookie management
+  useEffect(() => {
+    const cookieJSON = {
+      startPage,
+      endPage,
+      totalPage,
+      offset,
+      prevPage,
+      nextPage,
     };
     setCookie(pathname, JSON.stringify(cookieJSON), { maxAge: 60 * 60 * 24 });
+  }, [startPage, endPage, totalPage, offset, prevPage, nextPage, pathname]);
+
+  // Separate effect for scroll behavior
+  useEffect(() => {
     if (btnClicked === true) {
       const nextBtn = document.getElementById("next_button");
-      const nextBtnOffset = nextBtn?.offsetTop;
+      const nextBtnOffset = nextBtn?.offsetTop || 0;
       window.scrollTo({ top: nextBtnOffset, behavior: "instant" });
+      setBtnClicked(false);
     }
-  }, [
-    isFetched,
-    props.VideoUpload,
-    refetch,
-    isSuccess,
-    data,
-    btnClicked,
-    startPage,
-    endPage,
-    totalPage,
-    limit,
-    offset,
-    prevPage,
-    nextPage,
-    data,
-  ]);
+  }, [btnClicked]);
 
   return (
     <>
@@ -193,7 +253,7 @@ export default function ContentList(props: any) {
             <h1 className="w-max text-2xl font-semibold mt-3 ml-5 mb-5">
               {`Uploaded ${contentNameCapitalized}`}
             </h1>
-            {pageJSON.startPage > 1 && (
+            {startPage > 1 && (
               <div
                 className="flex justify-end items-center mt-3 ml-5 mb-5 cursor-pointer"
                 onClick={jumpToPage}
@@ -227,7 +287,7 @@ export default function ContentList(props: any) {
                   )}
                 </div>
                 <div className="mt-5">
-                  {data.total > limit && (
+                  {data && data.total > limit && (
                     <div className="flex flex-col items-center">
                       <span className="text-sm text-black ">
                         Showing{" "}

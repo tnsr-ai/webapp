@@ -98,6 +98,7 @@ metadata_s3 = boto3.client(
     aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
     aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
     endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
+    region_name=CLOUDFLARE_REGION,
     config=boto3.session.Config(signature_version="s3v4"),
 )
 

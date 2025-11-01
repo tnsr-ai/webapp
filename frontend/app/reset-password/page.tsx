@@ -5,6 +5,8 @@ import { setResetPassword } from "../api";
 import { Loader } from "@mantine/core";
 import { useMutation } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
+import { PAGE_TITLES } from "../utils/pageTitle";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 function GetParams({ setUID, setPToken }: { setUID: any; setPToken: any }) {
   const searchParams = useSearchParams();
@@ -20,7 +22,9 @@ function SearchParamsFallback() {
   return <div>Loading search parameters...</div>;
 }
 
+
 export default function Reset() {
+  usePageTitle(PAGE_TITLES.RESET_PASSWORD);
   const [uid, setUID] = useState("");
   const [ptoken, setPToken] = useState("");
 

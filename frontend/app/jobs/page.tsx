@@ -1,8 +1,12 @@
+"use client";
 import AppBar from "../components/AppBar";
 import SideDrawer from "../components/SideDrawer";
 import JobsTable from "./JobsTable";
+import { PAGE_TITLES } from "../utils/pageTitle";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 export default function Dashboard() {
+  usePageTitle(PAGE_TITLES.JOBS);
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[296px_1fr] grid-rows-[minmax(62px,_90px)_1fr]">
       <div className="lg:col-start-1 lg:col-end-2 lg:row-start-1 lg:row-span-2 hidden lg:block">

@@ -2,8 +2,11 @@
 import AppBar from "@/app/components/AppBar";
 import SideDrawer from "@/app/components/SideDrawer";
 import ContentListRow from "../../content/contentLists/ContentRowList";
+import { PAGE_TITLES } from "@/app/utils/pageTitle";
+import { usePageTitle } from "@/app/hooks/usePageTitle";
 
 export default function AudioTabs({ params }: { params: { slug: string } }) {
+  usePageTitle(PAGE_TITLES.AUDIO);
   const content_id = Number(params.slug);
 
   return (

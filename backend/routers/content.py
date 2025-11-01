@@ -106,6 +106,7 @@ def add_presigned_single(file_key, bucket, rd):
             aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
             aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
             endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
+            region_name=CLOUDFLARE_REGION,
             config=botocore.config.Config(
                 s3={"addressing_style": "path"},
                 signature_version="s3v4",
@@ -138,6 +139,7 @@ def get_object_data(file_key, bucket, rd):
             aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
             aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
             endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
+            region_name=CLOUDFLARE_REGION,
             config=botocore.config.Config(
                 s3={"addressing_style": "path"},
                 signature_version="s3v4",
@@ -197,10 +199,15 @@ def get_content_table(user_id, table_name, limit, offset, db):
             db.query(models.Content)
             .filter(models.Content.user_id == user_id)
             .filter(models.Content.id_related == None)
+            .filter(models.Content.content_type == table_name)
             .filter(
                 or_(
                     models.Content.status == "completed",
                     models.Content.status == "indexing",
+                    and_(
+                        models.Content.status == "cancelled",
+                        models.Content.created_at >= current_time,
+                    ),
                 )
             )
             .count()
@@ -611,15 +618,17 @@ def delete_content_task(content_id: int, content_type: str, user_id: int, db: Se
                 .filter(models.Content.content_type == content_type)
                 .all()
             )
-            machine = (
-                db.query(models.Machines)
-                .filter(models.Machines.job_id == job_data.job_id)
-                .first()
-            )
-            if machine is not None:
-                machine.job_id = None
-            db.add(machine)
-            db.commit()
+            machine = None
+            if job_data is not None:
+                machine = (
+                    db.query(models.Machines)
+                    .filter(models.Machines.job_id == job_data.job_id)
+                    .first()
+                )
+                if machine is not None:
+                    machine.job_id = None
+                    db.add(machine)
+                    db.commit()
             attached_content.append(main_file)
             for all_content in attached_content:
                 file_size = "".join(
@@ -694,11 +703,10 @@ async def delete_content(
     try:
         result = delete_content_task(id, content_type, current_user.user_id, db)
         if result["detail"] == "Success":
-            logger.info("Content renamed successfully")
             return {"detail": "Success", "data": "Project deleted"}
         else:
-            logger.error("Failed to delete project - " + str(result["data"]))
             raise HTTPException(status_code=400, detail=result["data"])
-    except:
-        logger.error("Failed to delete project")
+    except HTTPException as he:
+        raise he
+    except Exception as e:
         raise HTTPException(status_code=400, detail="Failed to delete project")

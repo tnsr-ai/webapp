@@ -5,8 +5,11 @@ import DropZone from "../components/DropZone";
 import { useState } from "react";
 import ContentList from "../content/contentCards/ContentList";
 import { videoData } from "../constants/constants";
+import { PAGE_TITLES } from "../utils/pageTitle";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 export default function Video() {
+  usePageTitle(PAGE_TITLES.VIDEO);
   const [VideoUpload, setVideoUpload] = useState(false);
 
   return (

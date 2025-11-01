@@ -47,6 +47,8 @@ export default function ContentCard(props: any) {
   React.useEffect(() => {
     if (props.data["status"] === "indexing") {
       setShouldPulse(true);
+      // Reset image loaded state when content goes back to indexing
+      setIsLoaded(false);
     } else {
       setShouldPulse(false);
     }
@@ -54,14 +56,16 @@ export default function ContentCard(props: any) {
 
   return (
     <div key={props.data["title"]} className="w-full">
-      <div className="w-full h-[312px]">
-        {props.data["status"] != "completed" && (
+      <div className="w-full h-[312px] relative">
+        {/* Show skeleton when content is not completed OR when image is still loading */}
+        {(props.data["status"] !== "completed" || !isLoaded) && (
           <div
-            className={`h-full w-full ${shouldPulse ? "animate-pulse" : ""}`}
+            className={`absolute inset-0 h-full w-full ${shouldPulse ? "animate-pulse" : ""} z-10`}
           >
             <div className="h-full w-full bg-gray-300 rounded-t-2xl"></div>
           </div>
         )}
+        {/* Show image when content is completed */}
         {props.data["status"] === "completed" && (
           <Link href={`/${pathname}/${props.data["id"]}`}>
             <Image
@@ -71,7 +75,7 @@ export default function ContentCard(props: any) {
               height={312}
               sizes="100vw"
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
-              className={`rounded-t-2xl transition-all duration-500 ease-in-out ${
+              className={`rounded-t-2xl transition-opacity duration-500 ease-in-out ${
                 isLoaded ? "opacity-100" : "opacity-0"
               }`}
               onLoad={() => setIsLoaded(true)}

@@ -6,8 +6,11 @@ import SettingsTab from "./SettingsTab";
 import { useGetSettings } from "../api/index";
 import Error from "../components/ErrorTab";
 import { useEffect } from "react";
+import { PAGE_TITLES } from "../utils/pageTitle";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 export default function Settings() {
+  usePageTitle(PAGE_TITLES.SETTINGS);
   const { data, isLoading, isSuccess, isError, refetch } = useGetSettings();
   useEffect(() => {
     refetch();

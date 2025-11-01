@@ -56,12 +56,18 @@ export default function PricingTab({ country }: PricingTabProps) {
                     {item.name}
                   </span>
                   <div className="mt-4 text-gray-800 text-3xl font-semibold">
-                    {`${rates.symbol} ${increaseAndRound(
-                      rates.rate * item.times
-                    )}`}{" "}
-                    <span className="text-xl text-gray-600 font-normal">
-                      spent
-                    </span>
+                    {rates.rate && rates.symbol ? (
+                      <>
+                        {`${rates.symbol} ${increaseAndRound(
+                          rates.rate * item.times
+                        )}`}{" "}
+                        <span className="text-xl text-gray-600 font-normal">
+                          spent
+                        </span>
+                      </>
+                    ) : (
+                      <div className="h-9 w-24 bg-gray-200 animate-pulse rounded"></div>
+                    )}
                   </div>
                 </div>
                 <ul className="py-8 space-y-3">

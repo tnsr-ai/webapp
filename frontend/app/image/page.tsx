@@ -5,8 +5,11 @@ import DropZone from "../components/DropZone";
 import { useState } from "react";
 import ContentList from "../content/contentCards/ContentList";
 import { imageData } from "../constants/constants";
+import { PAGE_TITLES } from "../utils/pageTitle";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 export default function Image() {
+  usePageTitle(PAGE_TITLES.IMAGE);
   const [ImageUpload, setImageUpload] = useState(false);
 
   return (

@@ -5,6 +5,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Loader } from "@mantine/core";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
+import { PAGE_TITLES } from "../utils/pageTitle";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 function SearchBarFallback() {
   return <>placeholder</>;
@@ -24,7 +26,9 @@ function GetParams({ setUID, setEToken }: { setUID: any; setEToken: any }) {
   return null;
 }
 
+
 export default function Forgot() {
+  usePageTitle(PAGE_TITLES.VERIFY_EMAIL);
   const [counter, setCounter] = useState(5);
   const [uid, setUID] = useState("");
   const [etoken, setEToken] = useState("");

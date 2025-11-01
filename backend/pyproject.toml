@@ -5,17 +5,18 @@ description = "tnsr.ai backend"
 authors = ["Amit Bera <amitalokbera@gmail.com>"]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.10"
+numpy = "1.23.5"
 requests = "^2.31.0"
 fastapi = "0.95.2"
-uvicorn = {extras = ["standard"], version = "^0.22.0"}
+uvicorn = { extras = ["standard"], version = "^0.22.0" }
 SQLAlchemy = "2.0.29"
 alembic = "^1.11.1"
 pydantic = "^1.10.8"
 psycopg2-binary = "^2.9.6"
-passlib = {extras = ["bcrypt"], version = "^1.7.4"}
+passlib = { extras = ["bcrypt"], version = "^1.7.4" }
 python-multipart = "^0.0.6"
-python-jose = {extras = ["cryptography"], version = "^3.3.0"}
+python-jose = { extras = ["cryptography"], version = "^3.3.0" }
 pyjwt = "^2.7.0"
 boto3 = "^1.26.160"
 tqdm = "^4.65.0"
@@ -26,10 +27,10 @@ starlette-session = "^0.4.3"
 fastapi-sso = "^0.7.0"
 ffmpeg-python = "^0.2.0"
 opencv-contrib-python = "^4.8.0.74"
-celery = {extras = ["redis"], version = "^5.3.1"}
+celery = { extras = ["redis"], version = "^5.3.1" }
 redis = "^4.6.0"
 watchdog = "^3.0.0"
-llvmlite = "0.40.1"
+llvmlite = "0.42.0"
 librosa = "0.10.0.post2"
 matplotlib = "3.7.0"
 pillow = "^10.0.0"
@@ -50,7 +51,7 @@ pytest-celery = "^0.0.0"
 pytest-watch = "^4.2.0"
 flake8 = "^6.1.0"
 gunicorn = "^21.2.0"
-prometheus-client = {git = "https://github.com/prometheus/client_python.git"}
+prometheus-client = { git = "https://github.com/prometheus/client_python.git" }
 opentelemetry-api = "^1.22.0"
 opentelemetry-sdk = "^1.22.0"
 opentelemetry-instrumentation-fastapi = "^0.43b0"

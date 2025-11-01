@@ -5,8 +5,11 @@ import { useMutation } from "@tanstack/react-query";
 import { setForgotPassword } from "../api/index";
 import { Loader } from "@mantine/core";
 import { isValidEmail } from "../utils/utils";
+import { PAGE_TITLES } from "../utils/pageTitle";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 export default function Forgot() {
+  usePageTitle(PAGE_TITLES.FORGOT_PASSWORD);
   const [message, setMessage] = useState("");
   const [labelColor, setLabelColor] = useState("text-red-600");
   const [run, setRun] = useState(false);
