@@ -66,6 +66,7 @@ CLOUDFLARE_SECRET_KEY = os.getenv("CLOUDFLARE_SECRET_KEY")
 CLOUDFLARE_CONTENT = os.getenv("CLOUDFLARE_CONTENT")
 CLOUDFLARE_METADATA = os.getenv("CLOUDFLARE_METADATA")
 CLOUDFLARE_EXPIRE_TIME = os.getenv("CLOUDFLARE_EXPIRE_TIME")
+CLOUDFLARE_REGION = os.getenv("CLOUDFLARE_REGION", "apac")
 
 # JWT Credentials
 JWT_SECRET = os.getenv("JWT_SECRET")
@@ -724,6 +725,7 @@ r2_client = boto3.client(
     aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
     aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
     endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
+    region_name=CLOUDFLARE_REGION,
     config=botocore.config.Config(
         s3={"addressing_style": "path"},
         signature_version="s3v4",
@@ -736,6 +738,7 @@ r2_resource = boto3.resource(
     aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
     aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
     endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
+    region_name=CLOUDFLARE_REGION,
 )
 
 
@@ -1047,6 +1050,7 @@ def presigned_get(key, bucket, rd, expire=None):
             aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
             aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
             endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
+            region_name=CLOUDFLARE_REGION,
             config=botocore.config.Config(
                 s3={"addressing_style": "path"},
                 signature_version="s3v4",
@@ -1077,6 +1081,7 @@ def job_presigned_get(key, bucket):
             aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
             aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
             endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
+            region_name=CLOUDFLARE_REGION,
             config=botocore.config.Config(
                 s3={"addressing_style": "path"},
                 signature_version="s3v4",
@@ -1250,6 +1255,7 @@ def delete_r2_file(file_key: str, bucket: str):
             aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
             aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
             endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
+            region_name=CLOUDFLARE_REGION,
         )
         bucket_ = r2_resource_.Bucket(bucket)
         bucket_.Object(file_key).delete()

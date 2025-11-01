@@ -106,6 +106,7 @@ def add_presigned_single(file_key, bucket, rd):
             aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
             aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
             endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
+            region_name=CLOUDFLARE_REGION,
             config=botocore.config.Config(
                 s3={"addressing_style": "path"},
                 signature_version="s3v4",
@@ -138,6 +139,7 @@ def get_object_data(file_key, bucket, rd):
             aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
             aws_secret_access_key=CLOUDFLARE_SECRET_KEY,
             endpoint_url=CLOUDFLARE_ACCOUNT_ENDPOINT,
+            region_name=CLOUDFLARE_REGION,
             config=botocore.config.Config(
                 s3={"addressing_style": "path"},
                 signature_version="s3v4",
