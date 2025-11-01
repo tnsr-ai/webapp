@@ -6,8 +6,11 @@ import { useDashboard } from "../api/index";
 import { Loader } from "@mantine/core";
 import Error from "../components/ErrorTab";
 import VerifyBanner from "../components/VerifyBanner";
+import { PAGE_TITLES } from "../utils/pageTitle";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 export default function Dashboard() {
+  usePageTitle(PAGE_TITLES.DASHBOARD);
   const { data, isLoading, isSuccess, isError } = useDashboard();
 
   return (

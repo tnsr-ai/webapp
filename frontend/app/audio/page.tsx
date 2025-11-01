@@ -5,8 +5,11 @@ import DropZone from "../components/DropZone";
 import { useState } from "react";
 import ContentList from "../content/contentCards/ContentList";
 import { audioData } from "../constants/constants";
+import { PAGE_TITLES } from "../utils/pageTitle";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 export default function Audio() {
+  usePageTitle(PAGE_TITLES.AUDIO);
   const [AudioUpload, setAudioUpload] = useState(false);
 
   return (

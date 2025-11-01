@@ -7,8 +7,11 @@ import useAuth from "@/hooks/useAuth";
 import { AuthenticationContext } from "./context/AuthContext";
 import { isValidEmail } from "./utils/utils";
 import { useQueryClient } from "@tanstack/react-query";
+import { PAGE_TITLES } from "./utils/pageTitle";
+import { usePageTitle } from "./hooks/usePageTitle";
 
 export default function Home() {
+  usePageTitle(PAGE_TITLES.LOGIN);
   const [inputs, setInputs] = useState({
     email: "",
     password: "",

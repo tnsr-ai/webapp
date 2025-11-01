@@ -7,13 +7,17 @@ import useAuth from "@/hooks/useAuth";
 import { AuthenticationContext } from "../context/AuthContext";
 import { isValidEmail } from "../utils/utils";
 import { useQueryClient } from "@tanstack/react-query";
+import { PAGE_TITLES } from "../utils/pageTitle";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 function isStrongPassword(password: string): boolean {
   const uniqueChars = new Set(password);
   return password.length >= 8 && uniqueChars.size >= 4;
 }
 
+
 export default function Register() {
+  usePageTitle(PAGE_TITLES.REGISTER);
   const { signup, googleAuth } = useAuth();
   const { loading, error, setAuthState } = useContext(AuthenticationContext);
   const [inputs, setInputs] = useState({

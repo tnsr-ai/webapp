@@ -11,6 +11,8 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Toaster, toast } from "sonner";
 import { Suspense } from "react";
+import { PAGE_TITLES } from "../utils/pageTitle";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 function getCurrentDimension() {
   return {
@@ -72,7 +74,9 @@ function ShowToast() {
   );
 }
 
+
 export default function Billing() {
+  usePageTitle(PAGE_TITLES.BILLING);
   const { data, isLoading, isSuccess, isError } = useGetBalance();
 
   const getIP = useGetIP();
