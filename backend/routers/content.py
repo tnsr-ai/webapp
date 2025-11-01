@@ -199,10 +199,15 @@ def get_content_table(user_id, table_name, limit, offset, db):
             db.query(models.Content)
             .filter(models.Content.user_id == user_id)
             .filter(models.Content.id_related == None)
+            .filter(models.Content.content_type == table_name)
             .filter(
                 or_(
                     models.Content.status == "completed",
                     models.Content.status == "indexing",
+                    and_(
+                        models.Content.status == "cancelled",
+                        models.Content.created_at >= current_time,
+                    ),
                 )
             )
             .count()
