@@ -1,4 +1,4 @@
-FROM python:3.9.9-slim
+FROM python:3.10-slim
 
 RUN apt update && apt install -y \
     build-essential \
@@ -28,7 +28,7 @@ WORKDIR /app
 
 RUN poetry config virtualenvs.create false
 
-RUN poetry install --no-dev --no-interaction --no-ansi
+RUN poetry install --only main --no-interaction --no-ansi
 
 ENV C_FORCE_ROOT=1
 
