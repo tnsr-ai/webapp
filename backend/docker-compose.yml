@@ -1,0 +1,162 @@
+x-logging: &default-logging
+  driver: loki
+  options:
+    loki-url: 'http://localhost:3100/api/prom/push'
+    loki-pipeline-stages: |
+      - multiline:
+          firstline: '^\d{4}-\d{2}-\d{2} \d{1,2}:\d{2}:\d{2}'
+          max_wait_time: 3s
+      - regex:
+          expression: '^(?P<time>\d{4}-\d{2}-\d{2} \d{1,2}:\d{2}:\d{2},d{3}) (?P<message>(?s:.*))$$'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USERNAME}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DATABASE}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+
+  postgres-backup:
+    image: eeshugerman/postgres-backup-s3:16
+    restart: always
+    environment:
+      SCHEDULE: '@daily'
+      BACKUP_KEEP_DAYS: 3
+      S3_REGION: ${AWS_REGION}
+      S3_ACCESS_KEY_ID: ${AWS_KEY}
+      S3_SECRET_ACCESS_KEY: ${AWS_SECRET}
+      S3_BUCKET: ${S3_BUCKET}
+      S3_PREFIX: backup
+      POSTGRES_HOST: postgres
+      POSTGRES_DATABASE: ${POSTGRES_DATABASE}
+      POSTGRES_USER: ${POSTGRES_USERNAME}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+  redis:
+    image: redis
+    restart: always
+    volumes:
+      - redis_data:/data
+    ports:
+      - 6379:6379
+    command: redis-server --appendonly yes
+
+  fastapi-backend:
+    build:
+      dockerfile: backend.dockerfile
+    restart: always
+    depends_on:
+      - tempo
+      - postgres
+      - redis
+      - loki
+    environment:
+      APP_ENV: "production"
+    env_file:
+      - .env
+    logging: *default-logging
+
+  celeryworker:
+    restart: always
+    depends_on:
+      - fastapi-backend
+      - postgres
+      - redis
+      - loki
+    env_file:
+      - .env
+    build:
+      dockerfile: celery.dockerfile
+
+  caddy-service:
+    image: caddy:2.7.6-alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - fastapi-backend
+      - grafana
+      - redis
+    extra_hosts:
+      - "host.docker.internal:172.17.0.1"
+
+  flower:
+    image: mher/flower:2.0
+    restart: always
+    container_name: flower
+    command: celery flower
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - FLOWER_PORT=5555
+    ports:
+      - 5555:5555
+    depends_on:
+      - redis
+
+  loki:
+    image: grafana/loki:main-10c88aa
+    restart: always
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - "3100:3100"
+
+  prometheus:
+    image: prom/prometheus:v2.49.0-rc.2
+    restart: always
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./etc/prometheus:/workspace
+    command:
+      - --config.file=/workspace/prometheus.yml
+      - --enable-feature=exemplar-storage
+    depends_on:
+      - loki
+    logging: *default-logging
+
+  tempo:
+    image: grafana/tempo:main-19f6a6c
+    restart: always
+    command:
+      [
+        "--target=all",
+        "--storage.trace.backend=local",
+        "--storage.trace.local.path=/var/tempo",
+        "--auth.enabled=false"
+      ]
+    depends_on:
+      - loki
+    logging: *default-logging
+
+  grafana:
+    image: grafana/grafana:9.5.15-ubuntu
+    restart: always
+    ports:
+      - "5000:3000"
+    volumes:
+      - ./etc/grafana/:/etc/grafana/provisioning/datasources
+      - ./etc/dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml
+      - ./etc/dashboards:/etc/grafana/dashboards
+    depends_on:
+      - loki
+      - prometheus
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+    logging: *default-logging
+
+volumes:
+  postgres:
+  caddy_data:
+  caddy_config:
+  ssl_data:
+  redis_data:
