@@ -20,7 +20,7 @@ services:
       - app-network
 
   prometheus:
-    image: prom/prometheus:v2.49.0-rc.2
+    image: prom/prometheus:v3.7.3
     restart: always
     ports:
       - "9090:9090"
