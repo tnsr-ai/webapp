@@ -6,11 +6,17 @@ COMPOSE_FILES="-f dockercompose-db.yml -f dockercompose-app.yml -f dockercompose
 # Stop the running containers
 docker compose $COMPOSE_FILES stop
 
-# Rebuild and start the containers in the background
+# Remove old containers to ensure clean rebuild
+docker compose $COMPOSE_FILES rm -f
+
+# Rebuild and start the containers
 docker compose $COMPOSE_FILES up --build -d
 
-# Remove unused images and build cache
-docker image prune -af
-docker builder prune -af
+# Wait for containers to be fully running before pruning
+sleep 10
 
-# docker compose -f dockercompose-db.yml -f dockercompose-app.yml -f dockercompose-monitoring.yml -f dockercompose-proxy.yml -f dockercompose-celery.yml up -d
+# Remove only dangling images (not unused ones)
+docker image prune -f
+
+# Remove build cache but keep recent builds
+docker builder prune --keep-storage 1GB -f
