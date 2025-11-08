@@ -27,13 +27,13 @@ const AppBar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const pathname = usePathname().split("/")[1];
 
-  const drawerItems = [
+  const [drawerItems, setDrawerItems] = useState([
     {
       id: 1,
       icon: ChartBar,
       title: "Dashboard",
       href: "/dashboard",
-      active: pathname === "dashboard" ? true : false,
+      active: false,
       disabled: false,
     },
     {
@@ -41,7 +41,7 @@ const AppBar = () => {
       icon: VideoCamera,
       title: "Video",
       href: "/video",
-      active: pathname === "video" ? true : false,
+      active: false,
       disabled: false,
     },
     {
@@ -49,7 +49,7 @@ const AppBar = () => {
       icon: SpeakerWave,
       title: "Audio",
       href: "/audio",
-      active: pathname === "audio" ? true : false,
+      active: false,
       disabled: false,
     },
     {
@@ -57,7 +57,7 @@ const AppBar = () => {
       icon: Photo,
       title: "Image",
       href: "/image",
-      active: pathname === "image" ? true : false,
+      active: false,
       disabled: false,
     },
     {
@@ -65,7 +65,7 @@ const AppBar = () => {
       icon: CreditCard,
       title: "Billing",
       href: "/billing",
-      active: pathname === "billing" ? true : false,
+      active: false,
       disabled: false,
     },
     {
@@ -73,7 +73,7 @@ const AppBar = () => {
       icon: Briefcase,
       title: "Jobs",
       href: "/jobs",
-      active: pathname === "jobs" ? true : false,
+      active: false,
       disabled: false,
     },
     {
@@ -81,10 +81,20 @@ const AppBar = () => {
       icon: Cog6Tooth,
       title: "Settings",
       href: "/settings",
-      active: pathname === "settings" ? true : false,
+      active: false,
       disabled: false,
     },
-  ];
+  ]);
+
+  // Update active state based on current pathname
+  useEffect(() => {
+    setDrawerItems(prevItems =>
+      prevItems.map(item => ({
+        ...item,
+        active: pathname === item.href.split("/")[1]
+      }))
+    );
+  }, [pathname]);
 
   useEffect(() => {
     const handleScroll = () => {

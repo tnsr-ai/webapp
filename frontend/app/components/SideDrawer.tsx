@@ -31,7 +31,7 @@ const SideDrawer = () => {
       icon: ChartBar,
       title: "Dashboard",
       href: "/dashboard",
-      active: pathname === "dashboard" ? true : false,
+      active: false,
       disabled: false,
     },
     {
@@ -39,7 +39,7 @@ const SideDrawer = () => {
       icon: VideoCamera,
       title: "Video",
       href: "/video",
-      active: pathname === "video" ? true : false,
+      active: false,
       disabled: false,
     },
     {
@@ -47,7 +47,7 @@ const SideDrawer = () => {
       icon: SpeakerWave,
       title: "Audio",
       href: "/audio",
-      active: pathname === "audio" ? true : false,
+      active: false,
       disabled: false,
     },
     {
@@ -55,7 +55,7 @@ const SideDrawer = () => {
       icon: Photo,
       title: "Image",
       href: "/image",
-      active: pathname === "image" ? true : false,
+      active: false,
       disabled: false,
     },
     {
@@ -63,7 +63,7 @@ const SideDrawer = () => {
       icon: CreditCard,
       title: "Billing",
       href: "/billing",
-      active: pathname === "billing" ? true : false,
+      active: false,
       disabled: false,
     },
     {
@@ -71,7 +71,7 @@ const SideDrawer = () => {
       icon: Briefcase,
       title: "Jobs",
       href: "/jobs",
-      active: pathname === "jobs" ? true : false,
+      active: false,
       disabled: false,
     },
     {
@@ -79,10 +79,20 @@ const SideDrawer = () => {
       icon: Cog6Tooth,
       title: "Settings",
       href: "/settings",
-      active: pathname === "settings" ? true : false,
+      active: false,
       disabled: false,
     },
   ]);
+
+  // Update active state based on current pathname
+  useEffect(() => {
+    setDrawerBtn(prevBtns =>
+      prevBtns.map(item => ({
+        ...item,
+        active: pathname === item.href.split("/")[1]
+      }))
+    );
+  }, [pathname]);
 
   useEffect(() => {
     if (isSuccess === true && run === false && data !== undefined) {
