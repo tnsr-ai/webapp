@@ -87,10 +87,14 @@ const SideDrawer = () => {
   // Update active state based on current pathname
   useEffect(() => {
     setDrawerBtn(prevBtns =>
-      prevBtns.map(item => ({
-        ...item,
-        active: pathname === item.href.split("/")[1]
-      }))
+      prevBtns.map(item => {
+        // Extract the path from href (remove the leading slash)
+        const hrefPath = item.href.substring(1);
+        return {
+          ...item,
+          active: pathname === hrefPath
+        };
+      })
     );
   }, [pathname]);
 
@@ -98,16 +102,16 @@ const SideDrawer = () => {
     if (isSuccess === true && run === false && data !== undefined) {
       const disableBtn = [2, 3, 4, 5, 6];
       if (data?.data?.verified === false) {
-        drawerBtn.map((item: any) => {
-          if (disableBtn.includes(item.id)) {
-            item.disabled = true;
-          }
-        });
+        setDrawerBtn(prevBtns =>
+          prevBtns.map(item => ({
+            ...item,
+            disabled: disableBtn.includes(item.id) ? true : item.disabled
+          }))
+        );
       }
-      setDrawerBtn(drawerBtn);
       setRun(true);
     }
-  }, [drawerBtn, isSuccess, run, data]);
+  }, [isSuccess, run, data]);
 
   const [open, setOpen] = React.useState(false);
   return (

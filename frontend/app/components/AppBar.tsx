@@ -89,10 +89,14 @@ const AppBar = () => {
   // Update active state based on current pathname
   useEffect(() => {
     setDrawerItems(prevItems =>
-      prevItems.map(item => ({
-        ...item,
-        active: pathname === item.href.split("/")[1]
-      }))
+      prevItems.map(item => {
+        // Extract the path from href (remove the leading slash)
+        const hrefPath = item.href.substring(1);
+        return {
+          ...item,
+          active: pathname === hrefPath
+        };
+      })
     );
   }, [pathname]);
 
