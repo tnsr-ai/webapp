@@ -86,6 +86,62 @@ def billing_task(id: int, db: Session):
         return {"detail": "Failed", "data": str(e)}
 
 
+def update_user_tier(user_id: int, db: Session):
+    """
+    Update user tier based on their lifetime spending.
+    
+    Args:
+        user_id: The ID of the user to update
+        db: Database session
+        
+    Returns:
+        dict: Result with status and updated tier or error message
+    """
+    try:
+        # Get user and balance information
+        user = db.query(models.Users).filter(models.Users.id == user_id).first()
+        if not user:
+            return {"detail": "Failed", "data": "User not found"}
+            
+        balance = db.query(models.Balance).filter(models.Balance.user_id == user_id).first()
+        if not balance:
+            return {"detail": "Failed", "data": "Balance not found"}
+        
+        # Calculate total spending from all completed invoices
+        total_spending = (
+            db.query(models.Invoices)
+            .filter(models.Invoices.user_id == user_id)
+            .filter(models.Invoices.status == "completed")
+            .with_entities(models.Invoices.amount)
+            .all()
+        )
+        
+        # Sum up all the amounts
+        total_amount = sum(invoice.amount for invoice in total_spending)
+        
+        # Determine the new tier based on spending
+        new_tier = "free"  # Default tier
+        if total_amount > 100:
+            new_tier = "deluxe"
+        elif total_amount > 30:
+            new_tier = "standard"
+        
+        # Update the user's tier if it has changed
+        if user.user_tier != new_tier:
+            user.user_tier = new_tier
+            db.commit()
+            db.refresh(user)
+            logger.info(f"User {user_id} tier updated to {new_tier} (total spending: ${total_amount})")
+            return {"detail": "Success", "data": {"tier": new_tier, "updated": True}}
+        else:
+            logger.info(f"User {user_id} tier remains {new_tier} (total spending: ${total_amount})")
+            return {"detail": "Success", "data": {"tier": new_tier, "updated": False}}
+            
+    except Exception as e:
+        logger.error(f"Failed to update user tier: {str(e)}")
+        return {"detail": "Failed", "data": str(e)}
+
+
 @router.get(
     "/get_balance",
     status_code=status.HTTP_200_OK,
@@ -378,6 +434,12 @@ def checkout_status_task(session_id: str, status: str, db: Session):
             )
             db.commit()
             db.refresh(user_balance)
+            
+            # Update user tier based on lifetime spending
+            tier_update_result = update_user_tier(invoice.user_id, db)
+            if tier_update_result["detail"] == "Success" and tier_update_result["data"]["updated"]:
+                logger.info(f"User {invoice.user_id} tier updated to {tier_update_result['data']['tier']} after payment")
+            
             send_paymentSuccessfull_email_task.delay(
                 invoice.user_id,
                 invoice_data["credits"],
