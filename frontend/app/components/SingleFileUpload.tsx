@@ -60,6 +60,7 @@ function CircularProgressWithLabel(
 }
 
 export function SingleFileUpload(props: any = null) {
+  const { onRemove } = props;
   let title;
   title = props.file.name;
   let title_len = title.length;
@@ -80,6 +81,8 @@ export function SingleFileUpload(props: any = null) {
   const [isCancelled, setIsCancelled] = useState(false);
   const [displayMsg, setDisplayMsg] = useState("");
   const [indexDone, setIndexDone] = useState(false);
+  const [fadeOut, setFadeOut] = useState(false);
+  const [shouldRemove, setShouldRemove] = useState(false);
 
   const cancePUT = (xhr: XMLHttpRequest) => {
     setIsCancelled(true);
@@ -161,6 +164,18 @@ export function SingleFileUpload(props: any = null) {
           setShowProgress(true);
         } else {
           setDisplayMsg("Upload Complete");
+          // Start fade out after 7 seconds
+          setTimeout(() => {
+            setFadeOut(true);
+            // Remove component after fade animation completes
+            setTimeout(() => {
+              setShouldRemove(true);
+              // Notify parent component to remove from files array
+              if (onRemove) {
+                onRemove();
+              }
+            }, 500); // Duration of fade animation
+          }, 7000);
         }
       } catch (error: any) {
         setDisplayMsg("Network Error");
@@ -207,8 +222,15 @@ export function SingleFileUpload(props: any = null) {
     setDisplayMsg,
   ]);
 
+  // Don't render if component should be removed
+  if (shouldRemove) {
+    return null;
+  }
+
   return (
-    <div className="max-w-[1200px] mt-5 m-auto">
+    <div
+      className={`max-w-[1200px] mt-5 m-auto transition-opacity duration-500 ${fadeOut ? 'opacity-0' : 'opacity-100'}`}
+    >
       <Grid item className="flex items-start w-[100%] px-5">
         <div className="flex flex-row gap-2 md:gap-4">
           {title_len > 20 && (

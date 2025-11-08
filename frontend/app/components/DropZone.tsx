@@ -71,14 +71,17 @@ export default function DropZone(props: DropZoneProps) {
         </label>
       </div>
       {files.map((fileWrapper, index) => (
-        <div key={index}>
-          <SingleFileUpload
-            file={fileWrapper.file}
-            filetype={props.acceptedtype}
-            setVideoUpload={props.setVideoUpload}
-            maxFileSize={props.maxFileSize}
-          />
-        </div>
+        <SingleFileUpload
+          key={index}
+          file={fileWrapper.file}
+          filetype={props.acceptedtype}
+          setVideoUpload={props.setVideoUpload}
+          maxFileSize={props.maxFileSize}
+          onRemove={() => {
+            // Remove the file from the files array when upload is complete
+            setFiles((prevFiles) => prevFiles.filter((_, i) => i !== index));
+          }}
+        />
       ))}
     </div>
   );
