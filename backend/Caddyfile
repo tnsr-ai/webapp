@@ -20,15 +20,3 @@ https://backend.tnsr.ai {
 https://dashboard.tnsr.ai {
     reverse_proxy grafana:3000
 } 
-
-https://minio.amitbera.dev {
-    reverse_proxy lobe-minio:9000
-}
-
-https://chat.amitbera.dev {
-    reverse_proxy lobe-chat:3210
-}
-
-https://auth.amitbera.dev {
-    reverse_proxy lobe-casdoor:8000
-}
