@@ -9,6 +9,7 @@ import { StarIcon } from "@heroicons/react/20/solid";
 import { useState, useEffect } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import { toast } from "sonner";
+import { useGetRates } from "../../api/index";
 
 function increaseAndRound(numberVal: number, credits: number) {
   if (numberVal === 0) {
@@ -49,29 +50,60 @@ function getCurrentDimension() {
 
 export default function BuyPrompt(props: any) {
   const [value, setValue] = useState(5);
-  const [rates, setRates] = useState<any>([]);
+  const [rates, setRates] = useState<any>({});
   const [original, setOriginal] = useState(0);
   const [discounted, setDiscounted] = useState(0);
   const [percentage, setPercentage] = useState(0);
   const [screenSize, setScreenSize] = React.useState(getCurrentDimension());
+  const [ratesLoaded, setRatesLoaded] = useState(false);
+  const country = localStorage.getItem("country") || "US";
+  const { data: ratesData, isSuccess: ratesSuccess, refetch } = useGetRates(country);
 
+  // Initialize rates from sessionStorage on mount
   useEffect(() => {
-    if (Object.keys(rates).length === 0) {
-      try {
-        const ratesFromStorage = sessionStorage.getItem("rates");
-        const parsedRates = ratesFromStorage
-          ? JSON.parse(ratesFromStorage)
-          : {};
+    try {
+      const ratesFromStorage = sessionStorage.getItem("rates");
+      const parsedRates = ratesFromStorage
+        ? JSON.parse(ratesFromStorage)
+        : {};
+      
+      if (parsedRates && parsedRates.rate && parsedRates.symbol) {
         setRates(parsedRates);
-      } catch (error) {
-        console.error("Failed to parse rates from sessionStorage:", error);
-        setRates({});
+        setRatesLoaded(true);
+      } else {
+        setRatesLoaded(false);
       }
-    } else {
+    } catch (error) {
+      console.error("Failed to parse rates from sessionStorage:", error);
+      setRates({});
+      setRatesLoaded(false);
+    }
+  }, []); // Run only once on mount
+
+  // Fetch rates when modal opens if not already loaded
+  useEffect(() => {
+    if (props.renamePrompt && !ratesLoaded) {
+      refetch();
+    }
+  }, [props.renamePrompt, ratesLoaded, refetch]);
+
+  // Update rates when API call succeeds
+  useEffect(() => {
+    if (ratesSuccess && ratesData && ratesData.data) {
+      setRates(ratesData.data);
+      setRatesLoaded(true);
+      sessionStorage.setItem("rates", JSON.stringify(ratesData.data));
+    }
+  }, [ratesSuccess, ratesData]);
+
+  // Calculate price only when rates are loaded and value changes
+  useEffect(() => {
+    if (ratesLoaded && rates.rate && rates.symbol) {
       const country = localStorage.getItem("country");
       if (rates.country !== country) {
         sessionStorage.removeItem("rates");
         setRates({});
+        setRatesLoaded(false);
       } else {
         const roundedVal = increaseAndRound(value * rates.rate, value);
         setOriginal(roundedVal.original);
@@ -79,9 +111,14 @@ export default function BuyPrompt(props: any) {
         setPercentage(roundedVal.percentage);
       }
     }
-  }, [value, rates, setDiscounted, setOriginal, setPercentage]);
+  }, [value, rates, ratesLoaded]);
 
   async function makePayment() {
+    if (!ratesLoaded || !rates.currency) {
+      toast.error("Pricing information is still loading. Please wait a moment and try again.");
+      return;
+    }
+    
     const jwt: string = getCookie("access_token") as string;
     const response = fetch(`${process.env.BASEURL}/billing/checkout`, {
       method: "POST",
@@ -161,14 +198,20 @@ export default function BuyPrompt(props: any) {
                   )}
                 </div>
                 <div className="flex justify-start items-center space-x-2 mb-2">
-                  {value <= 500 && discounted <= 0 && (
-                    <p className="text-base md:text-xl font-medium">{`${rates.symbol} ${original}`}</p>
-                  )}
-                  {value <= 500 && discounted > 0 && (
-                    <p className="text-base md:text-xl font-medium text-red-500 line-through">{`${rates.symbol} ${original}`}</p>
-                  )}
-                  {discounted > 0 && (
-                    <p className="text-base md:text-xl font-medium">{`${rates.symbol} ${discounted}`}</p>
+                  {ratesLoaded && rates.symbol ? (
+                    <>
+                      {value <= 500 && discounted <= 0 && (
+                        <p className="text-base md:text-xl font-medium">{`${rates.symbol} ${original}`}</p>
+                      )}
+                      {value <= 500 && discounted > 0 && (
+                        <p className="text-base md:text-xl font-medium text-red-500 line-through">{`${rates.symbol} ${original}`}</p>
+                      )}
+                      {discounted > 0 && (
+                        <p className="text-base md:text-xl font-medium">{`${rates.symbol} ${discounted}`}</p>
+                      )}
+                    </>
+                  ) : (
+                    <div className="h-7 w-20 bg-gray-200 animate-pulse rounded"></div>
                   )}
                 </div>
               </div>
