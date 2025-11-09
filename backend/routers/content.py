@@ -28,6 +28,7 @@ from utils import (
     CLOUDFLARE_METADATA,
     CLOUDFLARE_CONTENT,
     CONTENT_EXPIRE,
+    CLOUDFLARE_REGION
 )
 from utils import remove_key, logger, presigned_get, delete_r2_file
 from script_utils.util import bytes_to_mb
@@ -99,8 +100,13 @@ def add_presigned(data, key, result_key, bucket, rd):
 
 def add_presigned_single(file_key, bucket, rd):
     try:
+        if not file_key:
+            logger.error("File key is empty or None")
+            return None
+            
         if rd is not None and rd.exists(file_key):
             return rd.get(file_key).decode("utf-8")
+            
         r2_client = boto3.client(
             "s3",
             aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
@@ -126,14 +132,20 @@ def add_presigned_single(file_key, bucket, rd):
             rd.expire(file_key, CONTENT_EXPIRE - 43200)
         return response
     except Exception as e:
+        logger.error(f"Error generating presigned URL for {file_key}: {str(e)}")
         return None
 
 
 def get_object_data(file_key, bucket, rd):
     try:
+        if not file_key:
+            logger.error("File key is empty or None")
+            return None
+            
         redis_key = file_key + "_object"
         if rd.exists(redis_key):
             return json.loads(rd.get(redis_key).decode("utf-8"))
+            
         r2_client = boto3.client(
             "s3",
             aws_access_key_id=CLOUDFLARE_ACCESS_KEY,
@@ -152,6 +164,7 @@ def get_object_data(file_key, bucket, rd):
         rd.expire(redis_key, CONTENT_EXPIRE - 60)
         return response
     except Exception as e:
+        logger.error(f"Error getting object data for {file_key}: {str(e)}")
         return None
 
 
@@ -440,13 +453,22 @@ def download_content_task(
             .first()
         )
         user_data = db.query(models.Users).filter(models.Users.id == user_id).first()
+        if user_data is None:
+            return {"detail": "Failed", "data": "User not found"}
         if user_data.verified == False:
             return {"detail": "Failed", "data": "User not verified"}
         if get_main is None:
-            return {"detail": "Failed", "data": "Unable to fetch content"}
+            return {"detail": "Failed", "data": "Content not found"}
+        if get_main.link is None:
+            return {"detail": "Failed", "data": "Content link is missing"}
+            
         result_presigned = add_presigned_single(get_main.link, CLOUDFLARE_CONTENT, rd)
+        if result_presigned is None:
+            return {"detail": "Failed", "data": "Unable to generate presigned URL"}
+            
         return {"detail": "Success", "data": result_presigned}
     except Exception as e:
+        logger.error(f"Error in download_content_task: {str(e)}")
         return {"detail": "Failed", "data": "Unable to fetch content"}
 
 
@@ -489,15 +511,29 @@ def download_complete_task(
             .first()
         )
         if user_dashboard is None:
-            return {"detail": "Failed", "data": "Unable to fetch content"}
+            return {"detail": "Failed", "data": "User dashboard not found"}
+        if get_main is None:
+            return {"detail": "Failed", "data": "Content not found"}
+        if get_main.link is None:
+            return {"detail": "Failed", "data": "Content link is missing"}
+            
         obj_data = get_object_data(get_main.link, CLOUDFLARE_CONTENT, rd)
         if obj_data is None:
-            return {"detail": "Failed", "data": "Unable to fetch content"}
+            return {"detail": "Failed", "data": "Unable to fetch object metadata"}
+        
+        # Check if HTTPHeaders exists and has content-length
+        if "HTTPHeaders" not in obj_data or "content-length" not in obj_data["HTTPHeaders"]:
+            return {"detail": "Failed", "data": "Invalid object metadata"}
+            
         size = obj_data["HTTPHeaders"]["content-length"]
+        if size is None:
+            return {"detail": "Failed", "data": "Content size is missing"}
+            
         user_dashboard.downloads += int(size)
         db.commit()
         return {"detail": "Success", "data": "Download complete"}
     except Exception as e:
+        logger.error(f"Error in download_complete_task: {str(e)}")
         return {"detail": "Failed", "data": "Unable to fetch content"}
 
 
