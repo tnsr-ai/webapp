@@ -1,22 +1,22 @@
 {
   servers {
     metrics
-    }
-    admin :2019
+  }
+  admin :2019
 }
 
 https://app.tnsr.ai {
   reverse_proxy nextjs-frontend:3000
 }
 
-https://tnsr.ai {
-  reverse_proxy host.docker.internal:3001
-}
-
 https://backend.tnsr.ai {
-  reverse_proxy fastapi-backend:8000
+  reverse_proxy fastapi-backend:8000 {
+    header_up X-Forwarded-Proto {scheme}
+    header_up X-Forwarded-Host {host}
+    header_up X-Real-IP {remote_host}
+  }
 }
 
 https://dashboard.tnsr.ai {
-    reverse_proxy grafana:3000
-} 
+  reverse_proxy grafana:3000
+}

@@ -48,13 +48,14 @@ datasources:
         hide: false
       lokiSearch:
         datasourceUid: loki
-      tracesToLogs:
+      tracesToLogsV2:
         datasourceUid: loki
         filterBySpanID: false
         filterByTraceID: true
-        mapTagNamesEnabled: false
+        customQuery: false
         tags:
-          - compose_service
+          - key: service.name
+            value: compose_service
     readOnly: false
     editable: true
   - uid: loki

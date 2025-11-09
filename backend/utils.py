@@ -16,7 +16,7 @@ import re
 import ssl
 import time
 from typing import Tuple
-import logging as logger
+import logging
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
@@ -42,6 +42,9 @@ import requests
 import models
 import redis
 import json
+
+# Create a proper logger instance for this module
+logger = logging.getLogger(__name__)
 
 
 load_dotenv()
@@ -1217,7 +1220,7 @@ def setting_otlp(
     tracer = TracerProvider(resource=resource)
     trace.set_tracer_provider(tracer)
 
-    tracer.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint)))
+    tracer.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint, insecure=True)))
 
     if log_correlation:
         LoggingInstrumentor().instrument(set_logging_format=True)
@@ -1239,12 +1242,13 @@ def hide_email(email):
     return masked_email
 
 
-class EndpointFilter(logger.Filter):
-    def filter(self, record: logger.LogRecord) -> bool:
+class EndpointFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
         return record.getMessage().find("GET /metrics") == -1
 
 
-logger.getLogger("uvicorn.access").addFilter(EndpointFilter())
+# Add filter to uvicorn access logger to exclude /metrics endpoint
+logging.getLogger("uvicorn.access").addFilter(EndpointFilter())
 
 
 @celeryapp.task(name="utils.delete_r2_object", acks_late=True)

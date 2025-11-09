@@ -17,6 +17,7 @@ import os
 import redis.asyncio as redis
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from utils import (
     GOOGLE_SECRET,
     HOST,
@@ -36,10 +37,13 @@ from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.logging import LoggingInstrumentor
+from opentelemetry.instrumentation.redis import RedisInstrumentor
+from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+from opentelemetry.instrumentation.celery import CeleryInstrumentor
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from prometheus_client import multiprocess
 from prometheus_client import (
     generate_latest,
     CollectorRegistry,
@@ -57,7 +61,7 @@ load_dotenv()
 APP_ENV = os.getenv("APP_ENV")
 APP_NAME = os.environ.get("APP_NAME", "fastapi-backend")
 EXPOSE_PORT = os.environ.get("EXPOSE_PORT", 8000)
-OTLP_GRPC_ENDPOINT = os.environ.get("OTLP_GRPC_ENDPOINT", "http://tempo:4317")
+OTLP_GRPC_ENDPOINT = os.environ.get("OTLP_GRPC_ENDPOINT", "tempo:4317")
 
 
 def get_db():
@@ -67,22 +71,34 @@ def get_db():
     finally:
         db.close()
 
-
 if APP_ENV == "production":
     app = FastAPI(docs_url=None, redoc_url=None)
+else:
+    app = FastAPI()
+
+# Setting metrics middleware
+if APP_ENV == "production":
+    app.add_middleware(PrometheusMiddleware, app_name=APP_NAME)
+
+# Setting OpenTelemetry exporter
+if APP_ENV == "production":
+    # Initialize OpenTelemetry
     resource = Resource.create(
         attributes={"service.name": APP_NAME, "compose_service": APP_NAME}
     )
     tracer = TracerProvider(resource=resource)
     trace.set_tracer_provider(tracer)
     tracer.add_span_processor(
-        BatchSpanProcessor(OTLPSpanExporter(endpoint=OTLP_GRPC_ENDPOINT))
+        BatchSpanProcessor(OTLPSpanExporter(endpoint=OTLP_GRPC_ENDPOINT, insecure=True))
     )
+    
+    # Instrument various libraries for automatic tracing
     LoggingInstrumentor().instrument(set_logging_format=True)
+    SQLAlchemyInstrumentor().instrument(engine=engine, tracer_provider=tracer)
+    RedisInstrumentor().instrument(tracer_provider=tracer)
+    HTTPXClientInstrumentor().instrument(tracer_provider=tracer)
+    CeleryInstrumentor().instrument(tracer_provider=tracer)
     FastAPIInstrumentor.instrument_app(app, tracer_provider=tracer)
-    app.add_middleware(PrometheusMiddleware, app_name=APP_NAME)
-else:
-    app = FastAPI()
 
 
 origins = [
@@ -103,6 +119,12 @@ app.add_middleware(
 )
 
 app.add_middleware(SessionMiddleware, secret_key=GOOGLE_SECRET)
+
+# Trust proxy headers from Caddy for proper HTTPS detection
+app.add_middleware(
+    TrustedHostMiddleware, 
+    allowed_hosts=["*"]
+)
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -186,23 +208,26 @@ async def root(req: Request):
 
 
 if APP_ENV == "production":
-
-    def make_metrics_app():
-        registry = CollectorRegistry()
-        multiprocess.MultiProcessCollector(registry)
-        return make_asgi_app(registry=registry)
-
-    metrics_app = make_metrics_app()
-    app.mount("/metrics", metrics_app)
+    # Add /metrics endpoint using the metrics function from utils
+    from utils import metrics
+    app.add_route("/metrics", metrics)
 
 if __name__ == "__main__":
-    if APP_ENV == "development":
-        import uvicorn
+    import uvicorn
 
-        log_config = uvicorn.config.LOGGING_CONFIG
-        log_config["formatters"]["access"][
-            "fmt"
-        ] = "%(asctime)s %(levelname)s [%(name)s] [%(filename)s:%(lineno)d] [trace_id=%(otelTraceID)s span_id=%(otelSpanID)s resource.service.name=%(otelServiceName)s] - %(message)s"
-        uvicorn.run("main:app", host=HOST, port=int(PORT), log_config=log_config)
-    else:
-        pass
+    # Update uvicorn access logger format to include OpenTelemetry trace info
+    log_config = uvicorn.config.LOGGING_CONFIG
+    log_config["formatters"]["access"][
+        "fmt"
+    ] = "%(asctime)s %(levelname)s [%(name)s] [%(filename)s:%(lineno)d] [trace_id=%(otelTraceID)s span_id=%(otelSpanID)s resource.service.name=%(otelServiceName)s] - %(message)s"
+    log_config["formatters"]["default"][
+        "fmt"
+    ] = "%(asctime)s %(levelname)s [%(name)s] [%(filename)s:%(lineno)d] [trace_id=%(otelTraceID)s span_id=%(otelSpanID)s resource.service.name=%(otelServiceName)s] - %(message)s"
+    
+    uvicorn.run(
+        app, 
+        host=HOST, 
+        port=int(PORT), 
+        log_config=log_config,
+        forwarded_allow_ips="*"
+    )

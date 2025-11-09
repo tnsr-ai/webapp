@@ -23,7 +23,6 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from starlette import status
 from starlette.requests import Request
-from opentelemetry import trace
 
 import models
 from celeryworker import celeryapp
@@ -156,22 +155,16 @@ def get_current_user(db: db_dependency, token: str = Depends(oauth2_bearer)):
                 headers={"WWW-Authenticate": "Bearer"},
             )
         if len(token.split(".")) != 3:
-            tracer = trace.get_tracer(__name__)
-            with tracer.start_as_current_span("get_current_user_jwt_auth"):
-                logger.info(f"Invalid Token")
+            logger.info(f"Invalid Token")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 headers={"WWW-Authenticate": "Bearer"},
             )
     except HTTPException as he:
-        tracer = trace.get_tracer(__name__)
-        with tracer.start_as_current_span("get_current_user_jwt_auth"):
-            logger.info(f"Invalid Token")
+        logger.info(f"Invalid Token")
         raise he
     except Exception as e:
-        tracer = trace.get_tracer(__name__)
-        with tracer.start_as_current_span("get_current_user_jwt_auth"):
-            logger.info(f"Invalid Token")
+        logger.info(f"Invalid Token")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
