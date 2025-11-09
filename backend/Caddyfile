@@ -6,7 +6,7 @@
 }
 
 https://app.tnsr.ai {
-  reverse_proxy host.docker.internal:3000
+  reverse_proxy nextjs-frontend:3000
 }
 
 https://tnsr.ai {
